@@ -285,44 +285,45 @@ class Inventory {
   }
 
   // ---------- 消耗武器/盾/弓耐久 ----------
+  _handleBrokenEquipment(type, stack, immortalId = null) {
+    if (!stack) return;
+    if (immortalId && stack.itemId === immortalId) {
+      stack.durability = Math.max(1, stack.durability);
+      return;
+    }
+    const label = { weapon: '武器', shield: '盾牌', bow: '弓' }[type] || '装备';
+    const brokenName = stack.name;
+    Dialogue.show(`【${brokenName}】损坏了！`);
+    this.equipped[type] = null;
+    this._emit();
+    if (window.game && window.game.player) window.game.player.refreshEquipment();
+    const ui = (typeof window !== 'undefined' && window.QuickEquipUI)
+      ? window.QuickEquipUI
+      : (typeof QuickEquipUI !== 'undefined' ? QuickEquipUI : null);
+    if (ui && ui.prompt) {
+      setTimeout(() => ui.prompt(type, brokenName), 0);
+    } else if (typeof Dialogue !== 'undefined') {
+      Dialogue.show(`备用${label}可在背包中装备`);
+    }
+  }
+
   damageWeapon(amount = 1) {
     const w = this.equipped.weapon;
     if (!w) return;
     w.durability -= amount;
-    if (w.durability <= 0 && w.itemId !== 'masterSword') {
-      Dialogue.show(`【${w.name}】损坏了！`);
-      const brokenName = w.name;
-      this.equipped.weapon = null;
-      this._emit();
-      if (window.game && window.game.player) window.game.player.refreshEquipment();
-      if (typeof QuickEquipUI !== 'undefined') QuickEquipUI.prompt('weapon', brokenName);
-    }
+    if (w.durability <= 0) this._handleBrokenEquipment('weapon', w, 'masterSword');
   }
   damageShield(amount = 1) {
     const s = this.equipped.shield;
     if (!s) return;
     s.durability -= amount;
-    if (s.durability <= 0 && s.itemId !== 'hylianShield') {
-      Dialogue.show(`【${s.name}】损坏了！`);
-      const brokenName = s.name;
-      this.equipped.shield = null;
-      this._emit();
-      if (window.game && window.game.player) window.game.player.refreshEquipment();
-      if (typeof QuickEquipUI !== 'undefined') QuickEquipUI.prompt('shield', brokenName);
-    }
+    if (s.durability <= 0) this._handleBrokenEquipment('shield', s, 'hylianShield');
   }
   damageBow(amount = 1) {
     const b = this.equipped.bow;
     if (!b) return;
     b.durability -= amount;
-    if (b.durability <= 0) {
-      Dialogue.show(`【${b.name}】损坏了！`);
-      const brokenName = b.name;
-      this.equipped.bow = null;
-      this._emit();
-      if (window.game && window.game.player) window.game.player.refreshEquipment();
-      if (typeof QuickEquipUI !== 'undefined') QuickEquipUI.prompt('bow', brokenName);
-    }
+    if (b.durability <= 0) this._handleBrokenEquipment('bow', b);
   }
 
   // ---------- 序列化（存档用） ----------

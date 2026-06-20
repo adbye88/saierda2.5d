@@ -552,15 +552,16 @@ html, body {
   50% { box-shadow: 0 4px 12px rgba(0,0,0,.4), 0 0 0 12px rgba(90,200,220,0); }
 }
 
-/* ====== 快速换装：武器/弓损坏后弹出，不打开完整背包 ====== */
+/* ====== 快速换装：武器/弓/盾损坏后弹出，不打开完整背包 ====== */
 #quick-equip {
-  position: absolute;
+  position: fixed;
   inset: 0;
-  z-index: 35;
+  z-index: 120;
   display: flex;
   align-items: center;
   justify-content: center;
-  pointer-events: none;
+  pointer-events: auto;
+  background: radial-gradient(circle at 50% 50%, rgba(255,216,106,.10), rgba(0,0,0,.34) 62%, rgba(0,0,0,.48));
 }
 .quick-equip-panel {
   position: relative;
@@ -573,6 +574,7 @@ html, body {
   box-shadow: 0 18px 48px rgba(0,0,0,.55), 0 0 28px rgba(255,216,106,.16);
   backdrop-filter: blur(12px);
   pointer-events: auto;
+  transform: translateZ(0);
 }
 #quick-equip-title {
   padding-right: 34px;
@@ -612,6 +614,9 @@ html, body {
   justify-content: center;
   gap: 4px;
   box-shadow: inset 0 -4px 12px rgba(0,0,0,.22), 0 4px 12px rgba(0,0,0,.25);
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
 }
 .quick-equip-item:active {
   transform: scale(.96);
