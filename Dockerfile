@@ -1,18 +1,16 @@
-FROM nginx:alpine
+FROM node:22-alpine
 
 LABEL maintainer="wild-breath-mini"
-LABEL description="塞尔达旷野之息·迷你版 - 手机横屏3D网页游戏"
+LABEL description="塞尔达旷野之息·迷你版 - 手机横屏3D网页游戏 + JSON 云存档"
 
-# 清空默认页面，拷贝整个游戏目录
-COPY . /usr/share/nginx/html
+WORKDIR /app
 
-# 用自定义 nginx 配置（gzip + 缓存 + 移动端优化）
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+# 拷贝游戏和轻量 Node 云存档服务器
+COPY . .
 
-EXPOSE 80
+EXPOSE 8080
 
-# 健康检查（可选）
 HEALTHCHECK --interval=30s --timeout=3s \
-  CMD wget -q --spider http://localhost/ || exit 1
+  CMD wget -q --spider http://localhost:8080/api/cloud/status || exit 1
 
-CMD ["nginx", "-g", "daemon off;"]
+CMD ["node", "cloud-server.mjs"]

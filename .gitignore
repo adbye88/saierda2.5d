@@ -15,3 +15,6 @@ __pycache__/
 Library/
 Temp/
 tmp/
+
+# Runtime cloud-save JSON database. Keep user accounts/saves out of git.
+data/cloud-db.json

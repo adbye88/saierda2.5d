@@ -1,6 +1,7 @@
 /* ========================================================
    SaveSystem.js — 存档/读档系统
-   - localStorage 持久化，最多 3 个存档槽位
+   - 云端 JSON 持久化：账号/存档由 cloud-server.mjs 写入 data/cloud-db.json
+   - 浏览器侧只保留本次运行的内存缓存；旧 localStorage 槽位仅作为兼容读取
    - 存档内容：玩家位置/血量/体力/背包/已解锁塔/世界状态/游戏进度
    - 自动存档：切换地图/击败Boss 时
    ======================================================== */
@@ -10,15 +11,23 @@ const SaveSystem = {
   SLOT_COUNT: 3,
   KEY_PROGRESS: 'wildbreath_progress',  // 跨槽位共享的全局进度
   _pendingCloudCurrent: null,
+  _runtimeProgress: null,
+  _runtimeSlots: [null, null, null],
+  _runtimePlayTime: 0,
 
   // ---------- 全局进度（已解锁塔、已击败Boss） ----------
   getProgress() {
+    if (this._runtimeProgress) return this._runtimeProgress;
+    this._runtimeProgress = {};
+    // 兼容旧版本：如果玩家曾经用 localStorage 存过进度，只读取一次用于迁移到云端，不再写回本地。
     try {
-      return JSON.parse(localStorage.getItem(this.KEY_PROGRESS) || '{}');
-    } catch (e) { return {}; }
+      const legacy = JSON.parse(localStorage.getItem(this.KEY_PROGRESS) || 'null');
+      if (legacy && typeof legacy === 'object') this._runtimeProgress = legacy;
+    } catch (e) {}
+    return this._runtimeProgress;
   },
   setProgress(data) {
-    localStorage.setItem(this.KEY_PROGRESS, JSON.stringify(data));
+    this._runtimeProgress = data && typeof data === 'object' ? data : {};
     if (typeof CloudAccountSystem !== 'undefined') CloudAccountSystem.scheduleAutoSync('progress');
   },
   unlockTower(worldName) {
@@ -72,18 +81,22 @@ const SaveSystem = {
 
   // ---------- 槽位操作 ----------
   getSlotInfo(slot) {
+    const data = this._runtimeSlots[slot] || this._readLegacySlot(slot);
+    if (!data) return null;
+    return {
+      slot,
+      timestamp: data.timestamp,
+      worldName: data.worldName,
+      level: data.player ? data.player.hp / 4 : 0,
+      rupees: data.inventory ? data.inventory.rupees : 0,
+      playTime: data.playTime || 0
+    };
+  },
+  _readLegacySlot(slot) {
     try {
       const raw = localStorage.getItem(this.KEY_PREFIX + slot);
       if (!raw) return null;
-      const data = JSON.parse(raw);
-      return {
-        slot,
-        timestamp: data.timestamp,
-        worldName: data.worldName,
-        level: data.player ? data.player.hp / 4 : 0,
-        rupees: data.inventory ? data.inventory.rupees : 0,
-        playTime: data.playTime || 0
-      };
+      return JSON.parse(raw);
     } catch (e) { return null; }
   },
   getAllSlots() {
@@ -97,7 +110,7 @@ const SaveSystem = {
     if (!game || !game.player) return false;
     const data = this.createSnapshot();
     try {
-      localStorage.setItem(this.KEY_PREFIX + slot, JSON.stringify(data));
+      this._runtimeSlots[slot] = data;
       if (typeof CloudAccountSystem !== 'undefined') CloudAccountSystem.scheduleAutoSync('slot-save');
       return true;
     } catch (e) {
@@ -130,9 +143,7 @@ const SaveSystem = {
 
   load(slot) {
     try {
-      const raw = localStorage.getItem(this.KEY_PREFIX + slot);
-      if (!raw) return null;
-      return JSON.parse(raw);
+      return this._runtimeSlots[slot] || this._readLegacySlot(slot);
     } catch (e) { return null; }
   },
 
@@ -165,19 +176,16 @@ const SaveSystem = {
   },
 
   deleteSlot(slot) {
-    localStorage.removeItem(this.KEY_PREFIX + slot);
+    this._runtimeSlots[slot] = null;
+    // 删除旧版本遗留的本地槽位，避免误以为仍在使用本地存档。
+    try { localStorage.removeItem(this.KEY_PREFIX + slot); } catch (e) {}
     if (typeof CloudAccountSystem !== 'undefined') CloudAccountSystem.scheduleAutoSync('slot-delete');
   },
 
   exportCloudState(label = '云存档') {
     const slots = [];
     for (let i = 0; i < this.SLOT_COUNT; i++) {
-      try {
-        const raw = localStorage.getItem(this.KEY_PREFIX + i);
-        slots.push(raw ? JSON.parse(raw) : null);
-      } catch (e) {
-        slots.push(null);
-      }
+      slots.push(this._runtimeSlots[i] || null);
     }
     return {
       version: 1,
@@ -198,8 +206,7 @@ const SaveSystem = {
       if (Array.isArray(archive.slots)) {
         for (let i = 0; i < this.SLOT_COUNT; i++) {
           const data = archive.slots[i];
-          if (data) localStorage.setItem(this.KEY_PREFIX + i, JSON.stringify(data));
-          else localStorage.removeItem(this.KEY_PREFIX + i);
+          this._runtimeSlots[i] = data || null;
         }
       }
       if (typeof archive.playTime === 'number') this._savePlayTime(archive.playTime);
@@ -235,9 +242,9 @@ const SaveSystem = {
   },
 
   _loadPlayTime() {
-    return (parseFloat(localStorage.getItem('wildbreath_playtime') || '0'));
+    return this._runtimePlayTime || 0;
   },
   _savePlayTime(sec) {
-    localStorage.setItem('wildbreath_playtime', String(sec));
+    this._runtimePlayTime = Number(sec) || 0;
   }
 };

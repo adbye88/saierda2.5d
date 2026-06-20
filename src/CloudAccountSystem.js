@@ -1,62 +1,71 @@
 /* ========================================================
-   CloudAccountSystem.js — 轻量账号与 JSON 云存档
-   - 不连接数据库，全部保存在 localStorage 的 JSON 文档里
-   - 设计成“云端 API 外形”：以后可把 _loadDb/_saveDb 换成网络请求
-   - 登录后自动把最新云档同步到本机，手动可创建/加载云存档
+   CloudAccountSystem.js — JSON 文件云账号与云存档客户端
+   - 账号/云档不再写浏览器 localStorage 数据库
+   - 通过 cloud-server.mjs 的 /api/cloud/* 写入 data/cloud-db.json
+   - 浏览器只保留当前登录会话 token，用于下次自动同步
    ======================================================== */
 
 const CloudAccountSystem = {
-  DB_KEY: 'wildbreath_cloud_accounts_v1',
-  SESSION_KEY: 'wildbreath_cloud_session_v1',
+  SESSION_KEY: 'wildbreath_cloud_session_v2',
   MAX_ARCHIVES: 8,
   currentUser: null,
+  token: null,
+  archives: [],
   lastMessage: '',
+  apiAvailable: false,
   _syncTimer: null,
   _suspendAutoSync: false,
 
   init() {
-    this.currentUser = localStorage.getItem(this.SESSION_KEY) || null;
-    if (this.currentUser && !this._account(this.currentUser)) {
-      this.logout(false);
-      return;
+    const session = this._loadSession();
+    if (session && session.username && session.token) {
+      this.currentUser = session.username;
+      this.token = session.token;
     }
-    if (this.currentUser) {
-      setTimeout(() => this.syncLatestToLocal(true), 120);
-    }
+    this.checkApi().then(() => {
+      if (this.isLoggedIn()) {
+        this.refreshArchives()
+          .then(() => this.syncLatestToLocal(true))
+          .then(() => { if (typeof MapMenu !== 'undefined' && MapMenu.isOpen && MapMenu.mode === 'cloud') MapMenu.render(); })
+          .catch(() => this.logout(false));
+      }
+    });
   },
 
   isLoggedIn() {
-    return !!this.currentUser && !!this._account(this.currentUser);
+    return !!this.currentUser && !!this.token;
   },
 
-  register(username, password) {
+  async checkApi() {
+    try {
+      const res = await fetch('/api/cloud/status', { cache: 'no-store' });
+      this.apiAvailable = !!res.ok;
+      return this.apiAvailable;
+    } catch (e) {
+      this.apiAvailable = false;
+      return false;
+    }
+  },
+
+  async register(username, password) {
     username = this._cleanName(username);
     if (!username || username.length < 2) return this._fail('账号至少 2 个字符');
     if (!password || password.length < 4) return this._fail('密码至少 4 个字符');
-    const db = this._loadDb();
-    if (db.accounts[username]) return this._fail('这个账号已经存在');
-    db.accounts[username] = {
-      username,
-      pass: this._hash(password),
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
-      autoArchive: null,
-      archives: []
-    };
-    this._saveDb(db);
-    this.currentUser = username;
-    localStorage.setItem(this.SESSION_KEY, username);
-    this.createArchive('注册后的初始云存档', true);
-    return this._ok('注册成功，已创建初始云存档');
+    const result = await this._request('/api/cloud/register', { username, password });
+    if (!result.ok) return this._fail(result.message || '注册失败');
+    this._setSession(result.username, result.token);
+    await this.createArchive('注册后的初始云存档', true);
+    await this.refreshArchives();
+    return this._ok('注册成功，已写入云端 JSON 并创建初始云存档');
   },
 
-  login(username, password) {
+  async login(username, password) {
     username = this._cleanName(username);
-    const acc = this._account(username);
-    if (!acc || acc.pass !== this._hash(password || '')) return this._fail('账号或密码不正确');
-    this.currentUser = username;
-    localStorage.setItem(this.SESSION_KEY, username);
-    const synced = this.syncLatestToLocal(true);
+    const result = await this._request('/api/cloud/login', { username, password });
+    if (!result.ok) return this._fail(result.message || '账号或密码不正确');
+    this._setSession(result.username, result.token);
+    await this.refreshArchives();
+    const synced = await this.syncLatestToLocal(true);
     const pending = typeof SaveSystem !== 'undefined' && SaveSystem.hasPendingCloudCurrent && SaveSystem.hasPendingCloudCurrent();
     return this._ok(synced
       ? (pending ? '登录成功，云进度已同步，开始游戏时自动加载' : '登录成功，已自动同步最新云进度')
@@ -65,6 +74,8 @@ const CloudAccountSystem = {
 
   logout(showMsg = true) {
     this.currentUser = null;
+    this.token = null;
+    this.archives = [];
     localStorage.removeItem(this.SESSION_KEY);
     if (showMsg) this._ok('已退出账号');
   },
@@ -73,33 +84,42 @@ const CloudAccountSystem = {
     if (this._suspendAutoSync || !this.isLoggedIn()) return;
     clearTimeout(this._syncTimer);
     this._syncTimer = setTimeout(() => {
-      this.createArchive('自动同步：' + reason, true);
-      if (typeof MapMenu !== 'undefined' && MapMenu.isOpen && MapMenu.mode === 'cloud') MapMenu.render();
+      this.createArchive('自动同步：' + reason, true)
+        .then(() => {
+          if (typeof MapMenu !== 'undefined' && MapMenu.isOpen && MapMenu.mode === 'cloud') MapMenu.render();
+        })
+        .catch(e => { this.lastMessage = '自动云同步失败：' + (e.message || e); });
     }, 900);
   },
 
-  createArchive(label = '手动云存档', isAuto = false) {
+  async createArchive(label = '手动云存档', isAuto = false) {
     if (!this.isLoggedIn()) return false;
     const archive = SaveSystem.exportCloudState(label);
     archive.id = (isAuto ? 'auto-' : 'manual-') + Date.now();
     archive.kind = isAuto ? 'auto' : 'manual';
     archive.user = this.currentUser;
-
-    const db = this._loadDb();
-    const acc = db.accounts[this.currentUser];
-    if (!acc) return false;
-    if (isAuto) {
-      acc.autoArchive = archive;
-    } else {
-      acc.archives = [archive].concat(acc.archives || []).slice(0, this.MAX_ARCHIVES);
+    const result = await this._request('/api/cloud/archive', { archive, isAuto });
+    if (!result.ok) {
+      this.lastMessage = result.message || '云存档上传失败';
+      return false;
     }
-    acc.updatedAt = Date.now();
-    this._saveDb(db);
+    this.archives = result.archives || [];
     this.lastMessage = isAuto ? '已自动同步到云端 JSON' : '已创建手动云存档';
     return archive;
   },
 
-  syncLatestToLocal(silent = false) {
+  async refreshArchives() {
+    if (!this.isLoggedIn()) return [];
+    const result = await this._request('/api/cloud/archives', {});
+    if (!result.ok) throw new Error(result.message || '读取云存档失败');
+    this.archives = result.archives || [];
+    return this.archives;
+  },
+
+  async syncLatestToLocal(silent = false) {
+    if (this.isLoggedIn() && this.archives.length === 0) {
+      await this.refreshArchives().catch(() => []);
+    }
     const latest = this.getLatestArchive();
     if (!latest) return false;
     this._suspendAutoSync = true;
@@ -112,7 +132,8 @@ const CloudAccountSystem = {
     return ok;
   },
 
-  loadArchive(id) {
+  async loadArchive(id) {
+    await this.refreshArchives().catch(() => []);
     const archive = this.getArchive(id);
     if (!archive) return this._fail('找不到这个云存档');
     this._suspendAutoSync = true;
@@ -123,13 +144,11 @@ const CloudAccountSystem = {
     return this._ok((pending ? '已同步云存档，开始游戏时自动加载：' : '已加载云存档：') + (archive.label || '未命名'));
   },
 
-  deleteArchive(id) {
+  async deleteArchive(id) {
     if (!this.isLoggedIn()) return false;
-    const db = this._loadDb();
-    const acc = db.accounts[this.currentUser];
-    acc.archives = (acc.archives || []).filter(a => a.id !== id);
-    acc.updatedAt = Date.now();
-    this._saveDb(db);
+    const result = await this._request('/api/cloud/archive/delete', { id });
+    if (!result.ok) return this._fail(result.message || '删除云存档失败');
+    this.archives = result.archives || [];
     return this._ok('已删除手动云存档');
   },
 
@@ -147,68 +166,64 @@ const CloudAccountSystem = {
   },
 
   getLatestArchive() {
-    const acc = this._account(this.currentUser);
-    if (!acc) return null;
-    const all = [];
-    if (acc.autoArchive) all.push(acc.autoArchive);
-    for (const a of (acc.archives || [])) all.push(a);
-    return all.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))[0] || null;
+    return (this.archives || []).slice().sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))[0] || null;
   },
 
   getArchive(id) {
-    const acc = this._account(this.currentUser);
-    if (!acc) return null;
-    if (acc.autoArchive && acc.autoArchive.id === id) return acc.autoArchive;
-    return (acc.archives || []).find(a => a.id === id) || null;
+    return (this.archives || []).find(a => a.id === id) || null;
   },
 
   getArchiveRows() {
-    const acc = this._account(this.currentUser);
-    if (!acc) return [];
-    const rows = [];
-    if (acc.autoArchive) rows.push(acc.autoArchive);
-    for (const a of (acc.archives || [])) rows.push(a);
-    return rows.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+    return (this.archives || []).slice().sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
   },
 
   getStatusText() {
-    if (!this.isLoggedIn()) return '未登录：本功能使用本机 JSON 模拟云端账号，不需要数据库。';
+    if (!this.apiAvailable) return '云存档 API 未连接：请用 node cloud-server.mjs 启动游戏，不要用 python 静态服务器。';
+    if (!this.isLoggedIn()) return '未登录：账号和云存档将保存到服务器 JSON 文件 data/cloud-db.json。';
     const latest = this.getLatestArchive();
     if (!latest) return `已登录 ${this.currentUser}，暂无云存档`;
     return `已登录 ${this.currentUser}，最新云档：${this._time(latest.timestamp)}`;
   },
 
-  _loadDb() {
+  async _request(path, body) {
+    if (!this.apiAvailable && path !== '/api/cloud/status') {
+      await this.checkApi();
+    }
+    if (!this.apiAvailable) {
+      return { ok: false, message: '云存档 API 未启动。请运行：node cloud-server.mjs' };
+    }
     try {
-      const db = JSON.parse(localStorage.getItem(this.DB_KEY) || '{}');
-      if (!db.accounts) db.accounts = {};
-      return db;
+      const res = await fetch(path, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-WildBreath-User': this.currentUser || '',
+          'X-WildBreath-Token': this.token || ''
+        },
+        body: JSON.stringify(body || {})
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) return { ok: false, message: json.message || ('请求失败：' + res.status) };
+      return json;
     } catch (e) {
-      return { accounts: {} };
+      this.apiAvailable = false;
+      return { ok: false, message: '云存档 API 连接失败：' + (e.message || e) };
     }
   },
 
-  _saveDb(db) {
-    localStorage.setItem(this.DB_KEY, JSON.stringify(db));
+  _setSession(username, token) {
+    this.currentUser = username;
+    this.token = token;
+    localStorage.setItem(this.SESSION_KEY, JSON.stringify({ username, token }));
   },
 
-  _account(username) {
-    if (!username) return null;
-    return this._loadDb().accounts[username] || null;
+  _loadSession() {
+    try { return JSON.parse(localStorage.getItem(this.SESSION_KEY) || 'null'); }
+    catch (e) { return null; }
   },
 
   _cleanName(name) {
     return String(name || '').trim().replace(/\s+/g, '_').slice(0, 24);
-  },
-
-  _hash(text) {
-    let h = 2166136261;
-    const s = String(text);
-    for (let i = 0; i < s.length; i++) {
-      h ^= s.charCodeAt(i);
-      h = Math.imul(h, 16777619);
-    }
-    return (h >>> 0).toString(16);
   },
 
   _time(ts) {
