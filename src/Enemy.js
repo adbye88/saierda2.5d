@@ -438,6 +438,12 @@ class Enemy {
 
     this.velocity = new THREE.Vector3();
     this._walkPhase = Math.random() * 6;
+    this._hitReactDir = new THREE.Vector3();
+    this._hitReactSide = 0;
+    this._hitReactBack = 0;
+    this._hitReactMax = 0.25;
+    this._deathShatterDone = false;
+    this._deathFx = null;
     // ★ 攻击前摇系统：windup(蓄力) → strike(出招) → recover(收招)
     this.attackPhase = null;   // 'windup' | 'strike' | 'recover' | null
     this.windup = 0;           // 蓄力计时
@@ -449,10 +455,21 @@ class Enemy {
   update(dt, game) {
     if (this.dead) {
       this.deathTimer += dt;
-      this.mesh.position.y -= dt * 1.5;
-      this.mesh.rotation.y += dt * 3;
-      this.mesh.scale.multiplyScalar(1 - dt * 0.8);
-      if (this.deathTimer > 1.2) {
+      const fall = Math.min(1, this.deathTimer / 0.32);
+      const sink = Math.max(0, this.deathTimer - 0.24);
+      this.mesh.rotation.x = -0.65 * fall;
+      this.mesh.rotation.z += (this._hitReactSide || 0.35) * dt * 2.8;
+      this.mesh.position.y -= sink > 0 ? dt * 1.2 : 0;
+      if (!this._deathShatterDone && this.deathTimer > 0.18) {
+        this._deathShatterDone = true;
+        const fx = this._deathFx || {};
+        if (typeof Effects !== 'undefined') {
+          if (Effects.lowPolyShatter) Effects.lowPolyShatter(this.mesh.position.clone().setY(fx.y || (this.boss ? 2.2 : 1.0)), fx.color || 0xb8aa92, fx.count || 16, fx.scale || 0.95);
+          if ((this.miniBoss || this.boss) && Effects.shockwave) Effects.shockwave(this.mesh.position.clone(), fx.color || 0xffdd88, this.boss ? 2.5 : 1.55);
+        }
+      }
+      this.mesh.scale.multiplyScalar(1 - dt * 0.65);
+      if (this.deathTimer > 1.25) {
         if (this.mesh.parent) this.mesh.parent.remove(this.mesh);
       }
       return;
@@ -1108,7 +1125,36 @@ class Enemy {
     // 受击闪白 + 暖色边光：让命中反馈更明确
     if (this.hurtTimer > 0) {
       const flash = 0.45 + Math.sin(this.hurtTimer * 55) * 0.18;
-      this.mesh.rotation.z = Math.sin(this.hurtTimer * 48) * (this.boss ? 0.025 : 0.08);
+      const react = Math.min(1, this.hurtTimer / Math.max(0.001, this._hitReactMax || 0.25));
+      const shake = Math.sin(this.hurtTimer * 52);
+      const side = this._hitReactSide || 0;
+      const back = this._hitReactBack || 0.45;
+      this.mesh.rotation.z = side * react * (this.boss ? 0.04 : 0.14) + shake * (this.boss ? 0.018 : 0.05);
+      if (p.body) {
+        p.body.rotation.x = -0.42 * react * Math.max(0.45, back);
+        p.body.rotation.z = -side * 0.18 * react;
+        p.body.position.z = (p.body.userData.baseZ || 0) - 0.08 * react;
+        if (p.body.userData.baseZ === undefined) p.body.userData.baseZ = p.body.position.z + 0.08 * react;
+      }
+      if (visualRole === 'shield') {
+        if (p.armL) {
+          p.armL.rotation.x = -1.25 + shake * 0.18;
+          p.armL.rotation.z = -0.42 + shake * 0.12;
+        }
+        if (p.armR) p.armR.rotation.x = 0.15 * react;
+      } else if (visualRole === 'archer') {
+        if (p.armL) p.armL.rotation.x = -0.18 + shake * 0.08;
+        if (p.armR) {
+          p.armR.rotation.x = 0.72 * react;
+          p.armR.rotation.z = 0.42 * react;
+        }
+      } else if (visualRole === 'elite') {
+        if (p.armR) p.armR.rotation.x = -0.45 * react + shake * 0.08;
+        if (p.head) p.head.rotation.x = 0.22 * react;
+      } else {
+        if (p.armL) p.armL.rotation.x = 0.35 * react;
+        if (p.armR) p.armR.rotation.x = -0.25 * react;
+      }
       this.mesh.traverse(c => {
         if (c.isMesh && c.material && c.material.emissive) {
           c.material.emissive.setHex(this.boss ? 0xffaa44 : 0xfff0c8);
@@ -1117,6 +1163,9 @@ class Enemy {
       });
     } else {
       this.mesh.rotation.z += (0 - this.mesh.rotation.z) * this._poseAlpha(dt, 9);
+      if (p.body && p.body.userData.baseZ !== undefined) {
+        p.body.position.z += (p.body.userData.baseZ - p.body.position.z) * this._poseAlpha(dt, 10);
+      }
       this.mesh.traverse(c => {
         if (c.isMesh && c.material && c.material.emissive && !this.boss) {
           c.material.emissiveIntensity = 0;
@@ -1168,14 +1217,35 @@ class Enemy {
         ExplorationSystem.disarmEnemy(this, '火焰烧掉了敌人的木制武器！');
       }
     }
+    const visualRole = this.mesh.userData.enemyRole || (this.def.ai === 'ranged' ? 'archer' : this.miniBoss ? 'elite' : 'melee');
+    const hitDir = fromDir && fromDir.lengthSq && fromDir.lengthSq() > 0.001
+      ? fromDir.clone().setY(0).normalize()
+      : new THREE.Vector3(Math.sin(this.mesh.rotation.y), 0, Math.cos(this.mesh.rotation.y));
+    const facing = new THREE.Vector3(Math.sin(this.mesh.rotation.y), 0, Math.cos(this.mesh.rotation.y));
+    const right = new THREE.Vector3(facing.z, 0, -facing.x);
+    this._hitReactDir.copy(hitDir);
+    this._hitReactSide = THREE.MathUtils.clamp(right.dot(hitDir), -1, 1);
+    this._hitReactBack = THREE.MathUtils.clamp(facing.dot(hitDir), -1, 1);
+    this._hitReactMax = visualRole === 'archer' ? 0.46 : visualRole === 'shield' ? 0.38 : visualRole === 'elite' ? 0.34 : 0.28;
     this.hp -= finalDmg;
-    this.hurtTimer = 0.25;
+    this.hurtTimer = this._hitReactMax;
+    this.state = 'hurt';
+    if (visualRole === 'archer') {
+      this.attackPhase = 'recover';
+      this.windup = 0.18;
+      this.shootCD = Math.max(this.shootCD || 0, 0.45);
+    } else if (visualRole === 'shield') {
+      this.windup = Math.min(this.windup || 0, 0.12);
+    }
     Dialogue.showFloat(`-${Math.round(finalDmg)}`, this.mesh.position, '#ff5a3a');
-    this.position.add(fromDir.clone().multiplyScalar(this.boss ? 0.15 : 0.6));
+    const knockScale = this.boss ? 0.12 : visualRole === 'shield' ? 0.34 : visualRole === 'elite' ? 0.42 : visualRole === 'archer' ? 0.72 : 0.62;
+    this.position.add(hitDir.clone().multiplyScalar(knockScale));
     if (this.boss) {
       Effects.hitBurst(this.mesh.position.clone().setY(5.3), 0xff8800, 12);
     } else if (typeof Effects !== 'undefined' && Effects.lowPolyShatter) {
-      Effects.lowPolyShatter(this.mesh.position.clone().setY(1.05), weaponElement === 'fire' ? 0xff6644 : weaponElement === 'ice' ? 0x88ddff : weaponElement === 'shock' ? 0xffee66 : 0xd8c0a0, 7, 0.55);
+      const color = weaponElement === 'fire' ? 0xff6644 : weaponElement === 'ice' ? 0x88ddff : weaponElement === 'shock' ? 0xffee66 : visualRole === 'shield' ? 0xd0c6a8 : 0xd8c0a0;
+      Effects.lowPolyShatter(this.mesh.position.clone().setY(visualRole === 'elite' ? 1.35 : 1.05), color, visualRole === 'elite' ? 11 : visualRole === 'shield' ? 6 : 8, visualRole === 'elite' ? 0.72 : 0.58);
+      if (visualRole === 'shield' && Effects.shockwave) Effects.shockwave(this.mesh.position.clone(), 0xd6c79a, 0.62);
     }
     if (this.hp <= 0) this._die();
   }
@@ -1183,16 +1253,17 @@ class Enemy {
   _die() {
     this.dead = true;
     this.deathTimer = 0;
+    this._deathShatterDone = false;
+    this._deathFx = {
+      color: this.boss ? 0x9a7a5a : (this.element === 'fire' ? 0xff5522 : this.element === 'ice' ? 0x7edfff : this.element === 'shock' ? 0xffee66 : 0xb8aa92),
+      count: this.boss ? 34 : this.miniBoss ? 24 : 18,
+      scale: this.boss ? 1.55 : this.miniBoss ? 1.15 : 0.95,
+      y: this.boss ? 2.2 : 1.0
+    };
     Dialogue.show(this.boss ? `击败了 ${this.def.name}！传说成真！` : (this.miniBoss ? `强敌 ${this.def.name} 倒下了！` : `击败了 ${this.def.name}！`));
     if (typeof AudioSystem !== 'undefined') AudioSystem.play(this.boss ? 'power' : 'pickup');
     Effects.deathPuff(this.mesh.position.clone().setY(1.2),
       this.boss ? 0x7a6a5a : (this.element === 'fire' ? 0xff4422 : this.element === 'ice' ? 0x66ddff : this.element === 'shock' ? 0xffee44 : 0x888888));
-    if (typeof Effects !== 'undefined' && Effects.lowPolyShatter) {
-      Effects.lowPolyShatter(this.mesh.position.clone().setY(this.boss ? 2.2 : 1.0),
-        this.boss ? 0x9a7a5a : (this.element === 'fire' ? 0xff5522 : this.element === 'ice' ? 0x7edfff : this.element === 'shock' ? 0xffee66 : 0xb8aa92),
-        this.boss ? 28 : 15,
-        this.boss ? 1.35 : 0.9);
-    }
     if (this.boss) {
       for (let i = 0; i < 5; i++) {
         setTimeout(() => {

@@ -34,6 +34,8 @@ class Player {
     this.attackQueued = false;
     this.comboStep = 0;
     this._hitStop = 0;
+    this._attackTrailTimer = 0;
+    this._attackStage = 'idle';
     this.bowMode = false;
     this.selectedArrowType = 'normal';
     this.invuln = 0;          // 受击无敌时间
@@ -96,6 +98,7 @@ class Player {
     if (this._weaponMesh) { this.mesh.remove(this._weaponMesh); this._weaponMesh = null; }
     if (this.inventory.equipped.weapon) {
       this._weaponMesh = AssetFactory.createWeaponMesh(this.inventory.equipped.weapon.itemId);
+      this._weaponMesh.scale.setScalar(0.92);
       this._weaponMesh.position.set(0.45, 1.0, 0.1);
       this._weaponMesh.rotation.z = -0.5;
       this.mesh.add(this._weaponMesh);
@@ -104,7 +107,8 @@ class Player {
     if (this._shieldMesh) { this.mesh.remove(this._shieldMesh); this._shieldMesh = null; }
     if (this.inventory.equipped.shield) {
       this._shieldMesh = AssetFactory.createShieldMesh(this.inventory.equipped.shield.itemId);
-      this._shieldMesh.position.set(-0.18, 1.25, -0.34);
+      this._shieldMesh.scale.setScalar(0.78);
+      this._shieldMesh.position.set(-0.22, 1.24, -0.42);
       this._shieldMesh.rotation.set(-0.22, 0, 0.18);
       this.mesh.add(this._shieldMesh);
     }
@@ -112,7 +116,8 @@ class Player {
     if (this._bowMesh) { this.mesh.remove(this._bowMesh); this._bowMesh = null; }
     if (this.inventory.equipped.bow) {
       this._bowMesh = AssetFactory.createBowMesh(this.inventory.equipped.bow.itemId);
-      this._bowMesh.position.set(0.26, 1.14, -0.42);
+      this._bowMesh.scale.setScalar(0.86);
+      this._bowMesh.position.set(0.28, 1.16, -0.48);
       this._bowMesh.rotation.set(-0.25, 0.2, -0.45);
       this.mesh.add(this._bowMesh);
     }
@@ -736,6 +741,8 @@ class Player {
     if (p.armL) p.armL.position.y = p.armL.userData.baseY + runBob * 0.45;
     if (p.armR) p.armR.position.y = p.armR.userData.baseY + runBob * 0.45;
     const poseAlpha = this._poseAlpha(dt, this.isGliding ? 16 : 13);
+    const equipBob = moving ? Math.sin(this._walkPhase || 0) * 0.035 * movePower : breath * 0.5;
+    const equipLag = moving ? Math.cos(this._walkPhase || 0) * 0.045 * movePower : 0;
     // ★ 防御姿态：按住盾牌时左臂（持盾臂）抬起举盾
     const shielding = Input.state.shield && this.inventory.equipped.shield;
     if (!this.isAttacking) {
@@ -767,31 +774,31 @@ class Player {
     if (this._shieldMesh) {
       const shieldAlpha = this._poseAlpha(dt, 18);
       if (shielding) {
-        this._smoothPosition(this._shieldMesh, 0, 1.32, 0.5, shieldAlpha);
+        this._smoothPosition(this._shieldMesh, 0.02 + equipLag * 0.25, 1.32 + equipBob * 0.35, 0.5, shieldAlpha);
         this._smoothRotation(this._shieldMesh, -0.08, 0, 0, shieldAlpha);
       } else {
-        this._smoothPosition(this._shieldMesh, -0.18, 1.25, -0.34, shieldAlpha);
-        this._smoothRotation(this._shieldMesh, -0.22, 0, 0.18, shieldAlpha);
+        this._smoothPosition(this._shieldMesh, -0.22 + equipLag * 0.3, 1.24 + equipBob * 0.42, -0.42 - Math.abs(equipLag) * 0.35, shieldAlpha);
+        this._smoothRotation(this._shieldMesh, -0.22 + equipBob * 0.5, 0, 0.18 + equipLag * 1.4, shieldAlpha);
       }
     }
     if (this._bowMesh) {
       const bowAlpha = this._poseAlpha(dt, 16);
       if (this.bowMode) {
-        this._smoothPosition(this._bowMesh, 0.42, 1.22, 0.24, bowAlpha);
+        this._smoothPosition(this._bowMesh, 0.42, 1.22 + equipBob * 0.35, 0.24, bowAlpha);
         this._smoothRotation(this._bowMesh, -0.15, 0.25, -0.25, bowAlpha);
       } else {
-        this._smoothPosition(this._bowMesh, 0.26, 1.14, -0.42, bowAlpha);
-        this._smoothRotation(this._bowMesh, -0.25, 0.2, -0.45, bowAlpha);
+        this._smoothPosition(this._bowMesh, 0.28 + equipLag * 0.42, 1.16 + equipBob * 0.48, -0.48 - Math.abs(equipLag) * 0.28, bowAlpha);
+        this._smoothRotation(this._bowMesh, -0.25 + equipBob * 0.7, 0.2, -0.45 + equipLag * 1.6, bowAlpha);
       }
     }
     if (this._weaponMesh && !this.isAttacking) {
       const weaponAlpha = this._poseAlpha(dt, 15);
       if (this.bowMode) {
-        this._smoothPosition(this._weaponMesh, 0.18, 1.1, -0.42, weaponAlpha);
-        this._smoothRotation(this._weaponMesh, -0.28, 0.16, -0.52, weaponAlpha);
+        this._smoothPosition(this._weaponMesh, 0.18 + equipLag * 0.35, 1.1 + equipBob * 0.45, -0.42, weaponAlpha);
+        this._smoothRotation(this._weaponMesh, -0.28 + equipBob * 0.45, 0.16, -0.52 + equipLag * 1.2, weaponAlpha);
       } else {
-        this._smoothPosition(this._weaponMesh, 0.45, 1.0, 0.1, weaponAlpha);
-        this._smoothRotation(this._weaponMesh, 0, 0, -0.5, weaponAlpha);
+        this._smoothPosition(this._weaponMesh, 0.45 + equipLag * 0.55, 1.0 + equipBob * 0.65, 0.1 - Math.abs(equipLag) * 0.2, weaponAlpha);
+        this._smoothRotation(this._weaponMesh, equipBob * 0.55, 0, -0.5 + equipLag * 1.5, weaponAlpha);
       }
     }
     if (this._gliderMesh) {
@@ -820,22 +827,37 @@ class Player {
       this.attackTimer += dt;
       // ★ 修正攻击动画：左臂静止，右臂做从右上到左下的弧线劈砍
       const t = this.attackTimer / this.attackDuration;
+      const profile = this._attackProfile || this._weaponProfile(this.inventory.equipped.weapon);
+      const activeStart = profile.activeStart ?? 0.28;
+      const activeEnd = profile.activeEnd ?? 0.64;
+      const stage = t < activeStart ? 'attackWindup' : t <= activeEnd ? 'attackSwing' : 'attackRecover';
+      this._attackStage = stage;
       const p = this.mesh.userData.parts;
       if (p) {
         // 左臂保持自然姿态（攻击时不动，避免"左边在攻击"的错觉）
-        if (p.armL) { p.armL.rotation.x = 0.08; p.armL.rotation.y = 0; p.armL.rotation.z = 0.08; }
+        if (p.armL) {
+          const shieldGuard = this.inventory.equipped.shield ? 0.18 : 0;
+          p.armL.rotation.x = stage === 'attackWindup' ? -0.12 : 0.08 + shieldGuard;
+          p.armL.rotation.y = 0;
+          p.armL.rotation.z = stage === 'attackSwing' ? 0.18 : 0.08;
+        }
         if (p.body) {
-          const twist = Math.sin(t * Math.PI) * (this.comboStep === 1 ? 0.22 : this.comboStep === 2 ? -0.26 : 0.16);
+          const swingEase = Math.sin(t * Math.PI);
+          const windupLean = stage === 'attackWindup' ? -0.16 * (1 - t / Math.max(0.01, activeStart)) : 0;
+          const recoverLean = stage === 'attackRecover' ? 0.08 * (1 - Math.min(1, (t - activeEnd) / Math.max(0.01, 1 - activeEnd))) : 0;
+          const twist = swingEase * (this.comboStep === 1 ? 0.28 : this.comboStep === 2 ? -0.32 : 0.2);
           p.body.rotation.y = twist;
-          p.body.rotation.x = -0.05 + Math.sin(t * Math.PI) * 0.08;
+          p.body.rotation.x = windupLean + recoverLean - 0.05 + swingEase * 0.1;
         }
         if (p.head) p.head.rotation.y = p.body ? p.body.rotation.y * 0.35 : 0;
         // 右臂劈砍：三段连招略有不同，避免每刀完全一样
         if (p.armR) {
           const swing = Math.sin(t * Math.PI);  // 0→1→0 的弧线
           const comboSide = this.comboStep === 1 ? 1 : this.comboStep === 2 ? -1 : 0.55;
-          p.armR.rotation.z = -1.35 * (1 - swing) + comboSide * 0.28 * swing;
-          p.armR.rotation.x = -1.45 * swing - (this.comboStep === 2 ? 0.18 : 0);
+          const windup = stage === 'attackWindup' ? 1 - t / Math.max(0.01, activeStart) : 0;
+          const recover = stage === 'attackRecover' ? Math.min(1, (t - activeEnd) / Math.max(0.01, 1 - activeEnd)) : 0;
+          p.armR.rotation.z = -1.55 * windup - 1.35 * (1 - swing) * (1 - recover) + comboSide * 0.34 * swing;
+          p.armR.rotation.x = -1.55 * swing - (this.comboStep === 2 ? 0.18 : 0) + recover * 0.25;
           p.armR.rotation.y = comboSide * 0.16 * swing;
         }
       }
@@ -843,13 +865,25 @@ class Player {
       if (this._weaponMesh) {
         const swing = Math.sin(t * Math.PI);
         const comboSide = this.comboStep === 1 ? 0.35 : this.comboStep === 2 ? -0.42 : 0;
-        this._weaponMesh.position.set(0.45 + comboSide * swing, 1.0 + 0.08 * swing, 0.1 + 0.12 * swing);
-        this._weaponMesh.rotation.z = -0.5 - 1.15 * swing + comboSide;
-        this._weaponMesh.rotation.x = -0.95 * swing;
+        const windupLift = stage === 'attackWindup' ? 0.18 : 0;
+        this._weaponMesh.position.set(0.45 + comboSide * swing, 1.0 + 0.1 * swing + windupLift, 0.1 + 0.16 * swing);
+        this._weaponMesh.rotation.z = -0.5 - 1.28 * swing + comboSide;
+        this._weaponMesh.rotation.x = -1.05 * swing - (stage === 'attackWindup' ? 0.2 : 0);
       }
-      const profile = this._attackProfile || this._weaponProfile(this.inventory.equipped.weapon);
-      const activeStart = profile.activeStart ?? 0.28;
-      const activeEnd = profile.activeEnd ?? 0.64;
+      if (stage === 'attackSwing' && typeof Effects !== 'undefined' && Effects.weaponTrail) {
+        this._attackTrailTimer -= dt;
+        if (this._attackTrailTimer <= 0) {
+          const weapon = this.inventory.equipped.weapon;
+          const element = weapon && weapon.def && weapon.def.element;
+          const trailColor = weapon && weapon.itemId === 'masterSword' ? 0xfff4b0
+                           : element === 'fire' ? 0xff6633
+                           : element === 'ice' ? 0x76ddff
+                           : element === 'shock' ? 0xffee66
+                           : 0xfff1ba;
+          Effects.weaponTrail(this.position.clone(), this._attackFacing ?? this.facing, trailColor, (t - activeStart) / Math.max(0.01, activeEnd - activeStart), profile.range || 2.4);
+          this._attackTrailTimer = 0.045;
+        }
+      }
       // 只在武器有效帧造成一次伤害：起手/收招不再误伤
       if (!this.attackHit && t >= activeStart && t <= activeEnd) {
         this._doMeleeDamage(game);
@@ -861,6 +895,7 @@ class Player {
       if (this.attackTimer >= this.attackDuration) {
         this.isAttacking = false;
         this.attackTimer = 0;
+        this._attackStage = 'idle';
         // 攻击结束后重置手臂姿态
         if (p && p.armR) { p.armR.rotation.z = 0; p.armR.rotation.x = 0; }
         if (p && p.body) { p.body.rotation.y = 0; p.body.rotation.x = 0; }
@@ -1011,6 +1046,8 @@ class Player {
     this.attackDuration = profile.duration * (this.comboStep === 2 ? 1.15 : 1);
     this._attackProfile = profile;
     this._attackFacing = attackFacing;
+    this._attackTrailTimer = 0;
+    this._attackStage = 'attackWindup';
     this.mesh.rotation.y = this.facing;
     if (typeof AudioSystem !== 'undefined') AudioSystem.play('slash');
   }

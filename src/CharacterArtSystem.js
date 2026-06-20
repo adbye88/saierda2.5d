@@ -170,6 +170,7 @@ const CharacterArtSystem = {
       this.applyPlayer(game.player);
       this._updateCharacterArt(game.player.mesh.userData.characterArt, dt, {
         speed: game.player.velocity ? Math.hypot(game.player.velocity.x || 0, game.player.velocity.z || 0) : 0,
+        side: game.player.velocity ? this._sideMotion(game.player.velocity, game.player.facing || 0) : 0,
         hurt: game.player.invuln > 0 ? 0.2 : 0
       });
     }
@@ -357,6 +358,7 @@ const CharacterArtSystem = {
     if (!art || !art.root) return;
     art.t += dt;
     const motion = Math.min(1, (state && state.speed ? state.speed : 0) / 5);
+    const sideMotion = state && state.side ? THREE.MathUtils.clamp(state.side, -1, 1) : 0;
     const hurt = state && state.hurt > 0 ? 1 : 0;
     const time = art.t;
 
@@ -367,6 +369,7 @@ const CharacterArtSystem = {
       sway.mesh.position.copy(sway.basePos);
       sway.mesh.rotation.z += wave * sway.amp * (0.45 + motion * 0.9);
       sway.mesh.rotation.x += Math.cos(time * (sway.speed * 0.72) + sway.phase) * sway.amp * 0.28;
+      sway.mesh.rotation.y += sideMotion * sway.amp * 0.45 * motion;
       if (sway.bob) sway.mesh.position.y += Math.abs(wave) * sway.bob * (0.35 + motion);
     }
 
@@ -440,6 +443,13 @@ const CharacterArtSystem = {
       }
     });
     return mats;
+  },
+
+  _sideMotion(velocity, facing) {
+    if (!velocity || !velocity.lengthSq || velocity.lengthSq() < 0.001) return 0;
+    const v = velocity.clone().setY(0).normalize();
+    const right = new THREE.Vector3(Math.cos(facing), 0, -Math.sin(facing));
+    return right.dot(v);
   }
 };
 

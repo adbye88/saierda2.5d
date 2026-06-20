@@ -104,6 +104,54 @@ const Effects = {
     });
   },
 
+  weaponTrail(originPos, facing, color = 0xfff4b0, progress = 0.5, reach = 2.2) {
+    if (!this.scene) return;
+    const spread = 0.72;
+    const radiusInner = Math.max(0.75, reach * 0.42);
+    const radiusOuter = Math.max(1.15, reach * 0.72);
+    const steps = 5;
+    const verts = [];
+    const idx = [];
+    const start = -spread * 0.5 + (progress - 0.5) * 0.25;
+    const end = spread * 0.68 + (progress - 0.5) * 0.25;
+    for (let i = 0; i <= steps; i++) {
+      const k = i / steps;
+      const a = start + (end - start) * k;
+      const si = Math.sin(a), co = Math.cos(a);
+      verts.push(si * radiusInner, 0, co * radiusInner);
+      verts.push(si * radiusOuter, 0, co * radiusOuter);
+      if (i < steps) {
+        const b = i * 2;
+        idx.push(b, b + 1, b + 2, b + 1, b + 3, b + 2);
+      }
+    }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3));
+    geo.setIndex(idx);
+    geo.computeVertexNormals();
+    const mat = new THREE.MeshBasicMaterial({
+      color,
+      transparent: true,
+      opacity: 0.58,
+      side: THREE.DoubleSide,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending
+    });
+    const trail = new THREE.Mesh(geo, mat);
+    trail.position.copy(originPos);
+    trail.position.y += 1.05;
+    trail.rotation.x = Math.PI / 2;
+    trail.rotation.y = facing;
+    this.scene.add(trail);
+    this.active.push({
+      mesh: trail, life: 0.16, maxLife: 0.16,
+      update(dt, t) {
+        mat.opacity = 0.58 * (1 - t);
+        trail.scale.setScalar(1 + t * 0.18);
+      }
+    });
+  },
+
   // ---------- 命中爆裂粒子 ----------
   hitBurst(originPos, color = 0xffaa44, count = 8) {
     if (!this.scene) return;
@@ -343,6 +391,30 @@ const Effects = {
           shard.material.opacity = 0.95 * (1 - t);
           shard.scale.setScalar(1 - t * 0.35);
         }
+      }
+    });
+  },
+
+  shockwave(originPos, color = 0xffdd88, radius = 1.6) {
+    if (!this.scene) return;
+    const mat = new THREE.MeshBasicMaterial({
+      color,
+      transparent: true,
+      opacity: 0.48,
+      side: THREE.DoubleSide,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending
+    });
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(radius, 0.045, 6, 42), mat);
+    ring.position.copy(originPos);
+    ring.position.y += 0.06;
+    ring.rotation.x = Math.PI / 2;
+    this.scene.add(ring);
+    this.active.push({
+      mesh: ring, life: 0.42, maxLife: 0.42,
+      update(dt, t) {
+        ring.scale.setScalar(0.3 + t * 1.9);
+        mat.opacity = 0.48 * (1 - t);
       }
     });
   },

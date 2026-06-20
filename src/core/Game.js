@@ -268,6 +268,9 @@ class Game {
     if (Input.justLock) {
       this._cycleLockTarget();
     }
+    if (Input.justInspect && typeof CameraPolishSystem !== 'undefined') {
+      CameraPolishSystem.toggleInspect(this);
+    }
     if (Input._keys && (Input._keys['c'] && !this._cHandled)) {
       this._cHandled = true;
       if (typeof window.__openCompendium === 'function') window.__openCompendium();

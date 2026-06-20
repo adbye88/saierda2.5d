@@ -8,6 +8,7 @@ const CameraPolishSystem = {
   _shakePhase: 0,
   _desiredFov: 58,
   _raycaster: new THREE.Raycaster(),
+  _inspectMode: false,
 
   update(dt, game, player) {
     if (!game || !game.camera || !player) return false;
@@ -26,7 +27,25 @@ const CameraPolishSystem = {
     let lateral = 0;
     let camPos;
 
-    if (locked) {
+    if (this._inspectMode) {
+      const enemy = this._nearestInspectableEnemy(game, player);
+      const focus = enemy
+        ? player.position.clone().lerp(enemy.mesh.position, 0.46)
+        : target.clone();
+      const enemyDir = enemy
+        ? new THREE.Vector3().subVectors(enemy.mesh.position, player.position).setY(0)
+        : new THREE.Vector3(Math.sin(player.facing), 0, Math.cos(player.facing));
+      if (enemyDir.lengthSq() < 0.001) enemyDir.set(0, 0, 1);
+      enemyDir.normalize();
+      const side = new THREE.Vector3(enemyDir.z, 0, -enemyDir.x);
+      dist = enemy ? 4.8 : 4.2;
+      height = enemy ? 3.0 : 2.7;
+      camPos = focus.clone()
+        .add(enemyDir.clone().multiplyScalar(-dist))
+        .add(side.multiplyScalar(1.15))
+        .add(new THREE.Vector3(0, height, 0));
+      lookHeight = enemy ? 1.35 : 1.45;
+    } else if (locked) {
       const enemyPos = game.lockedEnemy.mesh.position.clone();
       const toEnemy = new THREE.Vector3().subVectors(enemyPos, target);
       toEnemy.y = 0;
@@ -65,7 +84,7 @@ const CameraPolishSystem = {
 
     const lookAt = target.clone().setY(target.y + lookHeight);
     camPos = this._avoidCameraCollision(game, lookAt, camPos);
-    const fov = gliding ? 64 : bow ? 52 : locked ? 56 : attacking ? 55 : 58;
+    const fov = this._inspectMode ? 44 : gliding ? 64 : bow ? 52 : locked ? 56 : attacking ? 55 : 58;
     this._desiredFov += (fov - this._desiredFov) * this._alpha(dt, 6);
     if (Math.abs(camera.fov - this._desiredFov) > 0.05) {
       camera.fov += (this._desiredFov - camera.fov) * this._alpha(dt, 8);
@@ -88,6 +107,29 @@ const CameraPolishSystem = {
 
   bump(amount = 0.45) {
     this._shake = Math.min(1.2, Math.max(this._shake, amount));
+  },
+
+  toggleInspect(game) {
+    this._inspectMode = !this._inspectMode;
+    if (typeof Dialogue !== 'undefined') {
+      Dialogue.show(this._inspectMode ? '近景角色检查：开启（P 关闭）' : '近景角色检查：关闭', 1100);
+    }
+    if (game && game.lockedEnemy && game.lockedEnemy.dead) game.lockedEnemy = null;
+  },
+
+  _nearestInspectableEnemy(game, player) {
+    const enemies = game.currentWorld && game.currentWorld.enemies || [];
+    let best = null;
+    let bestD = Infinity;
+    for (const enemy of enemies) {
+      if (!enemy || enemy.dead || !enemy.mesh) continue;
+      const d = enemy.mesh.position.distanceTo(player.position);
+      if (d < bestD && d < 16) {
+        bestD = d;
+        best = enemy;
+      }
+    }
+    return best;
   },
 
   _alpha(dt, speed) {

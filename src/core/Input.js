@@ -29,6 +29,7 @@ const Input = {
     justParry: false,
     justFlurryRush: false,
     justQuality: false,
+    justInspect: false,
     camera: { dx: 0, dy: 0 } // 视角拖动（触屏右半区/鼠标）
   },
 
@@ -55,6 +56,7 @@ const Input = {
   get justParry() { return this.state.justParry; },
   get justFlurryRush() { return this.state.justFlurryRush; },
   get justQuality() { return this.state.justQuality; },
+  get justInspect() { return this.state.justInspect; },
 
   isTouch: false,
   _keys: {},
@@ -70,7 +72,8 @@ const Input = {
     justQuest: 160,
     justParry: 180,
     justFlurryRush: 140,
-    justQuality: 220
+    justQuality: 220,
+    justInspect: 220
   },
 
   init() {
@@ -98,7 +101,8 @@ const Input = {
       if (k === 'x') this._trigger('justBowCycle');
       if (k === 'f') this.pressParryGuard();
       if (k === 'o') this._trigger('justQuest');
-      if (k === 'p') this._trigger('justQuality');
+      if (k === 'p') this._trigger('justInspect');
+      if (k === '[') this._trigger('justQuality');
       if (k === 'i') this._trigger('justInventory');
       if (k === 'shift') this.pressShield();
       this.state.jump = !!(this._keys[' ']);
@@ -288,6 +292,7 @@ const Input = {
     this.state.justParry = false;
     this.state.justFlurryRush = false;
     this.state.justQuality = false;
+    this.state.justInspect = false;
     this.state.camera.dx = 0;
     this.state.camera.dy = 0;
     if (this._parryReleaseGrace) {
