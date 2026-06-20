@@ -62,6 +62,7 @@ class Game {
       this.player.spawn(this.currentWorld.spawnPoint);
       // ★ 必须设置 world，否则 Player._move 里的碰撞检测和边界夹紧全部跳过
       this.player.world = this.currentWorld;
+      if (typeof CharacterArtSystem !== 'undefined') CharacterArtSystem.applyPlayer(this.player);
     }
   }
 
@@ -118,6 +119,7 @@ class Game {
     if (typeof VisualQualitySystem !== 'undefined') VisualQualitySystem.applyWorld(newWorld);
     if (typeof ArtDirectionSystem !== 'undefined') ArtDirectionSystem.applyWorld(newWorld, this);
     if (typeof ModelPolishSystem !== 'undefined') ModelPolishSystem.polishWorld(newWorld);
+    if (typeof CharacterArtSystem !== 'undefined') CharacterArtSystem.applyWorld(newWorld, this);
     if (typeof WorldPolishSystem !== 'undefined') WorldPolishSystem.applyWorld(newWorld);
     if (typeof BillboardPolishSystem !== 'undefined') BillboardPolishSystem.applyWorld(newWorld);
     if (typeof StorySystem !== 'undefined') StorySystem.onWorldLoaded(newWorld);
@@ -312,6 +314,8 @@ class Game {
     catch (e) { this._subError('art-direction', e); }
     try { if (typeof ModelPolishSystem !== 'undefined') ModelPolishSystem.update(dt, this); }
     catch (e) { this._subError('model-polish', e); }
+    try { if (typeof CharacterArtSystem !== 'undefined') CharacterArtSystem.update(dt, this); }
+    catch (e) { this._subError('character-art', e); }
     try { if (typeof WorldPolishSystem !== 'undefined') WorldPolishSystem.update(dt, this); }
     catch (e) { this._subError('world-polish', e); }
     try { if (typeof BillboardPolishSystem !== 'undefined') BillboardPolishSystem.update(dt, this); }

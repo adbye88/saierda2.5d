@@ -69,6 +69,7 @@
       if (typeof ArtDirectionSystem !== 'undefined') ArtDirectionSystem.init(game);
       if (typeof QualitySettingsUI !== 'undefined') QualitySettingsUI.init(game);
       if (typeof ModelPolishSystem !== 'undefined') ModelPolishSystem.init(game);
+      if (typeof CharacterArtSystem !== 'undefined') CharacterArtSystem.init(game);
       if (typeof WorldPolishSystem !== 'undefined') WorldPolishSystem.init(game);
       if (typeof BillboardPolishSystem !== 'undefined') BillboardPolishSystem.init(game);
       if (typeof AdaptivePerformanceSystem !== 'undefined') AdaptivePerformanceSystem.init(game);
@@ -106,6 +107,7 @@
       game.player.inventory.add('sheikahSlate');
       ensureStarterRangedKit();
       game.player.refreshEquipment();
+      if (typeof CharacterArtSystem !== 'undefined') CharacterArtSystem.applyPlayer(game.player);
 
       game.renderer.render(game.scene, game.camera);
       window.__setStatus && window.__setStatus('boot: 完成！');
