@@ -226,6 +226,56 @@ class BaseScene {
     return boss;
   }
 
+  addLootChest(id, x, z, items, label = '补给宝箱', options = {}) {
+    if (!id || !Array.isArray(items) || items.length === 0 || typeof AssetFactory === 'undefined') return null;
+    if (typeof SaveSystem !== 'undefined' && SaveSystem.isChestOpened && SaveSystem.isChestOpened(id)) return null;
+    const chest = AssetFactory.createChest();
+    chest.position.set(x || 0, options.y || 0, z || 0);
+    chest.rotation.y = options.rotation || 0;
+    if (options.scale) chest.scale.setScalar(options.scale);
+    chest.userData.breakable = true;
+    chest.userData.perfCull = true;
+    chest.userData.chestId = id;
+    chest.userData.label = label;
+    this.scene.add(chest);
+    this.breakables.push({
+      mesh: chest,
+      broken: false,
+      break_open: (game) => {
+        const entry = this.breakables.find(b => b.mesh === chest);
+        if (!entry || entry.broken) return;
+        if (typeof SaveSystem !== 'undefined' && SaveSystem.isChestOpened && SaveSystem.isChestOpened(id)) {
+          entry.broken = true;
+          return;
+        }
+        entry.broken = true;
+        const lid = chest.getObjectByName('lid');
+        if (lid) {
+          lid.position.y += 0.05;
+          lid.rotation.x = -1.1;
+        }
+        const player = game && game.player;
+        const rewardText = [];
+        for (const [itemId, count = 1] of items) {
+          const def = typeof ITEMS !== 'undefined' ? ITEMS[itemId] : null;
+          if (!def) continue;
+          if (player && player.inventory && player.inventory.add) {
+            player.inventory.add(itemId, count);
+          }
+          rewardText.push(`${def.icon || ''}${def.name || itemId}${count > 1 ? '×' + count : ''}`);
+        }
+        if (player && player.refreshEquipment) player.refreshEquipment();
+        if (typeof SaveSystem !== 'undefined' && SaveSystem.openChest) SaveSystem.openChest(id);
+        if (typeof Effects !== 'undefined') Effects.pickupFlash(chest.position.clone().setY(0.8));
+        if (typeof AudioSystem !== 'undefined') AudioSystem.play('pickup');
+        if (typeof Dialogue !== 'undefined') {
+          Dialogue.show(`${label}：获得了 ${rewardText.join('、') || '补给'}！`);
+        }
+      }
+    });
+    return chest;
+  }
+
   addRuinCluster(x, z, options = {}) {
     const g = new THREE.Group();
     const color = options.color || 0x8a8172;
@@ -267,6 +317,14 @@ class BaseScene {
           { id: 'grassland_waterfall_cache', label: '瀑布后宝箱', x: -35, y: 0, z: -126, items: [['opal', 1], ['hyruleBass', 2]], clue: '水声后面似乎藏着东西。' },
           { id: 'grassland_ruin_cache', label: '东南废墟宝箱', x: 152, y: 0, z: -132, items: [['soldierShield', 1], ['rupee', 25]], clue: '废墟石柱围出的空地不像自然形成。' }
         ],
+        supplyChests: [
+          { id: 'grassland_path_supply', label: '路边补给宝箱', x: 24, z: -18, items: [['travelerSword', 1], ['arrow', 8]] },
+          { id: 'grassland_bridge_bow', label: '桥头弓箭宝箱', x: -25, z: 28, items: [['travelerBow', 1], ['arrow', 12]] },
+          { id: 'grassland_camp_cache', label: '营地武器宝箱', x: -69, z: -42, items: [['bokoClub', 1], ['bokoShield', 1]] },
+          { id: 'grassland_hill_spear', label: '山坡长枪宝箱', x: 68, z: 35, items: [['soldierSpear', 1], ['arrow', 6]] },
+          { id: 'grassland_ruin_bow', label: '遗迹弓箭宝箱', x: 136, z: -118, items: [['soldierBow', 1], ['arrow', 14]] },
+          { id: 'grassland_north_supply', label: '北原补给宝箱', x: -92, z: 82, items: [['travelerClaymore', 1], ['arrow', 10]] }
+        ],
         koroks: [
           { id: 'grassland_tree_korok', x: -150, z: 142, clue: '老树根旁的落叶堆很奇怪。' },
           { id: 'grassland_stone_ring_korok', x: 108, z: 52, clue: '山坡上几块石头像是缺了一块。' }
@@ -286,6 +344,12 @@ class BaseScene {
           { id: 'forest_deep_tree_cache', label: '古树树洞宝箱', x: 146, y: 0, z: 132, items: [['forestDwellerSword', 1], ['mushroom', 4]], clue: '迷雾深处有一棵树洞透着绿光。' },
           { id: 'forest_satori_cache', label: '萨托利林地宝箱', x: -148, y: 0, z: 34, items: [['courserBeeHoney', 2], ['rupee', 40]], clue: '林地圆环中央很安静，像在等人靠近。' }
         ],
+        supplyChests: [
+          { id: 'forest_mist_bow', label: '迷雾弓箭宝箱', x: -22, z: -20, items: [['travelerBow', 1], ['arrow', 14]] },
+          { id: 'forest_root_blade', label: '树根武器宝箱', x: 58, z: 28, items: [['forestDwellerSword', 1], ['arrow', 6]] },
+          { id: 'forest_ruin_shield', label: '古树遗迹宝箱', x: 118, z: -96, items: [['soldierShield', 1], ['arrow', 10]] },
+          { id: 'forest_satori_supply', label: '萨托利补给宝箱', x: -132, z: 34, items: [['travelerSword', 1], ['travelerBow', 1]] }
+        ],
         koroks: [
           { id: 'forest_leaf_korok', x: -62, z: 72, clue: '树叶旋成了一个小圈。' },
           { id: 'forest_mist_korok', x: 72, z: -18, clue: '雾里传来小小的笑声。' }
@@ -304,6 +368,12 @@ class BaseScene {
           { id: 'highland_falls_cache', label: '瀑布高台宝箱', x: 148, y: 2.5, z: -142, requireHeight: 1.7, items: [['topaz', 1], ['staminaElixir', 1]], clue: '瀑布上方的平台适合从高处滑翔过去。' },
           { id: 'highland_lake_cache', label: '湖畔沉石宝箱', x: -152, y: 0, z: -118, items: [['zoraShield', 1], ['hyruleBass', 3]], clue: '湖畔几块石头指向水边。' }
         ],
+        supplyChests: [
+          { id: 'highland_ridge_spear', label: '山脊长枪宝箱', x: -88, z: 14, items: [['soldierSpear', 1], ['arrow', 10]] },
+          { id: 'highland_lake_bow', label: '湖畔弓箭宝箱', x: 46, z: 88, items: [['soldierBow', 1], ['arrow', 16]] },
+          { id: 'highland_falls_blade', label: '瀑布武器宝箱', x: 124, z: -132, items: [['soldierClaymore', 1], ['arrow', 8]] },
+          { id: 'highland_west_shield', label: '西崖补给宝箱', x: -144, z: -104, items: [['soldierShield', 1], ['arrow', 12]] }
+        ],
         koroks: [
           { id: 'highland_two_tree_korok', x: 0, z: 18, clue: '两棵歪树之间有风铃声。' },
           { id: 'highland_thunder_korok', x: -128, z: 104, clue: '雷鸣高地的石台在雨停后微微发亮。' }
@@ -320,6 +390,12 @@ class BaseScene {
         rewards: [
           { id: 'snow_peak_cache', label: '雪峰宝箱', x: -105, y: 2.8, z: -92, requireHeight: 1.8, items: [['sapphire', 1], ['spicyPepper', 4]], clue: '雪峰上有蓝色反光，防寒后再去更安全。' },
           { id: 'snow_cave_cache', label: '冰洞宝箱', x: 92, y: 0, z: 64, items: [['iceBow', 1], ['whiteChuchuJelly', 3]], clue: '冰洞口的冷风吹出宝箱的金属声。' }
+        ],
+        supplyChests: [
+          { id: 'snow_trail_bow', label: '雪道弓箭宝箱', x: -28, z: -58, items: [['soldierBow', 1], ['arrow', 18]] },
+          { id: 'snow_cave_spear', label: '冰洞长枪宝箱', x: 84, z: 62, items: [['soldierSpear', 1], ['spicyPepper', 3]] },
+          { id: 'snow_peak_blade', label: '雪峰武器宝箱', x: -118, z: -82, items: [['travelerSword', 1], ['arrow', 12]] },
+          { id: 'snow_cliff_shield', label: '断崖补给宝箱', x: 132, z: -30, items: [['soldierShield', 1], ['arrow', 10]] }
         ],
         koroks: [
           { id: 'snow_snowball_korok', x: 112, z: -118, clue: '冻湖边的小雪球摆得太整齐。' }
@@ -340,6 +416,12 @@ class BaseScene {
           { id: 'volcano_crater_cache', label: '熔岩口宝箱', x: -104, y: 2.4, z: -88, requireHeight: 1.6, items: [['ruby', 1], ['flameproofDish', 1]], clue: '熔岩口边缘有红色宝石光，耐火后再靠近。' },
           { id: 'volcano_mine_cache', label: '废矿宝箱', x: 104, y: 0, z: 58, items: [['goronSpice', 3], ['flint', 5]], clue: '废矿轨道尽头堆着可疑碎石。' }
         ],
+        supplyChests: [
+          { id: 'volcano_ember_claymore', label: '余烬武器宝箱', x: 22, z: -46, items: [['soldierClaymore', 1], ['arrow', 8]] },
+          { id: 'volcano_mine_spear', label: '废矿长枪宝箱', x: 104, z: 58, items: [['soldierSpear', 1], ['arrow', 10]] },
+          { id: 'volcano_ash_bow', label: '灰烬弓箭宝箱', x: -138, z: 114, items: [['soldierBow', 1], ['arrow', 16]] },
+          { id: 'volcano_cliff_shield', label: '火山断崖宝箱', x: 150, z: -34, items: [['soldierShield', 1], ['flameproofDish', 1]] }
+        ],
         koroks: [
           { id: 'volcano_ember_korok', x: -148, z: 128, clue: '余烬绕着一圈石头旋转。' }
         ],
@@ -358,6 +440,12 @@ class BaseScene {
         rewards: [
           { id: 'desert_oasis_cache', label: '绿洲宝箱', x: -108, y: 0, z: 42, items: [['voltfruit', 4], ['gerudoShield', 1]], clue: '绿洲水边有被沙埋住一半的箱角。' },
           { id: 'desert_bone_cache', label: '龙骨宝箱', x: 28, y: 0, z: -154, items: [['topaz', 1], ['shockBow', 1]], clue: '龙骨阴影下闪过黄色电光。' }
+        ],
+        supplyChests: [
+          { id: 'desert_oasis_blade', label: '绿洲武器宝箱', x: -92, z: 36, items: [['travelerSword', 1], ['arrow', 12]] },
+          { id: 'desert_bone_bow', label: '龙骨弓箭宝箱', x: 32, z: -142, items: [['soldierBow', 1], ['arrow', 18]] },
+          { id: 'desert_ruin_spear', label: '沙丘长枪宝箱', x: 118, z: 96, items: [['soldierSpear', 1], ['arrow', 10]] },
+          { id: 'desert_cactus_shield', label: '仙人掌补给宝箱', x: -150, z: 104, items: [['soldierShield', 1], ['arrow', 10]] }
         ],
         koroks: [
           { id: 'desert_cactus_korok', x: -152, z: 106, clue: '三棵仙人掌的高度似乎少了一个节奏。' }
@@ -378,6 +466,11 @@ class BaseScene {
           { id: 'castle_docks_cache', label: '王城船坞宝箱', x: -96, y: 0, z: -106, items: [['royalGuardShield', 1], ['ancientCore', 1]], clue: '船坞废墟里传来古代零件的嗡鸣。' },
           { id: 'castle_watch_cache', label: '瞭望塔宝箱', x: -72, y: 2.8, z: 52, requireHeight: 1.8, items: [['royalBow', 1], ['arrow', 20]], clue: '瞭望塔上方有近卫留下的补给。' }
         ],
+        supplyChests: [
+          { id: 'castle_gate_blade', label: '王城门楼宝箱', x: -42, z: 24, items: [['knightSword', 1], ['arrow', 12]] },
+          { id: 'castle_watch_bow', label: '王城瞭望补给', x: 28, z: 88, items: [['knightBow', 1], ['arrow', 20]] },
+          { id: 'castle_ruin_supply', label: '王城废墟宝箱', x: 82, z: -62, items: [['soldierShield', 1], ['soldierSpear', 1]] }
+        ],
         koroks: [
           { id: 'castle_malice_korok', x: 100, z: 94, clue: '魔气中有一片不合时宜的绿叶。' }
         ],
@@ -393,6 +486,7 @@ class BaseScene {
     const cfg = defs[this.name];
     if (!cfg) return;
     for (const r of (cfg.rewards || [])) ExplorationSystem.addDiscoveryReward(this, r);
+    for (const c of (cfg.supplyChests || [])) this.addLootChest(c.id, c.x, c.z, c.items, c.label, c);
     for (const k of (cfg.koroks || [])) ExplorationSystem.addKorokPuzzle(this, k);
     for (const c of (cfg.climb || [])) ExplorationSystem.addClimbSpot(this, c);
     for (const h of (cfg.hazards || [])) ExplorationSystem.addHazardZone(this, h);

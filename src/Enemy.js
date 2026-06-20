@@ -303,12 +303,21 @@ const ENEMY_DEFS = {
   }
 };
 
+const BASIC_EQUIPMENT_DROPS = new Set([
+  'bokoClub', 'rustyBroadsword', 'travelerSword', 'soldierSword',
+  'bokoBoneSpear', 'soldierSpear', 'travelerClaymore', 'soldierClaymore',
+  'woodenShield', 'bokoShield', 'soldierShield',
+  'travelerBow', 'soldierBow'
+]);
+
 function weightedDrop(entries) {
   const result = [];
   for (const [item, count, chance] of entries) {
     const def = ITEMS[item];
     const isEquipment = def && ['weapon', 'shield', 'bow', 'armor_upper', 'armor_lower'].includes(def.type);
-    const adjustedChance = isEquipment ? chance * 0.45 : chance;
+    const adjustedChance = isEquipment
+      ? Math.min(0.75, chance * (BASIC_EQUIPMENT_DROPS.has(item) ? 2.2 : 0.75))
+      : chance;
     if (Math.random() < adjustedChance) result.push([item, count]);
   }
   return result;
