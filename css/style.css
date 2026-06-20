@@ -1548,6 +1548,7 @@ html.desktop-mode #extra-buttons {
   grid-column: 1 / 3;
   grid-row: 4;
   display: flex; gap: 10px;
+  z-index: 4;
 }
 .inv-actions button {
   flex: 1; padding: 12px;
@@ -2538,7 +2539,7 @@ html.desktop-mode #extra-buttons {
    - 高对比但不刺激
    ============================================================ */
 #shrine-ui {
-  position: absolute; inset: 0; z-index: 40;
+  position: fixed; inset: 0; z-index: 40;
   background:
     radial-gradient(circle at 50% 18%, rgba(255,255,255,.98), rgba(255,250,236,.97) 42%, rgba(255,239,211,.96) 100%);
   display: flex; align-items: center; justify-content: center;
@@ -2554,7 +2555,8 @@ html.desktop-mode #extra-buttons {
   overflow: hidden;
   isolation: isolate;
   width: min(720px, 95%);
-  max-height: 92%;
+  height: min(720px, 92dvh);
+  max-height: 92dvh;
   background: rgba(255,255,255,.98);
   border-radius: 18px;
   padding: 28px 32px;
@@ -2579,6 +2581,19 @@ html.desktop-mode #extra-buttons {
 .shrine-top {
   display: flex; justify-content: space-between; align-items: center;
   flex-wrap: wrap; gap: 12px;
+  flex: 0 0 auto;
+}
+.shrine-close {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 2px solid rgba(212,144,80,.35);
+  background: rgba(255,248,232,.9);
+  color: #c4691a;
+  font-size: 22px;
+  font-weight: 900;
+  cursor: pointer;
+  touch-action: manipulation;
 }
 .shrine-title {
   font-size: clamp(20px, 4vw, 26px);
@@ -2603,7 +2618,12 @@ html.desktop-mode #extra-buttons {
   transition: width .4s ease;
 }
 .shrine-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
   display: flex; flex-direction: column; gap: 16px;
+  padding-right: 4px;
+  overscroll-behavior: contain;
 }
 
 /* 科目标签 */
@@ -2664,6 +2684,10 @@ html.desktop-mode #extra-buttons {
   box-shadow: 0 3px 10px rgba(101, 67, 20, .08);
 }
 .quiz-option .opt-text {
+  min-width: 0;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
   color: #15191f;
   text-shadow: 0 1px 0 rgba(255,255,255,.85);
 }
@@ -2792,8 +2816,11 @@ html.desktop-mode #extra-buttons {
 
 /* 结果界面 */
 .quiz-result {
-  text-align: center; padding: 20px;
+  text-align: center; padding: 12px 20px 0;
   animation: gentle-fade-in .4s ease;
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
 }
 .quiz-result.pass { color: #4aaa4a; }
 .quiz-result.fail { color: #d49050; }
@@ -2802,7 +2829,7 @@ html.desktop-mode #extra-buttons {
 .result-score { font-size: 22px; color: #8a6a3a; margin-bottom: 12px; }
 .result-msg { font-size: 17px; color: #6a5a3a; line-height: 1.6; margin-bottom: 20px; max-width: 480px; margin-left:auto; margin-right:auto; }
 .quiz-review {
-  max-height: 180px;
+  max-height: min(180px, 30dvh);
   overflow-y: auto;
   text-align: left;
   background: rgba(255,248,232,.92);
@@ -2812,6 +2839,18 @@ html.desktop-mode #extra-buttons {
   margin: 0 auto 14px;
   max-width: 620px;
   color: #27313a;
+}
+.quiz-result-actions {
+  position: sticky;
+  bottom: 0;
+  z-index: 4;
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: auto;
+  padding: 10px 0 2px;
+  background: linear-gradient(180deg, rgba(255,255,255,0), rgba(255,255,255,.98) 28%, rgba(255,255,255,.98));
 }
 .quiz-review.empty {
   text-align: center;
@@ -3132,6 +3171,264 @@ html.desktop-mode #extra-buttons {
   padding: max(14px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) max(14px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
   background: rgba(3, 7, 8, .82);
   backdrop-filter: blur(12px) saturate(.85);
+}
+
+/* 手机横屏/小高度设备：优先保证底部操作按钮和神庙结果按钮永远可见。 */
+@media (orientation: landscape) and (max-height: 560px) {
+  #inventory {
+    align-items: stretch;
+    justify-content: stretch;
+    padding: max(6px, env(safe-area-inset-top)) max(8px, env(safe-area-inset-right)) max(6px, env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left));
+  }
+  .inv-panel {
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    border-radius: 14px;
+    padding: 9px;
+    gap: 7px;
+    grid-template-columns: minmax(0, 1fr) minmax(220px, .48fr);
+    grid-template-rows: auto auto minmax(0, 1fr) auto;
+    overflow: hidden;
+  }
+  .inv-header {
+    grid-column: 1 / 3;
+    font-size: 18px;
+    padding-bottom: 4px;
+  }
+  .inv-header #inv-close {
+    width: 34px;
+    height: 34px;
+    font-size: 18px;
+  }
+  .inv-tabs {
+    grid-column: 1 / 3;
+    flex-wrap: nowrap;
+    gap: 6px;
+    overflow-x: auto;
+    padding-bottom: 2px;
+    scrollbar-width: none;
+  }
+  .inv-tabs::-webkit-scrollbar { display: none; }
+  .tab {
+    flex: 0 0 auto;
+    padding: 6px 12px;
+    font-size: 13px;
+    border-radius: 16px;
+    white-space: nowrap;
+  }
+  .inv-grid {
+    grid-column: 1;
+    grid-row: 3;
+    min-height: 0;
+    grid-template-columns: repeat(auto-fill, minmax(72px, 1fr));
+    gap: 6px;
+    padding: 6px;
+  }
+  .inv-grid.craft-grid-mode {
+    grid-template-columns: repeat(auto-fill, minmax(118px, 1fr));
+  }
+  .inv-cell {
+    font-size: 26px;
+    border-radius: 10px;
+  }
+  .craft-cell {
+    min-height: 116px;
+    padding: 7px 7px 24px;
+  }
+  .craft-cell .item-icon img,
+  .craft-cell .item-icon {
+    width: 42px;
+    height: 42px;
+  }
+  .craft-name { font-size: 11px; }
+  .craft-need { font-size: 10px; }
+  .craft-cell-mats {
+    font-size: 9px;
+    -webkit-line-clamp: 1;
+  }
+  .inv-detail {
+    grid-column: 2;
+    grid-row: 3;
+    min-height: 0;
+    padding: 9px;
+    font-size: 12px;
+  }
+  .inv-detail.craft-detail-mode {
+    padding: 8px;
+  }
+  .detail-icon,
+  .detail-desc,
+  .craft-detail-mode .detail-desc {
+    display: none;
+  }
+  .detail-name { font-size: 16px; }
+  .detail-type { margin-bottom: 5px; }
+  .craft-summary {
+    grid-template-columns: 46px minmax(0, 1fr);
+    gap: 7px;
+    padding: 7px;
+  }
+  .craft-summary-icon .detail-item-icon {
+    width: 44px;
+    height: 44px;
+  }
+  .craft-summary .detail-name { font-size: 14px; }
+  .craft-mats { gap: 4px; }
+  .craft-mat {
+    padding: 4px 6px;
+    font-size: 10px;
+  }
+  .craft-status {
+    margin-top: 5px;
+    padding: 5px 7px;
+    font-size: 11px;
+  }
+  .craft-inline-btn {
+    min-height: 36px;
+    margin-top: 5px;
+    font-size: 12px;
+  }
+  .inv-actions {
+    grid-column: 1 / 3;
+    grid-row: 4;
+    position: sticky;
+    bottom: 0;
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 7px;
+    padding: 7px 0 0;
+    background: linear-gradient(180deg, rgba(10,16,16,0), rgba(10,16,16,.92) 24%, rgba(10,16,16,.96));
+  }
+  .inv-actions button {
+    min-height: 40px;
+    padding: 7px 5px;
+    font-size: 14px;
+    border-radius: 10px;
+  }
+  .equip-slots {
+    display: none;
+  }
+
+  #shrine-ui {
+    align-items: stretch;
+    justify-content: stretch;
+    padding: max(6px, env(safe-area-inset-top)) max(8px, env(safe-area-inset-right)) max(6px, env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left));
+  }
+  .shrine-panel {
+    width: 100%;
+    height: 100%;
+    max-height: none;
+    border-radius: 14px;
+    padding: 14px 18px 10px;
+    gap: 8px;
+  }
+  .shrine-top {
+    gap: 8px;
+  }
+  .shrine-title {
+    font-size: clamp(18px, 3.4vw, 24px);
+  }
+  .shrine-progress {
+    min-width: 180px;
+    flex: 1 1 220px;
+  }
+  #shrine-progress-text {
+    font-size: 13px;
+  }
+  .shrine-close {
+    width: 34px;
+    height: 34px;
+    font-size: 18px;
+  }
+  .shrine-body {
+    gap: 8px;
+    padding: 2px 6px 2px 2px;
+  }
+  .quiz-subject {
+    padding: 4px 12px;
+    font-size: 13px;
+  }
+  .quiz-question {
+    font-size: clamp(20px, 4.2vw, 34px);
+    line-height: 1.32;
+    padding: 12px 16px;
+    border-radius: 12px;
+  }
+  .quiz-options {
+    gap: 8px;
+  }
+  .quiz-option {
+    min-height: 54px;
+    padding: 11px 13px;
+    gap: 10px;
+    font-size: clamp(17px, 3vw, 25px);
+  }
+  .opt-letter {
+    width: 32px;
+    height: 32px;
+    font-size: 16px;
+  }
+  .quiz-feedback {
+    min-height: 28px;
+  }
+  .feedback-icon { display: none; }
+  .feedback-text {
+    font-size: 17px;
+    margin: 4px 0;
+  }
+  .feedback-explain {
+    font-size: 13px;
+    padding: 7px 10px;
+    margin: 5px 0;
+  }
+  .quiz-auto-next {
+    font-size: 12px;
+    margin-top: 3px;
+  }
+  .quiz-result {
+    padding: 4px 12px 0;
+  }
+  .result-icon {
+    font-size: 42px;
+  }
+  .result-title {
+    font-size: 26px;
+    margin: 5px 0;
+  }
+  .result-score {
+    font-size: 18px;
+    margin-bottom: 6px;
+  }
+  .result-msg {
+    font-size: 14px;
+    line-height: 1.35;
+    margin-bottom: 8px;
+  }
+  .quiz-review {
+    max-height: 104px;
+    margin-bottom: 6px;
+    padding: 7px;
+  }
+  .quiz-review-title { font-size: 13px; }
+  .quiz-review-item { padding: 5px 0; }
+  .quiz-review-item b,
+  .quiz-review-item span,
+  .quiz-review-item small {
+    font-size: 11px;
+  }
+  .quiz-result-actions {
+    gap: 8px;
+    padding: 8px 0 0;
+  }
+  .quiz-next,
+  .quiz-quit {
+    margin: 0;
+    min-height: 42px;
+    padding: 9px 18px;
+    font-size: 15px;
+    border-radius: 22px;
+  }
 }
 
 .quality-panel {

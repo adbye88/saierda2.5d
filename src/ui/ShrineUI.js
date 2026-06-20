@@ -32,11 +32,13 @@ const ShrineUI = {
             <span id="shrine-progress-text">第 1 题 / 共 5 题</span>
             <div class="shrine-progress-bar"><div id="shrine-progress-fill"></div></div>
           </div>
+          <button class="shrine-close" id="shrine-close" aria-label="关闭神庙挑战">✕</button>
         </div>
         <div class="shrine-body" id="shrine-body"></div>
       </div>
     `;
     document.body.appendChild(this.el);
+    this._bindTap(document.getElementById('shrine-close'), () => this.close());
   },
 
   // ---------- 开启神庙 ----------
@@ -167,13 +169,17 @@ const ShrineUI = {
           <div class="result-score">答对 ${correct} / ${total} 题，通过线 ${passLine} 题</div>
           <div class="result-msg">${this._finalPraise(correct, total)}</div>
           ${reviewHtml}
-          <button class="quiz-next" id="quiz-collect">领取奖励 ⭕ 克服之玉</button>
+          <div class="quiz-result-actions">
+            <button class="quiz-next" id="quiz-collect">领取奖励 ⭕ 克服之玉</button>
+            <button class="quiz-quit" id="quiz-close-pass">关闭神庙挑战</button>
+          </div>
         </div>
       `;
-      document.getElementById('quiz-collect').addEventListener('click', () => {
+      this._bindTap(document.getElementById('quiz-collect'), () => {
         this.currentShrine.complete(window.game);
         this.close();
       });
+      this._bindTap(document.getElementById('quiz-close-pass'), () => this.close());
       this._bigConfetti();
     } else {
       body.innerHTML = `
@@ -183,11 +189,13 @@ const ShrineUI = {
           <div class="result-score">答对 ${correct} / ${total} 题，通过线 ${passLine} 题</div>
           <div class="result-msg">没关系，每一次尝试都是进步！休息一下再来挑战～</div>
           ${reviewHtml}
-          <button class="quiz-next" id="quiz-retry">重新挑战</button>
-          <button class="quiz-quit" id="quiz-quit">先离开</button>
+          <div class="quiz-result-actions">
+            <button class="quiz-next" id="quiz-retry">重新挑战</button>
+            <button class="quiz-quit" id="quiz-quit">关闭神庙挑战</button>
+          </div>
         </div>
       `;
-      document.getElementById('quiz-retry').addEventListener('click', () => {
+      this._bindTap(document.getElementById('quiz-retry'), () => {
         this.qIndex = 0;
         this.correctCount = 0;
         this.answers = [];
@@ -196,7 +204,7 @@ const ShrineUI = {
         this.questions = QuizHelper.pick(QuizHelper.gradeByDifficulty(diff), 12);
         this._renderQuestion();
       });
-      document.getElementById('quiz-quit').addEventListener('click', () => this.close());
+      this._bindTap(document.getElementById('quiz-quit'), () => this.close());
     }
   },
 
@@ -239,6 +247,23 @@ const ShrineUI = {
     return String(text == null ? '' : text).replace(/[&<>"']/g, ch => ({
       '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
     }[ch]));
+  },
+
+  _bindTap(el, fn) {
+    if (!el || !fn) return;
+    let lastRun = 0;
+    const run = (e) => {
+      if (e) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+      const now = Date.now();
+      if (now - lastRun < 260) return;
+      lastRun = now;
+      fn();
+    };
+    el.addEventListener('click', run);
+    el.addEventListener('touchend', run, { passive: false });
   },
 
   // ---------- 烟花效果（温和的粒子，不闪烁） ----------
