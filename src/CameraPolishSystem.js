@@ -9,6 +9,7 @@ const CameraPolishSystem = {
   _desiredFov: 58,
   _raycaster: new THREE.Raycaster(),
   _inspectMode: false,
+  _fadedOccluders: new Set(),
 
   update(dt, game, player) {
     if (!game || !game.camera || !player) return false;
@@ -82,7 +83,10 @@ const CameraPolishSystem = {
         .add(right.multiplyScalar(lateral));
     }
 
-    const lookAt = target.clone().setY(target.y + lookHeight);
+    const lookAhead = this._inspectMode || locked || bow
+      ? new THREE.Vector3()
+      : new THREE.Vector3(Math.sin(player.facing), 0, Math.cos(player.facing)).multiplyScalar(attacking ? 1.25 : 2.35);
+    const lookAt = target.clone().add(lookAhead).setY(target.y + lookHeight);
     camPos = this._avoidCameraCollision(game, lookAt, camPos);
     const fov = this._inspectMode ? 44 : gliding ? 64 : bow ? 52 : locked ? 56 : attacking ? 55 : 58;
     this._desiredFov += (fov - this._desiredFov) * this._alpha(dt, 6);
@@ -102,6 +106,7 @@ const CameraPolishSystem = {
 
     camera.position.lerp(camPos, this._alpha(dt, locked || bow ? 7.5 : 6.2));
     camera.lookAt(lookAt.x, lookAt.y, lookAt.z);
+    this._fadeForegroundOccluders(dt, game, player, camera);
     return true;
   },
 
@@ -159,6 +164,54 @@ const CameraPolishSystem = {
     const hit = hits[0];
     if (!hit || hit.distance > dist - 0.5) return desired;
     return lookAt.clone().add(dir.multiplyScalar(Math.max(2.6, hit.distance - 0.75)));
+  },
+
+  _fadeForegroundOccluders(dt, game, player, camera) {
+    const world = game.currentWorld;
+    if (!world || !world.colliders || !player || !camera) return;
+    const active = new Set();
+    const a = camera.position;
+    const b = player.position;
+    const span = b.clone().sub(a);
+    const lenSq = Math.max(0.001, span.lengthSq());
+    const fadeAlpha = this._alpha(dt, 10);
+    for (const obj of world.colliders) {
+      if (!obj || !obj.userData || obj.userData.kind !== 'tree') continue;
+      if (obj.position.distanceTo(camera.position) > 18) continue;
+      const rel = obj.position.clone().sub(a);
+      const t = THREE.MathUtils.clamp(rel.dot(span) / lenSq, 0, 1);
+      const closest = a.clone().add(span.clone().multiplyScalar(t));
+      const radius = obj.userData.collisionRadius || 0.9;
+      const blocksView = t > 0.08 && t < 0.88 && closest.distanceTo(obj.position) < radius * 2.8;
+      const targetOpacity = blocksView ? 0.36 : 1;
+      if (blocksView) active.add(obj);
+      this._setOccluderOpacity(obj, targetOpacity, fadeAlpha);
+    }
+    for (const obj of this._fadedOccluders) {
+      if (!active.has(obj)) this._setOccluderOpacity(obj, 1, fadeAlpha);
+    }
+    this._fadedOccluders = active;
+  },
+
+  _setOccluderOpacity(obj, targetOpacity, alpha) {
+    obj.traverse(child => {
+      if (!child.isMesh || !child.material) return;
+      if (!child.userData.occlusionMaterialCloned) {
+        const mats = Array.isArray(child.material) ? child.material : [child.material];
+        child.material = Array.isArray(child.material) ? mats.map(m => m.clone()) : child.material.clone();
+        child.userData.occlusionMaterialCloned = true;
+      }
+      const mats = Array.isArray(child.material) ? child.material : [child.material];
+      for (const mat of mats) {
+        if (!mat || !('opacity' in mat)) continue;
+        if (mat.userData.occlusionBaseOpacity == null) mat.userData.occlusionBaseOpacity = mat.opacity == null ? 1 : mat.opacity;
+        const base = mat.userData.occlusionBaseOpacity;
+        const desired = base * targetOpacity;
+        mat.opacity += (desired - mat.opacity) * alpha;
+        mat.transparent = mat.opacity < base * 0.985;
+        mat.depthWrite = !mat.transparent;
+      }
+    });
   }
 };
 

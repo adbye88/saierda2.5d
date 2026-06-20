@@ -13,18 +13,18 @@ class Grassland extends BaseScene {
   build() {
     this._setupGround(0x6a9a4a, 'grass');
 
-    // 散布大量树木（大地图）
-    this.scatter(() => AssetFactory.createTree(), 150);
-    this.scatter(() => AssetFactory.createBigTree(), 58);
-    this.scatter(() => AssetFactory.createPine(), 48);
+    // 散布基础自然物；第五阶段后改为“少量随机底噪 + 路线节点簇状布置”，避免测试地图式平均撒点
+    this.scatter(() => AssetFactory.createTree(), 76);
+    this.scatter(() => AssetFactory.createBigTree(), 28);
+    this.scatter(() => AssetFactory.createPine(), 24);
     // 石头
-    this.scatter(() => AssetFactory.createRock(0.6 + Math.random() * 0.8), 88);
+    this.scatter(() => AssetFactory.createRock(0.6 + Math.random() * 0.8), 46);
     // 灌木
-    this.scatter(() => AssetFactory.createBush(), 98);
+    this.scatter(() => AssetFactory.createBush(), 48);
     // 花朵
-    this.scatter(() => AssetFactory.createFlower(), 52, 2);
+    this.scatter(() => AssetFactory.createFlower(), 34, 2);
     // 草丛
-    this.scatter(() => AssetFactory.createGrassTuft(), 150, 2);
+    this.scatter(() => AssetFactory.createGrassTuft(), 92, 2);
 
     // ★ 山体（地图边缘形成天然屏障）
     const mountainSpots = [
@@ -65,6 +65,9 @@ class Grassland extends BaseScene {
     bridgeField.rotation.y = Math.PI / 2;
     this.scene.add(bridgeField);
     this.addBridgeZone(-35, 112, 4, 16, Math.PI / 2);
+
+    // ★ 第五阶段：明确出生点 → 小路 → 遭遇 → 河岸 → 营地/遗迹 → 远处目标的关卡动线
+    this._setupLevelComposition();
 
     // 可攀爬山坡
     for (const [x, z, r, h] of [[28, 28, 6, 1.6], [-62, 62, 7, 1.8], [62, -12, 5, 1.3], [108, 52, 8, 2.0], [-112, 94, 7, 2.1], [92, -98, 9, 2.4]]) {
@@ -140,18 +143,17 @@ class Grassland extends BaseScene {
 
     // 敌人（大地图更多怪物）
     const enemySpots = [
-      [-15, -8, 'redBokoblin'], [-25, 5, 'redBokoblin'], [30, -25, 'blueBokoblin'],
-      [-30, 20, 'octorok'], [35, 15, 'redBokoblin'], [-35, -20, 'blueBokoblin'],
-      [40, -40, 'redBokoblin'], [-40, 40, 'chuchu'], [50, 30, 'blueBokoblin'],
-      [-50, -30, 'chuchu'], [60, -50, 'octorok'], [-60, 50, 'redBokoblin'],
-      [70, -20, 'blueBokoblin'], [-70, 20, 'stal'], [10, -60, 'chuchu'],
-      [-10, 60, 'redBokoblin'], [20, 70, 'octorok'], [-20, -70, 'stal'],
-      [45, 55, 'blueBokoblin'], [-45, -55, 'redBokoblin'],
-      [-55, 10, 'archerBokoblin'], [58, 10, 'archerBokoblin'],
-      [72, 62, 'archerBokoblin'], [-72, -62, 'archerBokoblin'],
-      [25, -72, 'stonePebblit'], [-32, 72, 'stonePebblit'],
-      [64, -72, 'stonePebblit'], [-68, 64, 'stonePebblit'],
-      [5, -82, 'blackBokoblin'], [82, 5, 'blueBokoblin']
+      // 第一遭遇：出生点前方小路边
+      [22, -24, 'redBokoblin'], [30, -30, 'chuchu'], [35, -18, 'archerBokoblin'],
+      // 桥头遭遇：河岸掩体和踏步附近
+      [-22, 16, 'redBokoblin'], [-50, 12, 'blueBokoblin'], [-55, 24, 'archerBokoblin'],
+      // 营地遭遇：路线上第一个完整战斗场
+      [-66, -38, 'redBokoblin'], [-73, -32, 'blueBokoblin'], [-58, -50, 'archerBokoblin'],
+      // 北侧遗迹/传送目标前的精英守卫
+      [-20, -74, 'stal'], [0, -82, 'blackBokoblin'], [24, -72, 'stonePebblit'],
+      // 支线与远景威胁保留少量，不再平均撒满首屏
+      [62, 30, 'blueBokoblin'], [-70, 58, 'redBokoblin'], [74, 70, 'archerBokoblin'],
+      [92, 5, 'blueBokoblin'], [-82, -70, 'stonePebblit']
     ];
     for (const [x, z, type] of enemySpots) {
       this.enemies.push(new Enemy(type, x, z));
@@ -290,6 +292,8 @@ class Grassland extends BaseScene {
     this.addTower(160, -150, '海拉鲁平原鸟望塔');
     this.addTower(-160, 150, '竞技场遗迹鸟望塔');
 
+    this._groundStructuresIntoScene();
+
     if (typeof StorySystem !== 'undefined') {
       StorySystem.addMemoryMarker(this, 'plateauAwakening', -22, 18, { color: 0x66ddcc });
       StorySystem.addMemoryMarker(this, 'towerVow', 70, 68, { color: 0xffd56a });
@@ -311,6 +315,288 @@ class Grassland extends BaseScene {
     this._setupLeaves();
     // 篝火火焰动画引用
     this.fire = fire;
+  }
+
+  _setupLevelComposition() {
+    this.routePaths = [
+      {
+        kind: 'main',
+        width: 8.5,
+        points: [
+          { x: 0, z: 22 }, { x: 4, z: 9 }, { x: 12, z: -10 }, { x: 27, z: -26 },
+          { x: 5, z: -18 }, { x: -18, z: -2 }, { x: -35, z: 15 },
+          { x: -52, z: -4 }, { x: -68, z: -38 }, { x: -42, z: -66 }, { x: 0, z: -90 }
+        ]
+      },
+      { kind: 'branch', width: 5.5, points: [{ x: 3, z: 9 }, { x: 8, z: 5 }, { x: 15, z: -15 }] },
+      { kind: 'branch', width: 5.2, points: [{ x: -35, z: 15 }, { x: -45, z: 33 }, { x: -70, z: 58 }] }
+    ];
+    this.landmarkPoints = [
+      { x: 27, z: -26, type: 'firstEncounter' },
+      { x: -35, z: 15, type: 'bridgeNode' },
+      { x: -68, z: -38, type: 'campNode' },
+      { x: 0, z: -90, type: 'gateNode' }
+    ];
+
+    const roadMat = new THREE.ShaderMaterial({
+      transparent: true,
+      depthWrite: false,
+      uniforms: {
+        uColor: { value: new THREE.Color(0x786448) },
+        uDust: { value: new THREE.Color(0xa38d65) },
+        uOpacity: { value: 0.36 }
+      },
+      vertexShader: `
+        varying vec2 vUv;
+        varying vec3 vWorld;
+        void main() {
+          vUv = uv;
+          vec4 wp = modelMatrix * vec4(position, 1.0);
+          vWorld = wp.xyz;
+          gl_Position = projectionMatrix * viewMatrix * wp;
+        }`,
+      fragmentShader: `
+        uniform vec3 uColor;
+        uniform vec3 uDust;
+        uniform float uOpacity;
+        varying vec2 vUv;
+        varying vec3 vWorld;
+        float hash(vec2 p) {
+          return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123);
+        }
+        void main() {
+          float edge = abs(vUv.x - 0.5) * 2.0;
+          float sideFade = 1.0 - smoothstep(0.58, 0.98, edge);
+          float endFade = smoothstep(0.0, 0.14, vUv.y) * (1.0 - smoothstep(0.86, 1.0, vUv.y));
+          float noise = hash(floor(vWorld.xz * 1.45));
+          float broken = smoothstep(0.12, 0.74, noise + (1.0 - edge) * 0.22);
+          vec3 color = mix(uColor, uDust, 0.18 + noise * 0.18);
+          float alpha = uOpacity * sideFade * endFade * (0.45 + broken * 0.55);
+          if (alpha < 0.025) discard;
+          gl_FragColor = vec4(color, alpha);
+        }`
+    });
+    for (const path of this.routePaths) {
+      this._addRoadPolyline(path.points, path.width, roadMat);
+    }
+    this._addRouteDetailClusters();
+    this._addRiverWetlands();
+    this._addCampNode(-68, -38);
+    this._addEncounterNode(27, -26);
+    this._addGateApproach(0, -90);
+  }
+
+  _addRoadPolyline(points, width, mat) {
+    for (let i = 0; i < points.length - 1; i++) {
+      const a = points[i], b = points[i + 1];
+      const dx = b.x - a.x;
+      const dz = b.z - a.z;
+      const len = Math.hypot(dx, dz);
+      const strip = new THREE.Mesh(new THREE.PlaneGeometry(width, len + width * 0.35, 1, 1), mat);
+      strip.rotation.x = -Math.PI / 2;
+      strip.rotation.z = -Math.atan2(dx, dz);
+      strip.position.set((a.x + b.x) / 2, 0.062, (a.z + b.z) / 2);
+      strip.renderOrder = 1;
+      this.scene.add(strip);
+      const steps = Math.max(3, Math.floor(len / 6));
+      for (let j = 0; j <= steps; j++) {
+        const t = j / steps;
+        const x = a.x + dx * t;
+        const z = a.z + dz * t;
+        const side = ((i + j) % 4 < 2) ? 1 : -1;
+        const nx = dz / Math.max(0.001, len) * side;
+        const nz = -dx / Math.max(0.001, len) * side;
+        if ((i + j) % 2 === 0) {
+          this._addPathEdgeDetail(x + nx * (width * 0.56 + Math.random() * 1.4), z + nz * (width * 0.56 + Math.random() * 1.4), 0.7 + Math.random() * 0.5);
+        }
+        if ((i + j) % 3 === 0) {
+          this._addRoadPebblePatch(x + (Math.random() - 0.5) * width * 0.42, z + (Math.random() - 0.5) * width * 0.42, 0.45 + Math.random() * 0.5);
+        }
+      }
+    }
+  }
+
+  _addRoadPebblePatch(x, z, s = 1) {
+    this._roadPebbleMat = this._roadPebbleMat || new THREE.MeshStandardMaterial({
+      color: 0x8b7a5a,
+      roughness: 1,
+      transparent: true,
+      opacity: 0.42,
+      depthWrite: false
+    });
+    const patch = new THREE.Mesh(new THREE.CircleGeometry(0.35 * s, 9), this._roadPebbleMat);
+    patch.rotation.x = -Math.PI / 2;
+    patch.rotation.z = Math.random() * Math.PI;
+    patch.scale.set(1.6 + Math.random() * 0.9, 0.55 + Math.random() * 0.35, 1);
+    patch.position.set(x, 0.068, z);
+    patch.renderOrder = 2;
+    this.scene.add(patch);
+  }
+
+  _addPathEdgeDetail(x, z, s = 1) {
+    const pick = Math.random();
+    const obj = pick < 0.34 ? AssetFactory.createGrassTuft()
+      : pick < 0.62 ? AssetFactory.createBush()
+      : pick < 0.82 ? AssetFactory.createFlower()
+      : AssetFactory.createRock(0.22 + Math.random() * 0.25);
+    obj.position.set(x, 0, z);
+    obj.scale.setScalar(s * (0.65 + Math.random() * 0.35));
+    obj.rotation.y = Math.random() * Math.PI * 2;
+    this.addProp(obj, false);
+  }
+
+  _addRouteDetailClusters() {
+    const clusters = [
+      { x: 2, z: 20, trees: 2, rocks: 3, grass: 16 },
+      { x: 8, z: 2, trees: 1, rocks: 2, grass: 12 },
+      { x: 17, z: -12, trees: 1, rocks: 3, grass: 14 },
+      { x: 22, z: -24, trees: 2, rocks: 5, grass: 14 },
+      { x: -35, z: 15, trees: 1, rocks: 7, grass: 16 },
+      { x: -67, z: -38, trees: 3, rocks: 5, grass: 18 },
+      { x: -4, z: -88, trees: 1, rocks: 8, grass: 12 }
+    ];
+    for (const c of clusters) {
+      for (let i = 0; i < c.trees; i++) this._placeClusterProp(AssetFactory.createTree(), c, 7, true);
+      for (let i = 0; i < c.rocks; i++) this._placeClusterProp(AssetFactory.createRock(0.25 + Math.random() * 0.5), c, 6, false);
+      for (let i = 0; i < c.grass; i++) this._placeClusterProp(i % 5 === 0 ? AssetFactory.createFlower() : AssetFactory.createGrassTuft(), c, 8, false);
+    }
+  }
+
+  _placeClusterProp(obj, c, r, collide) {
+    const a = Math.random() * Math.PI * 2;
+    const d = Math.sqrt(Math.random()) * r;
+    obj.position.set(c.x + Math.cos(a) * d, 0, c.z + Math.sin(a) * d);
+    obj.rotation.y = Math.random() * Math.PI * 2;
+    obj.scale.setScalar(0.75 + Math.random() * 0.55);
+    this.addProp(obj, collide && !!obj.userData.collisionRadius);
+  }
+
+  _addRiverWetlands() {
+    const mudMat = new THREE.MeshStandardMaterial({ color: 0x5f6245, roughness: 1, transparent: true, opacity: 0.46, depthWrite: false });
+    for (const z of [-92, -72, -42, -12, 15, 45, 82, 112]) {
+      const patch = new THREE.Mesh(new THREE.CircleGeometry(3.2 + Math.random() * 2.6, 18), mudMat);
+      patch.rotation.x = -Math.PI / 2;
+      patch.position.set(-35 + (Math.random() - 0.5) * 11, 0.064, z + (Math.random() - 0.5) * 5);
+      patch.scale.set(1.9, 0.65, 1);
+      patch.rotation.z = Math.random() * Math.PI;
+      patch.renderOrder = 1;
+      this.scene.add(patch);
+    }
+    for (let i = 0; i < 72; i++) {
+      const side = i % 2 ? 1 : -1;
+      const z = -112 + Math.random() * 244;
+      const x = -35 + side * (6.1 + Math.random() * 2.8);
+      const reed = this._createReeds();
+      reed.position.set(x, 0.02, z);
+      reed.rotation.y = Math.random() * Math.PI * 2;
+      this.scene.add(reed);
+    }
+    for (let i = 0; i < 6; i++) {
+      const stone = AssetFactory.createRock(0.32 + Math.random() * 0.18);
+      stone.position.set(-39 + i * 1.55, 0.03, 51 + Math.sin(i) * 0.6);
+      stone.scale.set(1.35, 0.32, 0.9);
+      this.addProp(stone, false);
+    }
+  }
+
+  _createReeds() {
+    const g = new THREE.Group();
+    const reedMat = new THREE.MeshStandardMaterial({ color: 0x6f7b46, roughness: 0.9, flatShading: true });
+    const tipMat = new THREE.MeshStandardMaterial({ color: 0x7a5130, roughness: 0.86, flatShading: true });
+    for (let i = 0; i < 3; i++) {
+      const stalk = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.024, 0.75 + Math.random() * 0.45, 5), reedMat);
+      stalk.position.set((Math.random() - 0.5) * 0.35, 0.38, (Math.random() - 0.5) * 0.35);
+      stalk.rotation.x = (Math.random() - 0.5) * 0.25;
+      stalk.rotation.z = (Math.random() - 0.5) * 0.25;
+      g.add(stalk);
+      const tip = new THREE.Mesh(new THREE.ConeGeometry(0.035, 0.18, 5), tipMat);
+      tip.position.copy(stalk.position).setY(0.88 + Math.random() * 0.28);
+      g.add(tip);
+    }
+    g.scale.setScalar(0.9 + Math.random() * 0.35);
+    return g;
+  }
+
+  _addEncounterNode(x, z) {
+    this._addSignpost(x - 8, z + 6, '小路边有怪物脚印');
+    for (let i = 0; i < 4; i++) {
+      const stump = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.16, 0.22, 0.55, 6),
+        new THREE.MeshStandardMaterial({ color: 0x5a3922, roughness: 0.9, flatShading: true })
+      );
+      stump.position.set(x - 4 + i * 2.2, 0.28, z + 5 + Math.sin(i) * 1.3);
+      stump.rotation.y = Math.random() * Math.PI;
+      this.scene.add(stump);
+    }
+  }
+
+  _addCampNode(x, z) {
+    const fire = AssetFactory.createCampfire();
+    fire.position.set(x, 0, z);
+    this.scene.add(fire);
+    const ground = new THREE.Mesh(
+      new THREE.CircleGeometry(7.2, 22),
+      new THREE.MeshStandardMaterial({ color: 0x6b5138, roughness: 1, transparent: true, opacity: 0.52, depthWrite: false })
+    );
+    ground.rotation.x = -Math.PI / 2;
+    ground.position.set(x, 0.066, z);
+    ground.renderOrder = 2;
+    this.scene.add(ground);
+    for (let i = 0; i < 5; i++) {
+      const box = new THREE.Mesh(
+        new THREE.BoxGeometry(0.75, 0.55, 0.75),
+        new THREE.MeshStandardMaterial({ color: 0x6a4a2e, roughness: 0.9, flatShading: true })
+      );
+      box.position.set(x + 3.5 + (i % 2) * 0.8, 0.28, z - 2.8 + Math.floor(i / 2) * 0.75);
+      box.rotation.y = Math.random() * 0.8;
+      box.castShadow = true;
+      this.scene.add(box);
+    }
+    this.fire = this.fire || fire;
+  }
+
+  _addGateApproach(x, z) {
+    const focus = new THREE.Mesh(
+      new THREE.TorusGeometry(5.2, 0.06, 6, 32),
+      new THREE.MeshBasicMaterial({ color: 0x8fe8d0, transparent: true, opacity: 0.28, blending: THREE.AdditiveBlending })
+    );
+    focus.rotation.x = Math.PI / 2;
+    focus.position.set(x, 0.08, z);
+    this.scene.add(focus);
+    this._addSignpost(x - 8, z + 8, '北方森林入口');
+  }
+
+  _groundStructuresIntoScene() {
+    const points = [
+      { x: 15, z: -15, r: 4.8, color: 0x6a563f },
+      { x: 8, z: 5, r: 4.2, color: 0x7a6f50 },
+      { x: 75, z: 75, r: 7, color: 0x5e6048 },
+      { x: 0, z: -90, r: 6.8, color: 0x4f6359 }
+    ];
+    for (const p of points) {
+      const base = new THREE.Mesh(
+        new THREE.CircleGeometry(p.r, 24),
+        new THREE.MeshStandardMaterial({ color: p.color, roughness: 1, transparent: true, opacity: 0.36, depthWrite: false })
+      );
+      base.rotation.x = -Math.PI / 2;
+      base.position.set(p.x, 0.063, p.z);
+      base.renderOrder = 1;
+      this.scene.add(base);
+    }
+  }
+
+  _addSignpost(x, z, label) {
+    const g = new THREE.Group();
+    const wood = new THREE.MeshStandardMaterial({ color: 0x5b3a22, roughness: 0.88, flatShading: true });
+    const post = new THREE.Mesh(new THREE.BoxGeometry(0.12, 1.1, 0.12), wood);
+    post.position.y = 0.55;
+    const board = new THREE.Mesh(new THREE.BoxGeometry(0.95, 0.28, 0.08), wood);
+    board.position.set(0.28, 0.95, 0);
+    g.add(post, board);
+    g.position.set(x, 0, z);
+    g.rotation.y = Math.random() * 0.35 - 0.15;
+    g.userData.label = label;
+    this.scene.add(g);
   }
 
   // 落叶粒子

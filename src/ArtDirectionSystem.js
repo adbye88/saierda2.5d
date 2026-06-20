@@ -157,6 +157,23 @@ const ArtDirectionSystem = {
         const c = new THREE.Color(preset.ground[idx]);
         const dirtBlend = n1 > 0.61 && n2 > 0.5 ? 0.42 : n1 > 0.68 ? 0.22 : 0;
         if (dirtBlend > 0) c.lerp(new THREE.Color(preset.dirt), dirtBlend);
+        const route = this._distanceToRoutes(world, x, z);
+        const routeBlend = route < 0.0 ? 0 : THREE.MathUtils.clamp(1 - route / 7.5, 0, 1);
+        if (routeBlend > 0) {
+          c.lerp(new THREE.Color(preset.dirt), 0.72 * routeBlend);
+          c.offsetHSL(0.015, -0.06, -0.035 * routeBlend);
+        }
+        const waterEdge = this._distanceToWaterZones(world, x, z);
+        const wetBlend = waterEdge < 0.0 ? 0 : THREE.MathUtils.clamp(1 - waterEdge / 8.0, 0, 1);
+        if (wetBlend > 0) {
+          c.lerp(new THREE.Color(world.name === 'grassland' ? 0x5d674a : preset.dirt), 0.46 * wetBlend);
+          c.offsetHSL(-0.015, -0.05, -0.035);
+        }
+        const landmarkBlend = this._distanceToLandmarks(world, x, z);
+        if (landmarkBlend > 0) {
+          c.lerp(new THREE.Color(preset.dirt), 0.5 * landmarkBlend);
+          c.offsetHSL(0.01, -0.04, -0.025);
+        }
         c.offsetHSL((n2 - 0.5) * 0.018, -0.02 + (n1 - 0.5) * 0.08, -0.08 + (n2 - 0.5) * 0.12);
         colors[i * 3] = c.r;
         colors[i * 3 + 1] = c.g;
@@ -397,8 +414,8 @@ const ArtDirectionSystem = {
   },
 
   _waterMaterial(worldName, preset) {
-    const deep = worldName === 'snowland' ? 0x79c8e8 : 0x276d9a;
-    const shallow = worldName === 'snowland' ? 0xc8f7ff : 0x88d6c8;
+    const deep = worldName === 'snowland' ? 0x79c8e8 : 0x2f7784;
+    const shallow = worldName === 'snowland' ? 0xc8f7ff : 0x78b8a0;
     return new THREE.ShaderMaterial({
       transparent: true,
       depthWrite: false,
@@ -406,7 +423,7 @@ const ArtDirectionSystem = {
         uTime: { value: 0 },
         uDeep: { value: new THREE.Color(deep) },
         uShallow: { value: new THREE.Color(shallow) },
-        uOpacity: { value: worldName === 'snowland' ? 0.58 : 0.72 }
+        uOpacity: { value: worldName === 'snowland' ? 0.58 : 0.64 }
       },
       vertexShader: `
         varying vec2 vUv;
@@ -425,7 +442,7 @@ const ArtDirectionSystem = {
           float flow = sin(vUv.y * 34.0 + uTime * 2.2 + sin(vUv.x * 8.0)) * 0.5 + 0.5;
           float ripple = sin((vUv.y + vUv.x * .32) * 75.0 + uTime * 4.1) * 0.5 + 0.5;
           vec3 c = mix(uDeep, uShallow, clamp(edge * 0.72 + flow * 0.18, 0.0, 1.0));
-          c += vec3(0.10, 0.14, 0.16) * smoothstep(0.86, 1.0, ripple) * (1.0 - edge * 0.45);
+          c += vec3(0.055, 0.08, 0.09) * smoothstep(0.86, 1.0, ripple) * (1.0 - edge * 0.45);
           float foam = smoothstep(0.78, 1.0, edge) * (0.28 + flow * 0.18);
           gl_FragColor = vec4(mix(c, vec3(0.86, 0.96, 1.0), foam), uOpacity + foam * 0.18);
         }`
@@ -435,12 +452,12 @@ const ArtDirectionSystem = {
   _addRiverBanks(river, width, length, preset) {
     if (river.userData.artBanks) return;
     river.userData.artBanks = true;
-    const bankMat = new THREE.MeshStandardMaterial({ color: new THREE.Color(preset.dirt), roughness: 0.98, transparent: true, opacity: 0.55, depthWrite: false });
+    const bankMat = new THREE.MeshStandardMaterial({ color: new THREE.Color(preset.dirt), roughness: 0.98, transparent: true, opacity: 0.50, depthWrite: false });
     const stoneMat = new THREE.MeshStandardMaterial({ color: 0xa9a28f, roughness: 0.96, flatShading: true });
     [-1, 1].forEach(side => {
-      const strip = new THREE.Mesh(new THREE.PlaneGeometry(0.9, length, 1, 18), bankMat);
+      const strip = new THREE.Mesh(new THREE.PlaneGeometry(1.6, length, 1, 18), bankMat);
       strip.rotation.x = -Math.PI / 2;
-      strip.position.set(side * (width / 2 + 0.28), 0.055, 0);
+      strip.position.set(side * (width / 2 + 0.58), 0.055, 0);
       river.add(strip);
       for (let i = 0; i < Math.max(10, Math.floor(length / 18)); i++) {
         const stone = new THREE.Mesh(new THREE.DodecahedronGeometry(0.18 + Math.random() * 0.22, 0), stoneMat);
@@ -462,7 +479,12 @@ const ArtDirectionSystem = {
       for (const mat of mats) {
         if (!mat || mat.isShaderMaterial || mat.isMeshBasicMaterial) continue;
         if (mat.color && obj.userData && obj.userData.kind === 'tree') {
-          mat.color.offsetHSL(0, -0.04, -0.03);
+          mat.color.offsetHSL(0, -0.07, 0.035);
+          if ('emissive' in mat) {
+            mat.emissive = mat.emissive || new THREE.Color(0x000000);
+            mat.emissive.setHex(0x18210f);
+            mat.emissiveIntensity = Math.max(mat.emissiveIntensity || 0, 0.035);
+          }
         }
         if ('roughness' in mat) mat.roughness = Math.max(mat.roughness || 0.8, 0.82);
         if ('metalness' in mat) mat.metalness = Math.min(mat.metalness || 0, 0.08);
@@ -481,6 +503,55 @@ const ArtDirectionSystem = {
       return { x, z };
     }
     return { x, z };
+  },
+
+  _distanceToRoutes(world, x, z) {
+    if (!world || !Array.isArray(world.routePaths)) return -1;
+    let best = Infinity;
+    for (const route of world.routePaths) {
+      const pts = route.points || [];
+      const width = route.width || 6;
+      for (let i = 0; i < pts.length - 1; i++) {
+        best = Math.min(best, this._distanceToSegment(x, z, pts[i].x, pts[i].z, pts[i + 1].x, pts[i + 1].z) - width * 0.5);
+      }
+    }
+    return best;
+  },
+
+  _distanceToWaterZones(world, x, z) {
+    if (!world || !Array.isArray(world.waterZones)) return -1;
+    let best = Infinity;
+    for (const zone of world.waterZones) {
+      const dx = x - zone.x;
+      const dz = z - zone.z;
+      const a = -(zone.rotation || 0);
+      const lx = dx * Math.cos(a) - dz * Math.sin(a);
+      const lz = dx * Math.sin(a) + dz * Math.cos(a);
+      const edgeX = Math.abs(lx) - (zone.width || 8) * 0.5;
+      const edgeZ = Math.abs(lz) - (zone.length || 80) * 0.5;
+      if (edgeZ > 0) continue;
+      best = Math.min(best, Math.max(0, edgeX));
+    }
+    return best === Infinity ? -1 : best;
+  },
+
+  _distanceToLandmarks(world, x, z) {
+    if (!world || !Array.isArray(world.landmarkPoints)) return 0;
+    let blend = 0;
+    for (const p of world.landmarkPoints) {
+      const d = Math.hypot(x - p.x, z - p.z);
+      blend = Math.max(blend, THREE.MathUtils.clamp(1 - d / 9.5, 0, 1));
+    }
+    return blend;
+  },
+
+  _distanceToSegment(px, pz, ax, az, bx, bz) {
+    const dx = bx - ax;
+    const dz = bz - az;
+    const lenSq = dx * dx + dz * dz;
+    if (lenSq < 0.001) return Math.hypot(px - ax, pz - az);
+    const t = THREE.MathUtils.clamp(((px - ax) * dx + (pz - az) * dz) / lenSq, 0, 1);
+    return Math.hypot(px - (ax + dx * t), pz - (az + dz * t));
   },
 
   _hex(hex) {
