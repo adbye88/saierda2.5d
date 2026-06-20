@@ -196,19 +196,28 @@ const COOKING_RECIPES = {
 
 // ---------- 物品堆叠 ----------
 class ItemStack {
-  constructor(itemId, count = 1) {
+  constructor(itemId, count = 1, options = {}) {
     this.itemId = itemId;
     this.count = count;
-    this.durability = ITEMS[itemId].durability || 0;
+    const def = ITEMS[itemId] || {};
+    const baseDurability = def.durability || 0;
+    const durable = ['weapon', 'shield', 'bow'].includes(def.type) && baseDurability > 0;
+    const multiplier = durable ? Math.max(1, Number(options.durabilityMultiplier || 1)) : 1;
+    this.source = options.source || 'world';
+    this.maxDurability = durable ? Math.round(baseDurability * multiplier) : baseDurability;
+    this.durability = options.durability !== undefined
+      ? options.durability
+      : this.maxDurability;
   }
   get def() { return ITEMS[this.itemId]; }
   get name() { return this.def.name; }
 }
 
-function newItemStack(itemId, count = 1) {
-  const stack = new ItemStack(itemId, count);
+function newItemStack(itemId, count = 1, options = {}) {
+  const stack = new ItemStack(itemId, count, options);
   const def = ITEMS[itemId];
-  if ((def.type === 'weapon' || def.type === 'shield' || def.type === 'bow') && def.durability) {
+  if ((def.type === 'weapon' || def.type === 'shield' || def.type === 'bow') && def.durability && !options.durabilityMultiplier && options.durability === undefined) {
+    stack.maxDurability = def.durability;
     stack.durability = def.durability;
   }
   return stack;

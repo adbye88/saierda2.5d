@@ -130,7 +130,8 @@ const ShopUI = {
   _stackMeta(stack, equipped) {
     const d = stack.def;
     const typeName = { weapon:'武器', shield:'盾牌', bow:'弓', armor_upper:'上衣', armor_lower:'裤子', food:'食物', material:'材料', key:'重要物品' }[d.type] || d.type;
-    const durability = d.durability ? ` · 耐久 ${stack.durability}/${d.durability}` : '';
+    const maxDurability = stack.maxDurability || d.durability;
+    const durability = d.durability ? ` · 耐久 ${stack.durability}/${maxDurability}` : '';
     return `${typeName}${durability}${equipped ? ' · 卖出后会卸下' : ''}`;
   },
 

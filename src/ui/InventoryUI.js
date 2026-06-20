@@ -68,7 +68,8 @@ const InventoryUI = {
       const count = def.stackable ? `<div class="count">×${stack.count}</div>` : '';
       let durability = '';
       if ((def.type === 'weapon' || def.type === 'shield' || def.type === 'bow') && def.durability) {
-        const pct = Math.max(0, stack.durability / def.durability * 100);
+        const maxDurability = stack.maxDurability || def.durability;
+        const pct = Math.min(100, Math.max(0, stack.durability / maxDurability * 100));
         const color = pct > 50 ? '#5aff5a' : pct > 20 ? '#ffd54f' : '#ff5a5a';
         durability = `<div class="durability"><div style="width:${pct}%;background:${color}"></div></div>`;
       }
@@ -94,21 +95,27 @@ const InventoryUI = {
       let stats = '';
       if (d.type === 'weapon') {
         const crit = inv.getCriticalStats ? inv.getCriticalStats('weapon', this.selected) : { chance: 0.01, multiplier: 2 };
+        const maxDurability = this.selected.maxDurability || d.durability;
         stats = `<div class="detail-stats">
           <span class="stat-pill atk">⚔️ 攻击 ${d.atk}</span>
-          <span class="stat-pill">耐久 ${this.selected.durability}/${d.durability}</span>
+          <span class="stat-pill">耐久 ${this.selected.durability}/${maxDurability}</span>
+          ${this.selected.source === 'crafted' ? '<span class="stat-pill">🔨 打造耐久×10</span>' : ''}
           <span class="stat-pill">✦ 暴击 ${(crit.chance * 100).toFixed(1)}% / ×${crit.multiplier.toFixed(1)}</span>
         </div>`;
       } else if (d.type === 'shield') {
+        const maxDurability = this.selected.maxDurability || d.durability;
         stats = `<div class="detail-stats">
           <span class="stat-pill def">🛡️ 防御 ${d.def}</span>
-          <span class="stat-pill">耐久 ${this.selected.durability}/${d.durability}</span>
+          <span class="stat-pill">耐久 ${this.selected.durability}/${maxDurability}</span>
+          ${this.selected.source === 'crafted' ? '<span class="stat-pill">🔨 打造耐久×10</span>' : ''}
         </div>`;
       } else if (d.type === 'bow') {
         const crit = inv.getCriticalStats ? inv.getCriticalStats('bow', this.selected) : { chance: 0.01, multiplier: 2 };
+        const maxDurability = this.selected.maxDurability || d.durability;
         stats = `<div class="detail-stats">
           <span class="stat-pill atk">⚔️ 攻击 ${d.atk}</span>
-          <span class="stat-pill">耐久 ${this.selected.durability}/${d.durability}</span>
+          <span class="stat-pill">耐久 ${this.selected.durability}/${maxDurability}</span>
+          ${this.selected.source === 'crafted' ? '<span class="stat-pill">🔨 打造耐久×10</span>' : ''}
           <span class="stat-pill">✦ 暴击 ${(crit.chance * 100).toFixed(1)}% / ×${crit.multiplier.toFixed(1)}</span>
         </div>`;
       } else if (d.type === 'food') {
@@ -150,7 +157,8 @@ const InventoryUI = {
       const el = document.getElementById(id);
       if (stack) {
         const d = stack.def;
-        const pct = d.durability ? Math.max(0, (stack.durability / d.durability * 100).toFixed(0)) : 100;
+        const maxDurability = stack.maxDurability || d.durability;
+        const pct = maxDurability ? Math.min(100, Math.max(0, (stack.durability / maxDurability * 100).toFixed(0))) : 100;
         el.innerHTML = `${ArtAssets.itemIconHtml(stack.itemId, 'slot-item-icon')}<div class="slot-dur">${pct}%</div><span class="slot-label">${d.name.slice(0,4)}</span>`;
         el.classList.add('filled');
       } else {
@@ -335,7 +343,10 @@ const InventoryUI = {
     if (d.type === 'shield') rows.push(`<span class="stat-pill def">防 ${d.def}</span>`);
     if (d.type === 'bow') rows.push(`<span class="stat-pill atk">弓攻 ${d.atk}</span>`);
     if (d.type === 'armor_upper' || d.type === 'armor_lower') rows.push(`<span class="stat-pill def">防 ${d.def}</span>`);
-    if (d.durability) rows.push(`<span class="stat-pill">耐久 ${d.durability}</span>`);
+    if (d.durability) {
+      const mul = (typeof CraftingSystem !== 'undefined' && CraftingSystem.CRAFTED_DURABILITY_MULTIPLIER) || 10;
+      rows.push(`<span class="stat-pill">打造耐久 ${d.durability * mul}</span>`);
+    }
     if (d.element) rows.push(`<span class="stat-pill">${{fire:'火', ice:'冰', shock:'雷'}[d.element] || d.element}</span>`);
     if (d.resist) rows.push(`<span class="stat-pill">${{cold:'防寒', fire:'耐火', heat:'防热'}[d.resist] || d.resist}</span>`);
     return rows.join('');

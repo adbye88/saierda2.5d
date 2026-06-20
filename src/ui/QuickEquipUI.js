@@ -44,7 +44,8 @@ const QuickEquipUI = {
     this.listEl.innerHTML = candidates.map((stack, i) => {
       const d = stack.def;
       const stat = d.type === 'weapon' || d.type === 'bow' ? `攻${d.atk}` : d.type === 'shield' ? `防${d.def}` : '';
-      const dur = d.durability ? `${stack.durability}/${d.durability}` : '';
+      const maxDurability = stack.maxDurability || d.durability;
+      const dur = d.durability ? `${stack.durability}/${maxDurability}` : '';
       const crit = (d.type === 'weapon' || d.type === 'bow') && inv.getCriticalStats
         ? `✦${(inv.getCriticalStats(d.type, stack).chance * 100).toFixed(1)}%`
         : '';

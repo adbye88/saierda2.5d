@@ -81,7 +81,7 @@ class Inventory {
   }
 
   // ---------- 添加物品 ----------
-  add(itemId, count = 1) {
+  add(itemId, count = 1, options = {}) {
     const def = ITEMS[itemId];
     if (!def) return;
     if (def.type === 'material' && itemId === 'rupee') {
@@ -96,12 +96,17 @@ class Inventory {
       let stack = list.find(s => s.itemId === itemId && s.count < this.maxPerSlot);
       if (stack) { stack.count += count; this._emit(); return; }
     }
-    const newStack = newItemStack(itemId, def.stackable ? count : 1);
+    const newStack = newItemStack(itemId, def.stackable ? count : 1, options);
     list.push(newStack);
     if (!def.stackable && count > 1) {
-      for (let i = 1; i < count; i++) list.push(newItemStack(itemId));
+      for (let i = 1; i < count; i++) list.push(newItemStack(itemId, 1, options));
     }
     this._emit();
+  }
+
+  maxDurabilityOf(stack) {
+    if (!stack || !stack.def) return 0;
+    return stack.maxDurability || stack.def.durability || 0;
   }
 
   // ---------- 查询某物品数量（钥匙物/可堆叠物） ----------
@@ -181,8 +186,9 @@ class Inventory {
     if (buy > 0) {
       let rate = 0.35;
       if (def.type === 'material' || def.type === 'food') rate = 0.5;
-      const durabilityRate = def.durability && stackOrDef.durability !== undefined
-        ? Math.max(0.2, stackOrDef.durability / def.durability)
+      const maxDurability = stackOrDef.maxDurability || def.durability;
+      const durabilityRate = maxDurability && stackOrDef.durability !== undefined
+        ? Math.max(0.2, stackOrDef.durability / maxDurability)
         : 1;
       return Math.max(1, Math.round(buy * rate * durabilityRate));
     }
@@ -321,7 +327,8 @@ class Inventory {
 
   // ---------- 序列化（存档用） ----------
   serialize() {
-    const ser = (list) => list.map(s => ({ id: s.itemId, c: s.count, d: s.durability }));
+    const serStack = (s) => s ? ({ id: s.itemId, c: s.count, d: s.durability, md: s.maxDurability, src: s.source }) : null;
+    const ser = (list) => list.map(serStack);
     return {
       rupees: this.rupees, arrows: this.arrows,
       slots: {
@@ -341,6 +348,13 @@ class Inventory {
         armor_upper: this.equipped.armor_upper ? this.equipped.armor_upper.itemId : null,
         armor_lower: this.equipped.armor_lower ? this.equipped.armor_lower.itemId : null
       },
+      equippedStacks: {
+        weapon: serStack(this.equipped.weapon),
+        shield: serStack(this.equipped.shield),
+        bow: serStack(this.equipped.bow),
+        armor_upper: serStack(this.equipped.armor_upper),
+        armor_lower: serStack(this.equipped.armor_lower)
+      },
       buffs: { ...this.buffs }
     };
   }
@@ -349,15 +363,24 @@ class Inventory {
   deserialize(data) {
     this.rupees = data.rupees || 0;
     this.arrows = data.arrows || 0;
+    const restoreStack = (s) => {
+      const stack = new ItemStack(s.id, s.c, { source: s.src || 'world', durability: s.d });
+      if (s.md !== undefined) stack.maxDurability = s.md;
+      if (s.d !== undefined) stack.durability = s.d;
+      return stack;
+    };
     for (const type in data.slots) {
-      this.slots[type] = (data.slots[type] || []).map(s => {
-        const stack = new ItemStack(s.id, s.c);
-        stack.durability = s.d;
-        return stack;
-      });
+      this.slots[type] = (data.slots[type] || []).map(restoreStack);
+    }
+    for (const t of ['weapon','shield','bow','armor_upper','armor_lower']) this.equipped[t] = null;
+    if (data.equippedStacks) {
+      for (const t of ['weapon','shield','bow','armor_upper','armor_lower']) {
+        if (data.equippedStacks[t]) this.equipped[t] = restoreStack(data.equippedStacks[t]);
+      }
     }
     const findInSlots = (type, id) => this.slots[type].find(s => s.itemId === id);
     for (const t of ['weapon','shield','bow','armor_upper','armor_lower']) {
+      if (this.equipped[t]) continue;
       const id = data.equipped[t];
       if (id) {
         const stack = findInSlots(t, id);

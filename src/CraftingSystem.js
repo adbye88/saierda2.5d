@@ -66,6 +66,7 @@ const CRAFT_OVERRIDES = {
 
 const CraftingSystem = {
   _recipes: null,
+  CRAFTED_DURABILITY_MULTIPLIER: 10,
 
   allRecipes() {
     if (this._recipes) return this._recipes;
@@ -114,7 +115,7 @@ const CraftingSystem = {
     const recipe = this.recipeFor(itemId);
     if (!this.canCraft(inv, itemId)) return { ok: false, recipe, missing: this.missing(inv, recipe) };
     for (const id in recipe.materials) inv.remove(id, recipe.materials[id]);
-    inv.add(itemId, 1);
+    inv.add(itemId, 1, { source: 'crafted', durabilityMultiplier: this.CRAFTED_DURABILITY_MULTIPLIER });
     if (window.game && window.game.player) window.game.player.refreshEquipment();
     return { ok: true, recipe, missing: [] };
   },
@@ -135,9 +136,9 @@ const CraftingSystem = {
 
   _recipeDesc(def) {
     if (def.set && ARMOR_SET_BONUSES[def.set]) return `${ARMOR_SET_BONUSES[def.set].name}部件：${ARMOR_SET_BONUSES[def.set].desc}`;
-    if (def.type === 'weapon') return `打造武器：攻击 ${def.atk}，耐久 ${def.durability}`;
-    if (def.type === 'shield') return `打造盾牌：防御 ${def.def}，耐久 ${def.durability}`;
-    if (def.type === 'bow') return `打造弓：攻击 ${def.atk}，耐久 ${def.durability}`;
+    if (def.type === 'weapon') return `打造武器：攻击 ${def.atk}，打造耐久 ${def.durability * this.CRAFTED_DURABILITY_MULTIPLIER}`;
+    if (def.type === 'shield') return `打造盾牌：防御 ${def.def}，打造耐久 ${def.durability * this.CRAFTED_DURABILITY_MULTIPLIER}`;
+    if (def.type === 'bow') return `打造弓：攻击 ${def.atk}，打造耐久 ${def.durability * this.CRAFTED_DURABILITY_MULTIPLIER}`;
     return def.desc || '';
   },
 
