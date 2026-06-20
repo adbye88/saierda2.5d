@@ -263,11 +263,15 @@ const MapMenu = {
     } else if (act === 'load') {
       const data = SaveSystem.load(slot);
       if (data) {
+        if (typeof window.__ensureGameReady === 'function') {
+          window.__ensureGameReady(data.worldName || 'grassland');
+        }
         this.close();
         document.getElementById('menu').classList.add('hidden');
         HUD.show();
         window.game.state = 'playing';
         SaveSystem.applyLoad(data);
+        window.game.start();
         Dialogue.show(`✓ 读取槽位 ${slot+1}`);
       }
     } else if (act === 'delete') {

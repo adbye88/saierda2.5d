@@ -57,7 +57,10 @@ const CloudAccountSystem = {
     this.currentUser = username;
     localStorage.setItem(this.SESSION_KEY, username);
     const synced = this.syncLatestToLocal(true);
-    return this._ok(synced ? '登录成功，已自动同步最新云进度' : '登录成功，暂无云进度可同步');
+    const pending = typeof SaveSystem !== 'undefined' && SaveSystem.hasPendingCloudCurrent && SaveSystem.hasPendingCloudCurrent();
+    return this._ok(synced
+      ? (pending ? '登录成功，云进度已同步，开始游戏时自动加载' : '登录成功，已自动同步最新云进度')
+      : '登录成功，暂无云进度可同步');
   },
 
   logout(showMsg = true) {
@@ -102,7 +105,10 @@ const CloudAccountSystem = {
     this._suspendAutoSync = true;
     const ok = SaveSystem.importCloudState(latest, true);
     this._suspendAutoSync = false;
-    if (ok && !silent) this._ok('已加载最新云存档');
+    if (ok && !silent) {
+      const pending = SaveSystem.hasPendingCloudCurrent && SaveSystem.hasPendingCloudCurrent();
+      this._ok(pending ? '已同步最新云存档，开始游戏时自动加载' : '已加载最新云存档');
+    }
     return ok;
   },
 
@@ -112,7 +118,9 @@ const CloudAccountSystem = {
     this._suspendAutoSync = true;
     const ok = SaveSystem.importCloudState(archive, true);
     this._suspendAutoSync = false;
-    return ok ? this._ok('已加载云存档：' + (archive.label || '未命名')) : this._fail('云存档加载失败');
+    if (!ok) return this._fail('云存档加载失败');
+    const pending = SaveSystem.hasPendingCloudCurrent && SaveSystem.hasPendingCloudCurrent();
+    return this._ok((pending ? '已同步云存档，开始游戏时自动加载：' : '已加载云存档：') + (archive.label || '未命名'));
   },
 
   deleteArchive(id) {

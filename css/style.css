@@ -2120,7 +2120,7 @@ html.desktop-mode #extra-buttons {
    大地图/传送/存档菜单
    ============================================================ */
 #map-menu {
-  position: absolute; inset: 0; z-index: 33;
+  position: absolute; inset: 0; z-index: 70;
   background: rgba(8,15,30,.85);
   display: flex; align-items: center; justify-content: center;
   backdrop-filter: blur(10px);

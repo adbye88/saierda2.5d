@@ -9,6 +9,7 @@ const SaveSystem = {
   KEY_PREFIX: 'wildbreath_save_',
   SLOT_COUNT: 3,
   KEY_PROGRESS: 'wildbreath_progress',  // 跨槽位共享的全局进度
+  _pendingCloudCurrent: null,
 
   // ---------- 全局进度（已解锁塔、已击败Boss） ----------
   getProgress() {
@@ -202,8 +203,12 @@ const SaveSystem = {
         }
       }
       if (typeof archive.playTime === 'number') this._savePlayTime(archive.playTime);
-      if (applyToGame && archive.current && window.game && window.game.player) {
-        this.applyLoad(archive.current);
+      if (applyToGame && archive.current) {
+        if (window.game && window.game.player) {
+          this.applyLoad(archive.current);
+        } else {
+          this._pendingCloudCurrent = archive.current;
+        }
       }
       if (typeof QuestSystem !== 'undefined') QuestSystem.init();
       if (typeof StorySystem !== 'undefined') StorySystem.init();
@@ -213,6 +218,20 @@ const SaveSystem = {
       console.error('导入云存档失败', e);
       return false;
     }
+  },
+
+  consumePendingCloudCurrent() {
+    const pending = this._pendingCloudCurrent;
+    this._pendingCloudCurrent = null;
+    return pending || null;
+  },
+
+  peekPendingCloudCurrent() {
+    return this._pendingCloudCurrent || null;
+  },
+
+  hasPendingCloudCurrent() {
+    return !!this._pendingCloudCurrent;
   },
 
   _loadPlayTime() {

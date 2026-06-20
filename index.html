@@ -11,7 +11,7 @@
 <!-- iOS 全屏：添加到主屏幕后可全屏 PWA 模式 -->
 <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🗡️</text></svg>">
 <title>旷野之息 · 迷你版</title>
-<link rel="stylesheet" href="css/style.css?v=20260620-quality-settings-2">
+<link rel="stylesheet" href="css/style.css?v=20260620-cloud-perf-1">
 </head>
 <body>
 
@@ -305,6 +305,7 @@
     <h1 id="menu-title">旷野之息</h1>
     <button id="btn-start" disabled style="opacity:.4">加载中…</button>
     <button id="btn-continue" disabled style="opacity:.4">继续游戏 (读档)</button>
+    <button id="btn-cloud" disabled style="opacity:.4">账号 / 云存档</button>
     <button id="btn-howto" disabled style="opacity:.4">操作说明</button>
     <button id="btn-quality-menu" disabled style="opacity:.4">画质设置</button>
     <div id="howto" class="hidden">
@@ -483,7 +484,7 @@ window.__enableStartButton = function() {
   if (menu) menu.classList.remove('hidden');
 
   // 启用所有按钮
-  ['btn-start','btn-continue','btn-howto','btn-quality-menu'].forEach(function(id) {
+  ['btn-start','btn-continue','btn-cloud','btn-howto','btn-quality-menu'].forEach(function(id) {
     var b = document.getElementById(id);
     if (b) { b.disabled = false; b.style.opacity = '1'; b.style.pointerEvents = 'auto'; }
   });

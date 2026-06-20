@@ -19,6 +19,7 @@ class Game {
     this.onHudUpdate = null;
     this.autoPath = null;
     this.linkTimeTimer = 0;
+    this._loopStarted = false;
   }
 
   init() {
@@ -184,11 +185,13 @@ class Game {
   start() {
     this.state = 'playing';
     this.clock.start();
+    if (this._loopStarted) return;
+    this._loopStarted = true;
     const loop = () => {
       requestAnimationFrame(loop);
       const dt = Math.min(this.clock.getDelta(), 0.05); // 防卡顿大跳
       this.update(dt);
-      this.renderer.render(this.scene, this.camera);
+      if (this.scene && this.camera) this.renderer.render(this.scene, this.camera);
     };
     loop();
   }
