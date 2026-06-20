@@ -475,6 +475,12 @@ class Enemy {
       return;
     }
     if (this.boss && this._bossActive === false) return;
+    if (this._streamActive === false) {
+      this.velocity.set(0, 0, 0);
+      this.attackPhase = null;
+      this.state = this.sleeping ? 'sleep' : 'idle';
+      return;
+    }
 
     if (this.hurtTimer > 0) this.hurtTimer -= dt;
     this._updateElementStatus(dt);

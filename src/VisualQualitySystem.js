@@ -300,16 +300,51 @@ const VisualQualitySystem = {
       const dz = obj.position.z - pz;
       const kind = obj.userData && obj.userData.kind;
       const objRadius = (kind === 'shrine' || kind === 'sheikahTower') ? radius * 1.45 : radius;
-      obj.visible = dx * dx + dz * dz <= objRadius * objRadius;
+      const showSq = objRadius * objRadius;
+      const hideRadius = objRadius * 1.22;
+      const hideSq = hideRadius * hideRadius;
+      const dSq = dx * dx + dz * dz;
+      if (obj.visible) {
+        obj.visible = dSq <= hideSq;
+      } else {
+        obj.visible = dSq <= showSq;
+      }
     }
     if (Array.isArray(world.enemies)) {
-      const enemyRadius = touch || this.level === 'low' ? 38 : this.level === 'medium' ? 58 : 110;
-      const enemyRadiusSq = enemyRadius * enemyRadius;
+      const baseVisibleRadius = touch || this.level === 'low' ? 56 : this.level === 'medium' ? 76 : 125;
+      const basePreloadRadius = baseVisibleRadius + (touch || this.level === 'low' ? 28 : 40);
+      const baseHideRadius = baseVisibleRadius + (touch || this.level === 'low' ? 16 : 22);
+      const move = player.velocity && Math.hypot(player.velocity.x || 0, player.velocity.z || 0) > 0.08
+        ? player.velocity.clone().setY(0).normalize()
+        : new THREE.Vector3(Math.sin(player.facing || 0), 0, Math.cos(player.facing || 0)).normalize();
       for (const enemy of world.enemies) {
-        if (!enemy || !enemy.mesh || enemy.dead || enemy.hp <= 0) continue;
+        if (!enemy || !enemy.mesh) continue;
+        if (enemy.dead || enemy.hp <= 0) {
+          enemy._streamActive = true;
+          enemy.mesh.visible = true;
+          continue;
+        }
         const dx = enemy.mesh.position.x - px;
         const dz = enemy.mesh.position.z - pz;
-        enemy.mesh.visible = enemy === game.lockedEnemy || dx * dx + dz * dz <= enemyRadiusSq;
+        const dist = Math.hypot(dx, dz);
+        const ahead = dist > 0.001 ? Math.max(0, (dx / dist) * move.x + (dz / dist) * move.z) : 0;
+        const frontBoost = ahead > 0.22 ? (touch || this.level === 'low' ? 24 : 34) * ahead : 0;
+        const visibleRadius = baseVisibleRadius + frontBoost;
+        const preloadRadius = basePreloadRadius + frontBoost * 1.35;
+        const hideRadius = baseHideRadius + frontBoost;
+        const visibleSq = visibleRadius * visibleRadius;
+        const preloadSq = preloadRadius * preloadRadius;
+        const hideSq = hideRadius * hideRadius;
+        const dSq = dx * dx + dz * dz;
+        const force = enemy === game.lockedEnemy || enemy.hurtTimer > 0 || enemy.attackPhase;
+        enemy._streamActive = force || dSq <= preloadSq;
+        if (force) {
+          enemy.mesh.visible = true;
+        } else if (enemy.mesh.visible) {
+          enemy.mesh.visible = dSq <= hideSq;
+        } else {
+          enemy.mesh.visible = dSq <= visibleSq;
+        }
       }
     }
   },
