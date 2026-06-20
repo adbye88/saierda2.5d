@@ -56,6 +56,30 @@ class Inventory {
     return bonus && bonus.effects ? bonus.effects : {};
   }
 
+  getCriticalStats(type = 'weapon', stackOverride = null) {
+    const stack = stackOverride || (type === 'bow' ? this.equipped.bow : this.equipped.weapon);
+    const set = this.getSetEffects ? this.getSetEffects() : {};
+    const progress = (typeof SaveSystem !== 'undefined' && SaveSystem.getProgress) ? SaveSystem.getProgress() : {};
+    const upgrade = progress.upgrades || {};
+    const baseChance = 0.01;
+    const chance = Math.min(0.65,
+      baseChance +
+      ((stack && stack.def && stack.def.critChance) || 0) +
+      (set.critChance || 0) +
+      (type === 'bow' ? (set.bowCritChance || 0) : (set.meleeCritChance || 0)) +
+      (upgrade.critChance || 0)
+    );
+    const multiplier = Math.min(3,
+      Math.max(1,
+        2 +
+        ((stack && stack.def && stack.def.critMultiplierBonus) || 0) +
+        (set.critMultiplierBonus || 0) +
+        (upgrade.critMultiplierBonus || 0)
+      )
+    );
+    return { chance, multiplier };
+  }
+
   // ---------- 添加物品 ----------
   add(itemId, count = 1) {
     const def = ITEMS[itemId];
@@ -261,9 +285,11 @@ class Inventory {
     w.durability -= amount;
     if (w.durability <= 0 && w.itemId !== 'masterSword') {
       Dialogue.show(`【${w.name}】损坏了！`);
+      const brokenName = w.name;
       this.equipped.weapon = null;
       this._emit();
       if (window.game && window.game.player) window.game.player.refreshEquipment();
+      if (typeof QuickEquipUI !== 'undefined') QuickEquipUI.prompt('weapon', brokenName);
     }
   }
   damageShield(amount = 1) {
@@ -272,9 +298,11 @@ class Inventory {
     s.durability -= amount;
     if (s.durability <= 0 && s.itemId !== 'hylianShield') {
       Dialogue.show(`【${s.name}】损坏了！`);
+      const brokenName = s.name;
       this.equipped.shield = null;
       this._emit();
       if (window.game && window.game.player) window.game.player.refreshEquipment();
+      if (typeof QuickEquipUI !== 'undefined') QuickEquipUI.prompt('shield', brokenName);
     }
   }
   damageBow(amount = 1) {
@@ -283,9 +311,11 @@ class Inventory {
     b.durability -= amount;
     if (b.durability <= 0) {
       Dialogue.show(`【${b.name}】损坏了！`);
+      const brokenName = b.name;
       this.equipped.bow = null;
       this._emit();
       if (window.game && window.game.player) window.game.player.refreshEquipment();
+      if (typeof QuickEquipUI !== 'undefined') QuickEquipUI.prompt('bow', brokenName);
     }
   }
 

@@ -33,6 +33,7 @@ class BaseScene {
       this.build();
       this._setupExplorationDefaults();
       if (typeof WorldExpansionSystem !== 'undefined') WorldExpansionSystem.apply(this);
+      this.sanitizeEnemyPositions();
       this._built = true;
     }
   }
@@ -216,6 +217,8 @@ class BaseScene {
 
   addFieldBoss(typeId, x, z, label = null) {
     const boss = new Enemy(typeId, x, z);
+    const safe = this.findSafeGroundPosition(x, z, boss.radius || 1, { maxRadius: 9, allowWater: false });
+    if (safe) boss.position.copy(safe);
     boss.userData = boss.userData || {};
     boss.userData.fieldBoss = true;
     boss.userData.fieldBossLabel = label || (boss.def && boss.def.name) || typeId;
@@ -224,6 +227,104 @@ class BaseScene {
     this.enemies.push(boss);
     this.scene.add(boss.mesh);
     return boss;
+  }
+
+  sanitizeEnemyPositions() {
+    if (!this.enemies || this.enemies.length === 0) return;
+    for (const e of this.enemies) {
+      if (!e || !e.position) continue;
+      const safe = this.findSafeGroundPosition(e.position.x, e.position.z, e.radius || 0.7, {
+        maxRadius: e.boss || e.miniBoss ? 16 : 8,
+        allowWater: e.typeId === 'octorok' || e.typeId === 'electricOctorok'
+      });
+      if (safe) e.position.copy(safe);
+    }
+  }
+
+  isActorPositionSafe(pos, radius = 0.7, options = {}) {
+    if (!pos || !this.bounds) return false;
+    const margin = Math.max(1, radius);
+    if (pos.x < this.bounds.minX + margin || pos.x > this.bounds.maxX - margin ||
+        pos.z < this.bounds.minZ + margin || pos.z > this.bounds.maxZ - margin) {
+      return false;
+    }
+    const terrain = this.getTerrainAt ? this.getTerrainAt(pos.x, pos.z) : null;
+    if (terrain && terrain.inWater && !options.allowWater) return false;
+    for (const obj of (this.colliders || [])) {
+      if (!obj || !obj.position || !obj.userData) continue;
+      const cr = obj.userData.collisionRadius || 0.6;
+      const minDist = radius + cr + (options.padding ?? 0.12);
+      if (Math.hypot(pos.x - obj.position.x, pos.z - obj.position.z) < minDist) return false;
+    }
+    return true;
+  }
+
+  findSafeGroundPosition(x, z, radius = 0.7, options = {}) {
+    const base = new THREE.Vector3(x || 0, 0, z || 0);
+    const candidates = [base];
+    const maxRadius = options.maxRadius || 10;
+    const step = options.step || 1.5;
+    for (let r = step; r <= maxRadius; r += step) {
+      const points = Math.max(8, Math.ceil(r * 5));
+      for (let i = 0; i < points; i++) {
+        const a = (i / points) * Math.PI * 2;
+        candidates.push(new THREE.Vector3(base.x + Math.cos(a) * r, 0, base.z + Math.sin(a) * r));
+      }
+    }
+    for (const c of candidates) {
+      const pos = c.clone();
+      if (this.bounds) {
+        pos.x = THREE.MathUtils.clamp(pos.x, this.bounds.minX + radius + 1, this.bounds.maxX - radius - 1);
+        pos.z = THREE.MathUtils.clamp(pos.z, this.bounds.minZ + radius + 1, this.bounds.maxZ - radius - 1);
+      }
+      const terrain = this.getTerrainAt ? this.getTerrainAt(pos.x, pos.z) : null;
+      pos.y = terrain && terrain.slope ? terrain.slope.height : 0;
+      if (this.isActorPositionSafe(pos, radius, options)) return pos;
+    }
+    return null;
+  }
+
+  constrainActorPosition(pos, radius = 0.7, fallback = null, options = {}) {
+    if (!pos) return pos;
+    const safeFallback = fallback ? fallback.clone() : pos.clone();
+    const next = pos.clone();
+    if (this.bounds) {
+      next.x = THREE.MathUtils.clamp(next.x, this.bounds.minX + radius + 1, this.bounds.maxX - radius - 1);
+      next.z = THREE.MathUtils.clamp(next.z, this.bounds.minZ + radius + 1, this.bounds.maxZ - radius - 1);
+    }
+    const terrain = this.getTerrainAt ? this.getTerrainAt(next.x, next.z) : null;
+    if (terrain && terrain.inWater && !options.allowWater) {
+      const safe = this.findSafeGroundPosition(safeFallback.x, safeFallback.z, radius, options);
+      return safe || safeFallback;
+    }
+    next.y = terrain && terrain.slope ? terrain.slope.height : Math.max(0, next.y || 0);
+    for (let pass = 0; pass < 3; pass++) {
+      for (const obj of (this.colliders || [])) {
+        if (!obj || !obj.position || !obj.userData) continue;
+        const dx = next.x - obj.position.x;
+        const dz = next.z - obj.position.z;
+        const dist = Math.hypot(dx, dz);
+        const minDist = radius + (obj.userData.collisionRadius || 0.6) + (options.padding ?? 0.12);
+        if (dist < minDist) {
+          if (dist > 0.001) {
+            next.x += (dx / dist) * (minDist - dist);
+            next.z += (dz / dist) * (minDist - dist);
+          } else {
+            next.x += minDist;
+          }
+        }
+      }
+      if (this.bounds) {
+        next.x = THREE.MathUtils.clamp(next.x, this.bounds.minX + radius + 1, this.bounds.maxX - radius - 1);
+        next.z = THREE.MathUtils.clamp(next.z, this.bounds.minZ + radius + 1, this.bounds.maxZ - radius - 1);
+      }
+    }
+    const finalTerrain = this.getTerrainAt ? this.getTerrainAt(next.x, next.z) : null;
+    next.y = finalTerrain && finalTerrain.slope ? finalTerrain.slope.height : 0;
+    if (!this.isActorPositionSafe(next, radius, options)) {
+      return this.findSafeGroundPosition(safeFallback.x, safeFallback.z, radius, options) || safeFallback;
+    }
+    return next;
   }
 
   addLootChest(id, x, z, items, label = '补给宝箱', options = {}) {
@@ -604,13 +705,17 @@ class BaseScene {
                           : (arrowType === 'ice') ? 'ice'
                           : (arrowType === 'shock') ? 'shock' : null;
             e.takeDamage(p.userData.damage, v.clone().setY(0).normalize(), element);
+            if (p.userData.critical && typeof Dialogue !== 'undefined') {
+              Dialogue.showFloat(`弓箭暴击 ×${(p.userData.critMultiplier || 2).toFixed(1)}！`, e.mesh.position.clone().setY(2.35), '#ffd86a');
+            }
             // 元素箭命中附加元素状态（点燃/冻结/麻痹敌人）
             if (element && typeof e._applyElementEffect === 'function') {
               e._applyElementEffect(e, element);
             }
             // ★ 命中特效：元素箭的彩色爆裂
             if (typeof Effects !== 'undefined') {
-              const burstColor = arrowType === 'fire' ? 0xff4422
+              const burstColor = p.userData.critical ? 0xffd86a
+                               : arrowType === 'fire' ? 0xff4422
                                : arrowType === 'ice' ? 0x66ddff
                                : arrowType === 'shock' ? 0xffee44
                                : arrowType === 'ancient' ? 0x66ddcc

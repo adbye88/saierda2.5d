@@ -979,6 +979,7 @@ class Enemy {
     const next = this.position.clone();
     next.x += this.velocity.x * dt;
     next.z += this.velocity.z * dt;
+    const before = this.position.clone();
     if (game.currentWorld.getTerrainAt) {
       const terrain = game.currentWorld.getTerrainAt(next.x, next.z);
       if (terrain.inWater) {
@@ -991,17 +992,23 @@ class Enemy {
         next.y = 0;
       }
     }
-    const b = game.currentWorld.bounds;
-    next.x = Math.max(b.minX + 1, Math.min(b.maxX - 1, next.x));
-    next.z = Math.max(b.minZ + 1, Math.min(b.maxZ - 1, next.z));
-    for (const obj of game.currentWorld.colliders) {
-      const dx = next.x - obj.position.x, dz = next.z - obj.position.z;
-      const cr = obj.userData.collisionRadius || 0.6;
-      const dist = Math.hypot(dx, dz);
-      const minDist = this.radius + cr;
-      if (dist < minDist && dist > 0.001) {
-        next.x += (dx / dist) * (minDist - dist);
-        next.z += (dz / dist) * (minDist - dist);
+    if (game.currentWorld.constrainActorPosition) {
+      next.copy(game.currentWorld.constrainActorPosition(next, this.radius || 0.7, before, {
+        allowWater: this.typeId === 'octorok' || this.typeId === 'electricOctorok'
+      }));
+    } else {
+      const b = game.currentWorld.bounds;
+      next.x = Math.max(b.minX + 1, Math.min(b.maxX - 1, next.x));
+      next.z = Math.max(b.minZ + 1, Math.min(b.maxZ - 1, next.z));
+      for (const obj of game.currentWorld.colliders) {
+        const dx = next.x - obj.position.x, dz = next.z - obj.position.z;
+        const cr = obj.userData.collisionRadius || 0.6;
+        const dist = Math.hypot(dx, dz);
+        const minDist = this.radius + cr;
+        if (dist < minDist && dist > 0.001) {
+          next.x += (dx / dist) * (minDist - dist);
+          next.z += (dz / dist) * (minDist - dist);
+        }
       }
     }
     this.position.copy(next);
@@ -1254,7 +1261,13 @@ class Enemy {
     }
     Dialogue.showFloat(`-${Math.round(finalDmg)}`, this.mesh.position, '#ff5a3a');
     const knockScale = this.boss ? 0.12 : visualRole === 'shield' ? 0.34 : visualRole === 'elite' ? 0.42 : visualRole === 'archer' ? 0.72 : 0.62;
+    const beforeKnock = this.position.clone();
     this.position.add(hitDir.clone().multiplyScalar(knockScale));
+    if (window.game && window.game.currentWorld && window.game.currentWorld.constrainActorPosition) {
+      this.position.copy(window.game.currentWorld.constrainActorPosition(this.position, this.radius || 0.7, beforeKnock, {
+        allowWater: this.typeId === 'octorok' || this.typeId === 'electricOctorok'
+      }));
+    }
     if (this.boss) {
       Effects.hitBurst(this.mesh.position.clone().setY(5.3), 0xff8800, 12);
     } else if (typeof Effects !== 'undefined' && Effects.lowPolyShatter) {

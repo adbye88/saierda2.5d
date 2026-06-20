@@ -171,7 +171,8 @@ const HUD = {
     let parts = [];
     if (w) {
       const d = ITEMS[w.itemId];
-      parts.push(`${ArtAssets.itemIconHtml(w.itemId, 'hud-item-icon')} ${d.name} <span style="opacity:.6;font-size:11px">攻${d.atk} |${w.durability}/${d.durability}</span>`);
+      const crit = p.inventory.getCriticalStats ? p.inventory.getCriticalStats('weapon') : { chance: 0.01 };
+      parts.push(`${ArtAssets.itemIconHtml(w.itemId, 'hud-item-icon')} ${d.name} <span style="opacity:.6;font-size:11px">攻${d.atk} |${w.durability}/${d.durability} | ✦${(crit.chance * 100).toFixed(1)}%</span>`);
     }
     if (s) {
       const d = ITEMS[s.itemId];
@@ -179,10 +180,11 @@ const HUD = {
     }
     if (b) {
       const d = ITEMS[b.itemId];
+      const crit = p.inventory.getCriticalStats ? p.inventory.getCriticalStats('bow') : { chance: 0.01 };
       const aim = p.bowMode
         ? ` <span style="color:#ffe16a;font-size:11px">瞄准中${game.lockedEnemy ? '：' + game.lockedEnemy.def.name : ''}</span>`
         : '';
-      parts.push(`${ArtAssets.itemIconHtml(b.itemId, 'hud-item-icon')} <span style="font-size:11px">${b.durability}/${d.durability} | ➹${p.inventory.arrows}</span>${aim}`);
+      parts.push(`${ArtAssets.itemIconHtml(b.itemId, 'hud-item-icon')} <span style="font-size:11px">${b.durability}/${d.durability} | ➹${p.inventory.arrows} | ✦${(crit.chance * 100).toFixed(1)}%</span>${aim}`);
     }
     if (parts.length === 0) parts.push('空手 — 按🎒拿武器');
     const weaponHtml = parts.join('<br>');

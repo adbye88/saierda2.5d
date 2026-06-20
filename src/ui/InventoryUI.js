@@ -93,9 +93,11 @@ const InventoryUI = {
       const foodStrategy = d.type === 'food' && typeof CookingSystem !== 'undefined' && CookingSystem.describeResult ? CookingSystem.describeResult(this.selected.itemId) : '';
       let stats = '';
       if (d.type === 'weapon') {
+        const crit = inv.getCriticalStats ? inv.getCriticalStats('weapon', this.selected) : { chance: 0.01, multiplier: 2 };
         stats = `<div class="detail-stats">
           <span class="stat-pill atk">⚔️ 攻击 ${d.atk}</span>
           <span class="stat-pill">耐久 ${this.selected.durability}/${d.durability}</span>
+          <span class="stat-pill">✦ 暴击 ${(crit.chance * 100).toFixed(1)}% / ×${crit.multiplier.toFixed(1)}</span>
         </div>`;
       } else if (d.type === 'shield') {
         stats = `<div class="detail-stats">
@@ -103,9 +105,11 @@ const InventoryUI = {
           <span class="stat-pill">耐久 ${this.selected.durability}/${d.durability}</span>
         </div>`;
       } else if (d.type === 'bow') {
+        const crit = inv.getCriticalStats ? inv.getCriticalStats('bow', this.selected) : { chance: 0.01, multiplier: 2 };
         stats = `<div class="detail-stats">
           <span class="stat-pill atk">⚔️ 攻击 ${d.atk}</span>
           <span class="stat-pill">耐久 ${this.selected.durability}/${d.durability}</span>
+          <span class="stat-pill">✦ 暴击 ${(crit.chance * 100).toFixed(1)}% / ×${crit.multiplier.toFixed(1)}</span>
         </div>`;
       } else if (d.type === 'food') {
         stats = `<div class="detail-stats">

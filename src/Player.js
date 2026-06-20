@@ -1052,6 +1052,15 @@ class Player {
     if (typeof AudioSystem !== 'undefined') AudioSystem.play('slash');
   }
 
+  _rollCritical(type = 'weapon') {
+    const stats = this.inventory && this.inventory.getCriticalStats
+      ? this.inventory.getCriticalStats(type)
+      : { chance: 0.01, multiplier: 2 };
+    const chance = THREE.MathUtils.clamp(stats.chance || 0.01, 0, 0.65);
+    const multiplier = THREE.MathUtils.clamp(stats.multiplier || 2, 1, 3);
+    return { critical: Math.random() < chance, chance, multiplier };
+  }
+
   _doMeleeDamage(game) {
     const weapon = this.inventory.equipped.weapon;
     const profile = this._attackProfile || this._weaponProfile(weapon);
@@ -1122,6 +1131,12 @@ class Player {
         if (typeof ExplorationSystem !== 'undefined' && ExplorationSystem.modifyPlayerHit) {
           finalDmg = ExplorationSystem.modifyPlayerHit(this, enemy, finalDmg, weapon, weaponElement);
         }
+        const crit = this._rollCritical('weapon');
+        if (crit.critical) {
+          finalDmg = Math.round(finalDmg * crit.multiplier);
+          Dialogue.showFloat(`暴击 ×${crit.multiplier.toFixed(1)}！-${Math.round(finalDmg)}`, enemy.mesh.position.clone().setY(2.6), '#ffd86a');
+          if (typeof Effects !== 'undefined') Effects.hitBurst(enemy.mesh.position.clone().setY(1.4), 0xffd86a, 14);
+        }
         // ★ 元素武器传递元素伤害（触发敌人的元素克制 + 给敌人附加元素效果）
         enemy.takeDamage(finalDmg, forward.clone().multiplyScalar(profile.knock), weaponElement);
         if (typeof ExplorationSystem !== 'undefined') {
@@ -1133,7 +1148,8 @@ class Player {
         }
         if (weapon) this.inventory.damageWeapon(1);
         // ★ 命中特效按武器类型差异化
-        const burstColor = this._flurryTimer > 0 ? 0x66ddff
+        const burstColor = crit.critical ? 0xffd86a
+                         : this._flurryTimer > 0 ? 0x66ddff
                          : weaponElement === 'fire' ? 0xff4422
                          : weaponElement === 'ice' ? 0x66ddff
                          : weaponElement === 'shock' ? 0xffee44
@@ -1215,10 +1231,14 @@ class Player {
     const set = this.inventory && this.inventory.getSetEffects ? this.inventory.getSetEffects() : {};
     let arrowDmg = Math.round(bow.def.atk * dmgMul * (set.bowAtkMul || 1));
     if (bow.itemId === 'ancientBow' && set.ancientAtkMul) arrowDmg = Math.round(arrowDmg * set.ancientAtkMul);
+    const crit = this._rollCritical('bow');
+    if (crit.critical) arrowDmg = Math.round(arrowDmg * crit.multiplier);
     arrow.userData.damage = arrowDmg;
     arrow.userData.life = 2.5;
     arrow.userData.arrowType = arrowType;
     arrow.userData.fromPlayer = true;
+    arrow.userData.critical = crit.critical;
+    arrow.userData.critMultiplier = crit.multiplier;
     game.currentWorld.scene.add(arrow);
     game.currentWorld.projectiles.push(arrow);
     if (typeof AudioSystem !== 'undefined') AudioSystem.play('slash');

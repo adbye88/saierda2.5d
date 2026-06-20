@@ -12,10 +12,10 @@ const ARMOR_SET_BONUSES = {
   ancient: { name: '古代兵装套装', desc: '古代武器、古代弓伤害提升。', effects: { ancientAtkMul: 1.35, guardianDamageMul: 0.75 } },
   stealth: { name: '潜行套装', desc: '移动更快，绕后与近距离突袭伤害提升。', effects: { speedMul: 1.12, sneakAtkMul: 1.25 } },
   climbing: { name: '攀登套装', desc: '上坡速度提升，滑翔体力消耗降低。', effects: { slopeSpeedMul: 1.22, glideCostMul: 0.88 } },
-  barbarian: { name: '蛮族套装', desc: '近战伤害提升。', effects: { meleeAtkMul: 1.25 } },
+  barbarian: { name: '蛮族套装', desc: '近战伤害与暴击率提升。', effects: { meleeAtkMul: 1.25, meleeCritChance: 0.02 } },
   zora: { name: '卓拉套装', desc: '亲水护甲，滑翔过河体力消耗降低。', effects: { coldImmune: true, glideCostMul: 0.82 } },
   radiant: { name: '辉光套装', desc: '对骷髅与黑暗敌人伤害提升。', effects: { stalAtkMul: 1.45 } },
-  royalGuard: { name: '近卫套装', desc: '弓箭与盾反伤害提升。', effects: { bowAtkMul: 1.18, counterAtkMul: 1.25 } }
+  royalGuard: { name: '近卫套装', desc: '弓箭、盾反与暴击表现提升。', effects: { bowAtkMul: 1.18, counterAtkMul: 1.25, critChance: 0.025, critMultiplierBonus: 0.15 } }
 };
 
 const CRAFT_OVERRIDES = {

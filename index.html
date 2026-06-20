@@ -297,6 +297,15 @@
   </div>
 </div>
 
+<!-- ===== 装备损坏后的快速换装 ===== -->
+<div id="quick-equip" class="hidden" role="dialog" aria-modal="false" aria-labelledby="quick-equip-title">
+  <div class="quick-equip-panel">
+    <button id="quick-equip-close" aria-label="关闭">✕</button>
+    <div id="quick-equip-title">装备已损坏，选择备用装备</div>
+    <div id="quick-equip-list"></div>
+  </div>
+</div>
+
 <!-- ===== 对话气泡 ===== -->
 <div id="dialogue" class="hidden">
   <div id="dialogue-text"></div>
@@ -655,6 +664,7 @@ window.__GAMEPLAY_SCRIPTS = [
   'src/ui/ActionButtons.js',
   'src/ui/HUD.js',
   'src/ui/InventoryUI.js',
+  'src/ui/QuickEquipUI.js',
   'src/ui/CookingUI.js',
   'src/ui/ShopUI.js',
   'src/ui/QuestUI.js',

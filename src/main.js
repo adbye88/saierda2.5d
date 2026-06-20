@@ -145,6 +145,7 @@
     if (typeof Joystick !== 'undefined') Joystick.init();
     if (typeof ActionButtons !== 'undefined') ActionButtons.init();
     if (typeof InventoryUI !== 'undefined') InventoryUI.init();
+    if (typeof QuickEquipUI !== 'undefined') QuickEquipUI.init();
     if (typeof Dialogue !== 'undefined') Dialogue.init();
     if (typeof CookingUI !== 'undefined') CookingUI.init();
     if (typeof ShopUI !== 'undefined') ShopUI.init();
