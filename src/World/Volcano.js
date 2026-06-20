@@ -177,6 +177,7 @@ class Volcano extends BaseScene {
       g.add(ember);
     }
     g.userData.collisionRadius = 0.4;
+    g.userData.kind = 'burnt-tree';
     return g;
   }
 

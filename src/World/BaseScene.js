@@ -170,7 +170,56 @@ class BaseScene {
     if (collide && mesh.userData.collisionRadius) {
       this.colliders.push(mesh);
     }
+    this._registerChoppableTree(mesh);
     return mesh;
+  }
+
+  _isChoppableTree(mesh) {
+    if (!mesh || !mesh.userData) return false;
+    const kind = String(mesh.userData.kind || '').toLowerCase();
+    return kind === 'tree' || kind.includes('tree') || kind === 'palm';
+  }
+
+  _registerChoppableTree(mesh) {
+    if (!this._isChoppableTree(mesh) || mesh.userData.choppableRegistered) return;
+    mesh.userData.choppableRegistered = true;
+    mesh.userData.breakable = true;
+    this.breakables.push({
+      mesh,
+      broken: false,
+      kind: 'tree',
+      break_open: (game) => this._chopTree(mesh, game)
+    });
+  }
+
+  _chopTree(mesh, game) {
+    const entry = this.breakables.find(b => b.mesh === mesh);
+    if (!entry || entry.broken) return;
+    entry.broken = true;
+    mesh.userData.chopped = true;
+    this.colliders = (this.colliders || []).filter(obj => obj !== mesh);
+
+    const base = mesh.position.clone();
+    const radius = mesh.userData.collisionRadius || 0.8;
+    const woodCount = radius >= 1.2 ? 4 : (radius >= 0.75 ? 3 : 2);
+    for (let i = 0; i < woodCount; i++) {
+      const a = (i / woodCount) * Math.PI * 2 + Math.random() * 0.35;
+      const x = base.x + Math.cos(a) * (0.75 + Math.random() * 0.7);
+      const z = base.z + Math.sin(a) * (0.75 + Math.random() * 0.7);
+      if (typeof DropItem !== 'undefined') {
+        const drop = new DropItem('wood', 1, x, z);
+        this.drops.push(drop);
+        this.scene.add(drop.mesh);
+      } else if (game && game.player && game.player.inventory) {
+        game.player.inventory.add('wood', 1);
+      }
+    }
+    if (mesh.parent) mesh.parent.remove(mesh);
+    if (typeof Effects !== 'undefined') {
+      Effects.hitBurst(base.clone().setY(1.0), 0xb47a3a, 10);
+      Effects.pickupFlash(base.clone().setY(0.35));
+    }
+    if (typeof Dialogue !== 'undefined') Dialogue.show(`砍倒树木，获得木材 ×${woodCount}`);
   }
 
   addWaterZone(x, z, width, length, rotation = 0) {
