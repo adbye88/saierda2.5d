@@ -19,7 +19,9 @@ const CompendiumUI = {
     ['material', '材料'],
     ['food', '食物'],
     ['key', '重要'],
-    ['npc', 'NPC/设施']
+    ['npc', 'NPC/设施'],
+    ['guide', '攻略'],
+    ['story', '剧情']
   ],
 
   init() {
@@ -31,7 +33,7 @@ const CompendiumUI = {
         <div class="compendium-header">
           <div>
             <span>海拉鲁图鉴</span>
-            <small>怪物 · 材料 · 武器装备 · NPC · 位置</small>
+            <small>怪物 · 材料 · 武器装备 · NPC · 获取攻略 · 剧情攻略</small>
           </div>
           <button id="compendium-close">X</button>
         </div>
@@ -112,7 +114,7 @@ const CompendiumUI = {
         || (tab === 'boss' && e.group === 'boss');
       if (!byTab) return false;
       if (!q) return true;
-      return `${e.name} ${e.subtitle} ${e.desc} ${e.search || ''} ${(e.locations || []).join(' ')} ${(e.sources || []).join(' ')}`.toLowerCase().includes(q);
+      return `${e.name} ${e.subtitle} ${e.desc} ${e.search || ''} ${(e.locations || []).join(' ')} ${(e.sources || []).join(' ')} ${(e.guide || []).join(' ')} ${(e.story || []).join(' ')}`.toLowerCase().includes(q);
     });
   },
 
@@ -120,7 +122,7 @@ const CompendiumUI = {
     const list = document.getElementById('compendium-list');
     const counts = this._counts();
     const totalLine = `<div class="comp-counts">
-      <span>怪物 ${counts.enemies}</span><span>装备 ${counts.equipment}</span><span>物品 ${counts.items}</span><span>NPC ${counts.npcs}</span>
+      <span>怪物 ${counts.enemies}</span><span>装备 ${counts.equipment}</span><span>物品 ${counts.items}</span><span>NPC ${counts.npcs}</span><span>攻略 ${counts.guides}</span>
     </div>`;
     if (!entries.length) {
       list.innerHTML = totalLine + '<div class="comp-empty">没有匹配的图鉴条目</div>';
@@ -151,6 +153,8 @@ const CompendiumUI = {
     const stats = (entry.stats || []).map(([k, v]) => `<div><b>${v}</b><span>${k}</span></div>`).join('');
     const sources = (entry.sources || []).map(x => `<li>${x}</li>`).join('');
     const locations = (entry.locations || []).map(x => `<li>${x}</li>`).join('');
+    const guide = this._renderInfoBlock('获取 / 战斗攻略', entry.guide);
+    const story = this._renderInfoBlock('剧情介绍 / 剧情攻略', entry.story);
     const actions = this._detailActions(entry);
     detail.innerHTML = `
       <div class="comp-detail-head">
@@ -162,16 +166,26 @@ const CompendiumUI = {
       </div>
       ${stats ? `<div class="comp-stat-grid">${stats}</div>` : ''}
       <div class="comp-desc">${entry.desc}</div>
-      <div class="comp-info-block">
+      <div class="comp-info-block comp-location-block">
         <h4>位置</h4>
-        <ul>${locations}</ul>
+        <ul>${locations || '<li>暂无固定位置。</li>'}</ul>
       </div>
-      <div class="comp-info-block">
+      <div class="comp-info-block comp-source-block">
         <h4>来源 / 掉落 / 用途</h4>
-        <ul>${sources}</ul>
+        <ul>${sources || '<li>暂无确认来源。</li>'}</ul>
       </div>
+      ${guide}
+      ${story}
       ${actions}
     `;
+  },
+
+  _renderInfoBlock(title, rows) {
+    if (!rows || !rows.length) return '';
+    return `<div class="comp-info-block comp-guide-block">
+      <h4>${title}</h4>
+      <ul>${rows.map(x => `<li>${x}</li>`).join('')}</ul>
+    </div>`;
   },
 
   _detailActions(entry) {
@@ -211,7 +225,8 @@ const CompendiumUI = {
       enemies: entries.filter(e => e.kind === 'enemy').length,
       equipment: entries.filter(e => e.group === 'equipment').length,
       items: entries.filter(e => e.kind === 'item').length,
-      npcs: entries.filter(e => e.kind === 'npc').length
+      npcs: entries.filter(e => e.kind === 'npc').length,
+      guides: entries.filter(e => e.kind === 'guide').length
     };
   }
 };

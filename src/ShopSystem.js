@@ -11,6 +11,9 @@ const SHOP_DEFS = {
     pos: [18, -10],
     sell: [ // 商人卖给玩家
       { id: 'apple', price: 8 },
+      { id: 'birdEgg', price: 10 },
+      { id: 'wood', price: 6 },
+      { id: 'mushroom', price: 8 },
       { id: 'arrow', price: 5 },
       { id: 'travelerSword', price: 50 },
       { id: 'woodenShield', price: 30 },
@@ -32,6 +35,8 @@ const SHOP_DEFS = {
       { id: 'knightSword', price: 350 },
       { id: 'heartyApple', price: 30 },
       { id: 'stamellaShroom', price: 20 },
+      { id: 'courserBeeHoney', price: 28 },
+      { id: 'birdEgg', price: 10 },
       { id: 'arrow', price: 5 },
       { id: 'warmDoublet', price: 200 },
       { id: 'rawMeat', price: 15 }
@@ -47,6 +52,8 @@ const SHOP_DEFS = {
       { id: 'frostblade', price: 400 },
       { id: 'sapphire', price: 100 },
       { id: 'heartyApple', price: 25 },
+      { id: 'sunshroom', price: 14 },
+      { id: 'hyruleBass', price: 12 },
       { id: 'arrow', price: 5 }
     ]
   },
@@ -86,6 +93,9 @@ const SHOP_DEFS = {
       { id: 'soldierBow', price: 200 },
       { id: 'stamellaShroom', price: 20 },
       { id: 'rawMeat', price: 15 },
+      { id: 'rawPrimeMeat', price: 35 },
+      { id: 'hyruleBass', price: 12 },
+      { id: 'courserBeeHoney', price: 28 },
       { id: 'staminaElixir', price: 110 },
       { id: 'arrow', price: 5 }
     ]

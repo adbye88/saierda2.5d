@@ -92,6 +92,89 @@ const COMPENDIUM_ITEM_LOCATION_HINTS = {
   luminousStone: ['王城、怨念法师、骷髅系强敌']
 };
 
+const COMPENDIUM_ACTUAL_ITEM_SOURCES = {
+  apple: { sources: ['野外拾取：起始台地、迷失森林、费罗尼高地可见补给点', '商店：起始台地海利亚商人'], locations: ['起始台地 (5, 8)、(-3, -10)', '迷失森林 (-15, 0)', '费罗尼高地 (-6, -86)'], guide: ['初期最稳定的回血食物，靠近发光掉落物自动拾取。'] },
+  heartyApple: { sources: ['野外拾取：森林、高地、王城与地下水牢稀有补给', '商店：卡卡利科商人、利特村商人'], locations: ['迷失森林 (20, 25)', '费罗尼高地 (34, 38)'], guide: ['生命系料理核心材料，建议留给 Boss 战前烹饪。'] },
+  mushroom: { sources: ['野外拾取：起始台地、迷失森林', '宝箱：迷失森林古树树洞'], locations: ['起始台地 (18, -8)', '迷失森林 (15, 5)', '迷失森林古树树洞 (146, 132)'], guide: ['森林里最常见的料理底材，也用于潜行套装打造。'] },
+  stamellaShroom: { sources: ['野外拾取：费罗尼高地', '商店：卡卡利科商人、高地行商'], locations: ['费罗尼高地 (-30, 36)'], guide: ['体力料理核心材料，适合攀爬、滑翔和长跑前准备。'] },
+  rawMeat: { sources: ['野外拾取：费罗尼高地营地补给', '商店：卡卡利科商人、高地行商'], locations: ['费罗尼高地 (8, -84)'], guide: ['基础肉料理材料，可和辣椒、蘑菇组合做抗性料理。'] },
+  rawPrimeMeat: { sources: ['野外拾取：费罗尼高地、死亡之山、格鲁德沙漠高阶补给', '商店：高地行商'], locations: ['费罗尼高地 (92, -34)', '死亡之山 (-20, 0)', '格鲁德沙漠 (-25, 0)'], guide: ['蛮族套装会用到；野外点位刷新前可用高地商人补货。'] },
+  birdEgg: { sources: ['野外拾取：起始台地树下鸟窝、迷失森林鸟窝', '商店：起始台地海利亚商人、卡卡利科商人'], locations: ['起始台地 (23, -5)', '迷失森林 (-20, 12)'], guide: ['这是新补齐的真实入口：不是文字介绍，地图上有可拾取掉落物，商店也能买。'] },
+  hyruleBass: { sources: ['野外拾取：起始台地河岸、费罗尼高地河岸', '宝箱：起始台地瀑布后、高地湖畔沉石宝箱', '商店：利特村商人、高地行商'], locations: ['起始台地 (-39, 22)', '费罗尼高地 (-46, 44)', '瀑布后宝箱 (-35, -126)', '湖畔沉石宝箱 (-152, -118)'], guide: ['卓拉套装打造材料。沿河走、看发光拾取物，比盲找更快。'] },
+  spicyPepper: { sources: ['野外拾取：赫布拉雪山、防寒补给点', '商店：起始台地海利亚商人'], locations: ['赫布拉雪山 (-15, 20)、(15, 20)'], guide: ['去雪山前先烹饪防寒料理；初期商人可直接买。'] },
+  sunshroom: { sources: ['野外拾取：赫布拉雪山、死亡之山', '商店：利特村商人'], locations: ['赫布拉雪山 (-20, 0)', '死亡之山 (-15, 20)、(15, 20)'], guide: ['雪羽裤与防热料理都会用到，火山外围补给比较集中。'] },
+  voltfruit: { sources: ['野外拾取：格鲁德沙漠', '商店：格鲁德商人'], locations: ['格鲁德沙漠 (-15, 25)、(15, 25)'], guide: ['雷属性料理与沙漠装备材料，优先在格鲁德商人处补货。'] },
+  goronSpice: { sources: ['商店：戈隆村商人', '隐藏补给：火山区域宝箱/营地补给'], locations: ['死亡之山 戈隆村商人 (10, 25)'], guide: ['耐火套装和防火料理的重要材料，当前最稳定入口是戈隆村商店。'] },
+  courserBeeHoney: { sources: ['野外拾取：迷失森林蜂巢、费罗尼高地蜂巢', '宝箱：萨托利林地宝箱', '商店：卡卡利科商人、高地行商'], locations: ['迷失森林 (26, 18)', '费罗尼高地 (58, 36)', '萨托利林地宝箱 (-148, 34)'], guide: ['体力料理和雪羽上衣材料。森林蜂巢点位最早能拿到。'] },
+  wood: { sources: ['采集：攻击树木砍树掉落', '野外拾取：起始台地木材堆', '商店：起始台地海利亚商人'], locations: ['砍任意可破坏树木', '起始台地 (15, -23)'], guide: ['靠近树后用近战武器攻击即可砍树；大树掉落更多木材。'] },
+  flint: { sources: ['怪物掉落：岩石小怪、冰岩小怪、熔岩小怪、岩石巨像', '商店：起始台地海利亚商人'], locations: ['起始台地采石场与各区域岩石怪据点'], guide: ['打造基础装备和火山装备常用，刷岩石类敌人最快。'] }
+};
+
+const COMPENDIUM_GUIDE_ENTRIES = [
+  {
+    id: 'main_story_route',
+    group: 'story',
+    name: '主线推进路线',
+    icon: '📜',
+    subtitle: '剧情攻略',
+    desc: '推荐路线：苏醒 → 远古塔 → 四座神庙 → 英帕 → 四大神兽 → 大师之剑 → 海拉鲁城堡。',
+    locations: ['起始台地', '迷失森林', '赫布拉雪山', '死亡之山', '格鲁德沙漠', '海拉鲁城堡'],
+    guide: ['先完成起始台地 4 座神庙拿滑翔伞。', '去迷失森林见英帕，开启四神兽与回忆主线。', '装备和料理不足时先刷材料、开宝箱、解锁鸟望塔。'],
+    story: ['百年前灾厄盖侬吞没王城，四英杰与神兽沉默。林克苏醒后需要恢复石板、找回记忆，并重新夺回四神兽的力量。']
+  },
+  {
+    id: 'divine_beasts',
+    group: 'story',
+    name: '四大神兽',
+    icon: '🐘',
+    subtitle: '水 · 火 · 风 · 雷',
+    desc: '四大神兽分别对应水、火、风、雷区域。解放神兽会削弱最终战压力，并解锁守护之力。',
+    locations: ['水神兽：赫布拉雪山', '火神兽：死亡之山', '风神兽：迷失森林', '雷神兽：格鲁德沙漠'],
+    guide: ['挑战前准备对应抗性：防寒、防火、防热与雷属性应对。', '进入神兽终端后先完成机关，再挑战对应咒盖侬。', '打不过就先升级生命/体力、打造装备、准备料理。'],
+    story: ['四英杰的力量被困在神兽核心中。每解放一座神兽，海拉鲁反攻灾厄的机会就更大。']
+  },
+  {
+    id: 'materials_route',
+    group: 'guide',
+    name: '材料获取总览',
+    icon: '🧭',
+    subtitle: '采集 · 掉落 · 商店',
+    desc: '所有材料和生食都应至少有一个真实入口：怪物掉落、野外拾取、宝箱、砍树、商店或神庙奖励。',
+    locations: ['图鉴搜索材料名，可在右侧查看具体入口。'],
+    guide: ['怪物材料刷对应怪。', '食材优先看野外拾取和商店。', '木材通过砍树获得。', '稀有材料如龙鳞、星星碎片来自莱尼尔、三头龙或最终强敌。']
+  },
+  {
+    id: 'crafting_route',
+    group: 'guide',
+    name: '打造与耐久',
+    icon: '🛠️',
+    subtitle: '装备攻略',
+    desc: '自己打造的武器、弓、盾默认耐久为原始耐久的 10 倍；宝箱和怪物掉落保持原始耐久。',
+    locations: ['打开背包 → 打造页'],
+    guide: ['想长期使用的武器尽量自己打造。', '普通刷怪/开箱拿到的装备适合过渡。', '当前装备损坏后可用快速换装窗口直接点图标装备背包里的替代品。']
+  },
+  {
+    id: 'combat_route',
+    group: 'guide',
+    name: '战斗与盾反',
+    icon: '🛡️',
+    subtitle: '战斗攻略',
+    desc: '盾反逻辑为按住盾进入防御，敌人攻击命中的瞬间松开盾触发判定。',
+    locations: ['所有战斗场景'],
+    guide: ['普通怪先观察攻击前摇。', '盾怪优先绕侧面或用弓箭打断。', '守护者激光适合练盾反，但失败惩罚高，先备盾和料理。']
+  },
+  {
+    id: 'shrine_route',
+    group: 'guide',
+    name: '神庙挑战',
+    icon: '🔮',
+    subtitle: '试炼攻略',
+    desc: '神庙挑战完成后获得克服之玉，用于女神像兑换心之容器或精力容器。',
+    locations: ['各区域神庙入口'],
+    guide: ['手机上题目会自动进入下一题。', '结算页会显示错题、正确答案，并提供获得奖励、重试或关闭。', '优先凑齐 4 个克服之玉兑换一次属性。']
+  }
+];
+
 const COMPENDIUM_NPC_ENTRIES = [
   { id: 'king', name: '海拉鲁国王', type: '主线 NPC', world: 'grassland', pos: [12, -12], desc: '引导初始台地任务，完成四座神庙后交付滑翔伞。' },
   { id: 'goddess', name: '海利亚女神像', type: '兑换 NPC', world: 'grassland', pos: [8, 5], desc: '消耗克服之玉兑换心之容器或精力容器。' },
@@ -143,6 +226,7 @@ const CompendiumData = {
         desc: this._enemyDesc(id, def),
         sources: drops.length ? drops.map(x => `掉落：${x}`) : ['无固定掉落记录'],
         locations: COMPENDIUM_ENEMY_LOCATIONS[id] || ['图鉴暂未记录固定位置，通常随区域生态刷新。'],
+        guide: this._enemyGuide(id, def, drops),
         search: `${id} ${def.name} ${drops.join(' ')} ${COMPENDIUM_ENEMY_LOCATIONS[id] || ''}`
       };
     });
@@ -151,14 +235,19 @@ const CompendiumData = {
   itemEntries() {
     const shopSources = this._shopSources();
     const craftSources = this._craftSources();
+    const cookingSources = this._cookingSources();
     const dropSources = this._enemyDropSources();
     return Object.entries(ITEMS || {}).map(([id, def]) => {
       const sources = [];
+      const actual = COMPENDIUM_ACTUAL_ITEM_SOURCES[id] || null;
       if (shopSources[id]) sources.push(...shopSources[id]);
       if (craftSources[id]) sources.push(craftSources[id]);
+      if (cookingSources[id]) sources.push(cookingSources[id]);
       if (dropSources[id]) sources.push(...dropSources[id]);
+      if (actual) sources.push(...actual.sources);
       if (COMPENDIUM_ITEM_LOCATION_HINTS[id]) sources.push(...COMPENDIUM_ITEM_LOCATION_HINTS[id]);
       const locations = [
+        ...((actual && actual.locations) || []),
         ...(COMPENDIUM_ITEM_LOCATION_HINTS[id] || []),
         ...this._itemLocationsFromSources(sources)
       ];
@@ -183,7 +272,8 @@ const CompendiumData = {
         desc: def.desc || '暂无说明。',
         sources: sources.length ? Array.from(new Set(sources)) : ['来源：探索、商店、怪物掉落或后续任务。'],
         locations: Array.from(new Set(locations)),
-        search: `${id} ${def.name} ${def.type} ${def.desc || ''} ${(sources || []).join(' ')}`
+        guide: this._itemGuide(id, def, sources),
+        search: `${id} ${def.name} ${def.type} ${def.desc || ''} ${(sources || []).join(' ')} ${((actual && actual.guide) || []).join(' ')}`
       };
     });
   },
@@ -200,12 +290,31 @@ const CompendiumData = {
       desc: row.desc,
       sources: [row.type],
       locations: row.pos ? [`${this.worldName(row.world)} (${row.pos[0]}, ${row.pos[1]})`] : ['多区域分布，打开地图或自动寻路可查看附近设施。'],
+      guide: this._npcGuide(row),
       search: `${row.name} ${row.type} ${row.desc} ${this.worldName(row.world)}`
     }));
   },
 
+  guideEntries() {
+    return COMPENDIUM_GUIDE_ENTRIES.map(row => ({
+      id: row.id,
+      kind: 'guide',
+      group: row.group,
+      name: row.name,
+      icon: row.icon,
+      subtitle: row.subtitle,
+      stats: [['类型', row.group === 'story' ? '剧情' : '攻略']],
+      desc: row.desc,
+      sources: ['百科攻略'],
+      locations: row.locations || [],
+      guide: row.guide || [],
+      story: row.story || [],
+      search: `${row.name} ${row.subtitle} ${row.desc} ${(row.locations || []).join(' ')} ${(row.guide || []).join(' ')} ${(row.story || []).join(' ')}`
+    }));
+  },
+
   allEntries() {
-    return [...this.enemyEntries(), ...this.itemEntries(), ...this.npcEntries()]
+    return [...this.enemyEntries(), ...this.itemEntries(), ...this.npcEntries(), ...this.guideEntries()]
       .sort((a, b) => a.kind.localeCompare(b.kind) || a.name.localeCompare(b.name, 'zh-CN'));
   },
 
@@ -215,6 +324,42 @@ const CompendiumData = {
     if (def.miniBoss) return `${def.name} 属于精英敌人，伤害和血量远高于普通怪物，掉落也更稀有。`;
     if (def.ai === 'ranged') return `${def.name} 擅长远程攻击，接近前注意横向移动或举盾。`;
     return `${def.name} 是常见敌人，会巡逻、追击并在近距离蓄力攻击。`;
+  },
+
+  _enemyGuide(id, def, drops) {
+    const rows = [];
+    if (def.finalBoss) rows.push('最终战前建议解放四大神兽、准备古代装备、盾和高回复料理。');
+    else if (def.boss) rows.push('Boss 战先观察前摇，打出硬直后再贪刀；低血量时优先拉开距离吃料理。');
+    else if (def.miniBoss) rows.push('精英怪伤害高，建议用弓箭、元素武器或地形先制造优势。');
+    else if (def.ai === 'ranged') rows.push('远程敌人优先处理；横向移动或举盾接近，近身后连续攻击。');
+    else rows.push('普通近战怪适合练闪避、盾反和基础连击。');
+    if (def.element) rows.push(`属性：${{ fire: '火', ice: '冰', shock: '雷' }[def.element] || def.element}，可用相反抗性料理或保持距离降低风险。`);
+    if (drops && drops.length) rows.push(`刷取价值：${drops.slice(0, 5).join('、')}${drops.length > 5 ? '等' : ''}。`);
+    return rows;
+  },
+
+  _itemGuide(id, def, sources) {
+    const actual = COMPENDIUM_ACTUAL_ITEM_SOURCES[id];
+    const rows = [];
+    if (actual && actual.guide) rows.push(...actual.guide);
+    if (def.type === 'material') rows.push('材料用途：主要用于打造、料理或后续任务；缺材料时优先看上方“来源/掉落/用途”的真实入口。');
+    if (def.type === 'food' && def.subtype === 'raw') rows.push('生食可以直接回血，但更推荐在烹饪锅做成料理，收益更高。');
+    if (def.type === 'food' && def.subtype === 'cooked') rows.push('料理通过烹饪锅制作；不同材料组合会决定回血、体力或抗性效果。');
+    if (['weapon', 'shield', 'bow'].includes(def.type)) {
+      rows.push('装备建议：怪物/宝箱掉落为原始耐久，自己打造的同类装备耐久为 10 倍。');
+      if (def.critChance) rows.push(`暴击率加成：约 ${Math.round(def.critChance * 1000) / 10}%。暴击最高可造成 3 倍伤害。`);
+    }
+    if (def.type === 'armor_upper' || def.type === 'armor_lower') rows.push('防具建议：成套穿戴可触发套装思路，优先按区域抗性需求打造。');
+    if (!rows.length && sources && sources.length) rows.push('按来源列表获取；如果是稀有掉落，建议刷对应强敌或区域宝箱。');
+    return Array.from(new Set(rows));
+  },
+
+  _npcGuide(row) {
+    if (row.type === '商店') return ['商店是材料兜底入口：野外找不到时可以直接购买基础补给。'];
+    if (row.id === 'shrines') return ['神庙挑战完成后获得克服之玉，攒够数量去女神像兑换生命或体力。'];
+    if (row.id === 'beastTerminals') return ['四大神兽终端会推进对应英杰剧情，挑战前准备好区域抗性料理。'];
+    if (row.id === 'masterSwordPedestal') return ['需要 13 颗心才能拔剑；体力不够不影响拔剑条件。'];
+    return ['靠近后按交互/对话按钮，可推进剧情、打开设施或获得提示。'];
   },
 
   _dropIds(def) {
@@ -246,6 +391,16 @@ const CompendiumData = {
         .map(([id, n]) => `${ITEMS[id] ? ITEMS[id].name : id}×${n}`)
         .join('、');
       out[recipe.itemId] = `打造：${mats || '材料不明'}`;
+    }
+    return out;
+  },
+
+  _cookingSources() {
+    const out = {};
+    if (typeof COOKING_RECIPES === 'undefined') return out;
+    for (const row of Object.values(COOKING_RECIPES)) {
+      if (!row || !row.result) continue;
+      out[row.result] = `烹饪：${row.desc || '使用食材在烹饪锅制作'}`;
     }
     return out;
   },

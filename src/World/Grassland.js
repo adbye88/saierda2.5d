@@ -212,7 +212,10 @@ class Grassland extends BaseScene {
       ['apple', 1, -3, -10],
       ['rupee', 5, 12, 5],
       ['rupee', 3, -12, -15],
-      ['mushroom', 1, 18, -8]
+      ['mushroom', 1, 18, -8],
+      ['birdEgg', 2, 23, -5],
+      ['hyruleBass', 2, -39, 22],
+      ['wood', 2, 15, -23]
     ];
     for (const [item, n, x, z] of drops) {
       const d = new DropItem(item, n, x, z);

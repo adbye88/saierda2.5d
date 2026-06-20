@@ -99,6 +99,8 @@ class Highland extends BaseScene {
     for (const [item, n, x, z] of [
       ['apple', 3, -6, -86], ['rawMeat', 2, 8, -84], ['arrow', 12, 16, -78],
       ['stamellaShroom', 2, -30, 36], ['heartyApple', 1, 34, 38],
+      ['hyruleBass', 3, -46, 44], ['courserBeeHoney', 1, 58, 36],
+      ['rawPrimeMeat', 1, 92, -34],
       ['amber', 1, -72, 12], ['rupee', 20, 72, -12]
     ]) {
       const d = new DropItem(item, n, x, z);

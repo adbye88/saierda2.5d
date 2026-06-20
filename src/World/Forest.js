@@ -204,6 +204,8 @@ class Forest extends BaseScene {
     const pickups = [
       ['apple', 2, -15, 0],
       ['mushroom', 2, 15, 5],
+      ['birdEgg', 2, -20, 12],
+      ['courserBeeHoney', 2, 26, 18],
       ['rupee', 10, -10, -20],
       ['arrow', 10, 10, -20],
       ['heartyApple', 1, 20, 25]
