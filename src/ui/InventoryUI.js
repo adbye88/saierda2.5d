@@ -49,6 +49,7 @@ const InventoryUI = {
 
   render() {
     const inv = window.game.player.inventory;
+    this.gridEl.classList.toggle('craft-grid-mode', this.currentTab === 'craft');
     this.detailEl.classList.toggle('craft-detail-mode', this.currentTab === 'craft');
     document.getElementById('inv-rupee').textContent = '💎 ' + inv.rupees + '　➹' + inv.arrows;
     if (this.currentTab === 'craft') {
@@ -254,8 +255,12 @@ const InventoryUI = {
       const def = ITEMS[recipe.itemId];
       const ready = recipe.ready;
       const sel = (this.selected && this.selected.itemId === recipe.itemId && this.selected.materials) ? ' selected' : '';
+      const matText = CraftingSystem.materialsText(recipe);
       html += `<div class="inv-cell craft-cell ${ready ? 'craft-ready' : 'craft-missing'}${sel}" data-i="${i}" aria-disabled="${ready ? 'false' : 'true'}">
         ${ArtAssets.itemIconHtml(recipe.itemId)}
+        <div class="craft-name">${def.name}</div>
+        <div class="craft-need">材料 ${recipe.progress.ok}/${recipe.progress.total}</div>
+        <div class="craft-cell-mats" title="${matText}">${matText}</div>
         <div class="craft-badge">${ready ? '可打造' : '材料不足'}</div>
         <div class="craft-progress">${recipe.progress.ok}/${recipe.progress.total}</div>
         <div class="craft-type">${this._typeShort(def.type)}</div>
@@ -312,7 +317,12 @@ const InventoryUI = {
       ${setBonus ? `<div class="set-bonus-box compact"><b>${setBonus.name}</b><span>${setBonus.desc}</span></div>` : ''}
       <div class="craft-mats">${mats}</div>
       <div class="craft-status ${ready ? 'ok' : 'no'}">${ready ? '材料齐全，可以合成' : '材料不足，配方暂不可打造'}</div>
+      <button class="craft-inline-btn ${ready ? 'ready' : 'missing'}" type="button" ${ready ? '' : 'disabled'}>
+        ${ready ? `打造 ${d.name}` : `材料不足：还差 ${missing.length} 类`}
+      </button>
     `;
+    const inlineBtn = this.detailEl.querySelector('.craft-inline-btn');
+    if (inlineBtn) inlineBtn.addEventListener('click', () => this._craft());
   },
 
   _craftStats(d) {
