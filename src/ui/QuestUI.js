@@ -56,6 +56,7 @@ const QuestUI = {
     const memoryCount = (typeof StorySystem !== 'undefined') ? StorySystem.recoveredCount() : 0;
     const memoryTotal = (typeof StorySystem !== 'undefined') ? StorySystem.totalCount() : 0;
     const storySummary = (typeof StorySystem !== 'undefined') ? StorySystem.getSynopsis() : '继续推进主线。';
+    const storyRoadmap = (typeof MainQuestSystem !== 'undefined') ? MainQuestSystem.getStoryRoadmap() : null;
     const regionThread = (typeof StorySystem !== 'undefined' && window.game.currentWorld)
       ? StorySystem.getRegionThread(window.game.currentWorld.name)
       : '';
@@ -67,14 +68,28 @@ const QuestUI = {
       </div>
     `).join('');
     const auto = window.game.autoPath && window.game.autoPath.active ? window.game.autoPath : null;
+    const actRows = (typeof MainQuestSystem !== 'undefined')
+      ? MainQuestSystem.getStoryActRows().map(row => `
+        <div class="story-act-row ${row.complete ? 'done' : ''} ${row.active ? 'active' : ''} ${row.locked ? 'locked' : ''}">
+          <span>${row.complete ? '完成' : row.active ? '当前' : '后续'}</span>
+          <div>
+            <b>${row.title}</b>
+            <small>${row.theme}<br>${row.active ? '目标：' + row.goal + '<br>下一步：' + row.next : row.goal}</small>
+          </div>
+        </div>
+      `).join('')
+      : '';
     const beastRows = (typeof MainQuestSystem !== 'undefined')
       ? MainQuestSystem.getBeastRows().map(row => {
         const cls = row.liberated ? 'liberated' : row.trialReady ? 'ready' : row.stage.key;
         const missing = row.missing.length ? `还需：${row.missing.join('、')}` : '终端已响应，前往核心战斗';
+        const advice = row.liberated
+          ? `${row.champ.ability}：${row.champ.desc}`
+          : `${missing}<br>准备：${row.story.prep.join('、')}<br>弱点：${row.story.weakness}<br>奖励：${row.story.reward}`;
         return `<div class="beast-row ${cls}">
           <div>
             <b>${row.def.beast} · ${row.story.region}</b>
-            <small>${row.stage.detail}<br>${row.liberated ? row.champ.ability + '：' + row.champ.desc : missing}</small>
+            <small>${row.stage.detail}<br>${row.story.emotionalHook}<br>${advice}</small>
           </div>
           <span>${row.stage.label}</span>
         </div>`;
@@ -126,7 +141,12 @@ const QuestUI = {
       <div class="story-box">
         <div class="quest-title">剧情线索</div>
         <p>${storySummary}</p>
+        ${storyRoadmap ? `<small>主题：${storyRoadmap.theme}<br>章节目标：${storyRoadmap.goal}<br>下一步：${storyRoadmap.next}</small>` : ''}
         <small>${regionThread}</small>
+      </div>
+      <div class="memory-list story-act-list">
+        <div class="quest-title">剧情章节路线</div>
+        ${actRows || '<div class="memory-empty">主线章节会随剧情推进逐步更新。</div>'}
       </div>
       <div class="memory-list">
         <div class="quest-title">最近找回的回忆</div>
