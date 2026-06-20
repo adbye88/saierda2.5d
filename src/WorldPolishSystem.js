@@ -27,6 +27,7 @@ const WorldPolishSystem = {
     if (!world || !world.scene) return;
     this._activeWorld = world;
     this._ensureAmbientFx(world);
+    this._cacheSurfaceItems(world);
   },
 
   update(dt, game) {
@@ -129,25 +130,21 @@ const WorldPolishSystem = {
 
   _updateSurfaceMotion(dt, world) {
     const t = performance.now() * 0.001;
-    world.scene.traverse(obj => {
-      if (!obj || !obj.userData) return;
-      const parts = obj.userData.parts || {};
-      if (obj.userData.kind === 'river' && parts.water && parts.water.material) {
-        const mat = parts.water.material;
-        if (mat.map) {
-          mat.map.offset.x += dt * 0.015;
-          mat.map.offset.y += dt * 0.035;
-        }
-        mat.opacity = 0.58 + Math.sin(t * 1.3 + obj.position.x) * 0.08;
+    const surfaces = world._worldPolishSurfaces || this._cacheSurfaceItems(world);
+    for (const item of surfaces.rivers) {
+      const mat = item.material;
+      if (!mat) continue;
+      if (mat.map) {
+        mat.map.offset.x += dt * 0.015;
+        mat.map.offset.y += dt * 0.035;
       }
-      if (obj.userData.kind === 'waterfall') {
-        if (parts.fall && parts.fall.material) parts.fall.material.opacity = 0.52 + Math.sin(t * 2.8) * 0.08;
-        if (parts.mist && parts.mist.material) parts.mist.material.opacity = 0.26 + Math.sin(t * 2.1) * 0.09;
-      }
-      if (obj.userData.kind === 'lavaRock') {
-        obj.rotation.y += dt * 0.04;
-      }
-    });
+      mat.opacity = 0.58 + Math.sin(t * 1.3 + item.phase) * 0.08;
+    }
+    for (const item of surfaces.waterfalls) {
+      if (item.fall && item.fall.material) item.fall.material.opacity = 0.52 + Math.sin(t * 2.8 + item.phase) * 0.08;
+      if (item.mist && item.mist.material) item.mist.material.opacity = 0.26 + Math.sin(t * 2.1 + item.phase) * 0.09;
+    }
+    for (const obj of surfaces.lavaRocks) obj.rotation.y += dt * 0.04;
     if (world.lava && world.lava.material) {
       if (world.lava.material.map) {
         world.lava.material.map.offset.x += dt * 0.02;
@@ -155,6 +152,24 @@ const WorldPolishSystem = {
       }
       world.lava.material.opacity = 0.66 + Math.sin(t * 2.2) * 0.12;
     }
+  },
+
+  _cacheSurfaceItems(world) {
+    const surfaces = { rivers: [], waterfalls: [], lavaRocks: [] };
+    if (!world || !world.scene) return surfaces;
+    world.scene.traverse(obj => {
+      if (!obj || !obj.userData) return;
+      const parts = obj.userData.parts || {};
+      if (obj.userData.kind === 'river' && parts.water && parts.water.material) {
+        surfaces.rivers.push({ material: parts.water.material, phase: obj.position ? obj.position.x : Math.random() * 10 });
+      } else if (obj.userData.kind === 'waterfall') {
+        surfaces.waterfalls.push({ fall: parts.fall, mist: parts.mist, phase: obj.position ? obj.position.y : Math.random() * 10 });
+      } else if (obj.userData.kind === 'lavaRock') {
+        surfaces.lavaRocks.push(obj);
+      }
+    });
+    world._worldPolishSurfaces = surfaces;
+    return surfaces;
   }
 };
 

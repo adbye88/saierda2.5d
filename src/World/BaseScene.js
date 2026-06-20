@@ -164,6 +164,7 @@ class BaseScene {
 
   // ---------- 添加装饰物 + 注册碰撞 ----------
   addProp(mesh, collide = true) {
+    if (mesh && mesh.userData) mesh.userData.perfCull = mesh.userData.perfCull !== false;
     this.scene.add(mesh);
     if (collide && mesh.userData.collisionRadius) {
       this.colliders.push(mesh);
@@ -819,7 +820,8 @@ class BaseScene {
 
   // ---------- 工具：撒 N 个道具 ----------
   scatter(factory, count, margin = 4) {
-    for (let i = 0; i < count; i++) {
+    const budgetedCount = Math.max(1, Math.round(count * this._sceneDetailFactor()));
+    for (let i = 0; i < budgetedCount; i++) {
       const m = factory();
       let x, z, tries = 0;
       do {
@@ -830,5 +832,14 @@ class BaseScene {
       m.position.set(x, 0, z);
       this.addProp(m, !!m.userData.collisionRadius);
     }
+  }
+
+  _sceneDetailFactor() {
+    const level = (typeof VisualQualitySystem !== 'undefined' && VisualQualitySystem.level) || 'medium';
+    const touch = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
+    if (touch || level === 'low') return 0.22;
+    if (level === 'medium') return 0.42;
+    if (level === 'ultra') return 1;
+    return 0.68;
   }
 }

@@ -10,6 +10,7 @@ const VisualQualitySystem = {
   _levels: ['low', 'medium', 'high', 'ultra'],
   _badgeTimer: 0,
   _lastWorldName: '',
+  _cullTimer: 0,
   _ui: {
     vignette: null,
     glow: null,
@@ -29,8 +30,8 @@ const VisualQualitySystem = {
     },
     medium: {
       label: '均衡',
-      pixelRatio: 1.35,
-      shadows: true,
+      pixelRatio: 1.1,
+      shadows: false,
       shadowSize: 1024,
       exposure: 1.1,
       fogScale: 1.05,
@@ -99,7 +100,7 @@ const VisualQualitySystem = {
   },
 
   resetRecommended(silent) {
-    this.apply('high', !!silent);
+    this.apply(this._isTouchDevice() ? 'low' : 'medium', !!silent);
   },
 
   _applyCurrent(silent) {
@@ -122,10 +123,11 @@ const VisualQualitySystem = {
     document.documentElement.style.setProperty('--visual-glow-opacity', String(glow));
 
     if (game && game.renderer) {
-      const ratio = Math.min(window.devicePixelRatio || 1, settings.renderScale);
+      const touch = this._isTouchDevice();
+      const ratio = touch ? 1 : Math.min(window.devicePixelRatio || 1, settings.renderScale);
       game.renderer.setPixelRatio(ratio);
       game.renderer.setSize(window.innerWidth, window.innerHeight, false);
-      game.renderer.shadowMap.enabled = settings.shadows;
+      game.renderer.shadowMap.enabled = touch ? false : settings.shadows;
       game.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
       game.renderer.toneMappingExposure = preset.exposure;
       if (game.canvas) game.canvas.style.filter = filter;
@@ -145,6 +147,7 @@ const VisualQualitySystem = {
     this._applyFog(world, preset);
     this._applyLights(world, preset);
     this._applyWorldTone(world);
+    this._cacheCullables(world);
   },
 
   update(dt, game) {
@@ -157,6 +160,7 @@ const VisualQualitySystem = {
       if (this._ui.badge) this._ui.badge.classList.toggle('show', this._badgeTimer > 0);
     }
     this._updatePlayerAtmosphere(game);
+    this._updateDistanceCulling(dt, game);
   },
 
   _ensureUi() {
@@ -213,6 +217,9 @@ const VisualQualitySystem = {
     const settings = this.settings || this._settingsFromPreset(this.level, true);
     world.scene.traverse(obj => {
       if (!obj.isLight) return;
+      if ((obj.isPointLight || obj.isSpotLight) && obj.userData.visualBaseIntensity == null) {
+        obj.userData.visualBaseIntensity = obj.intensity;
+      }
       if (obj.isHemisphereLight && obj.userData.visualBaseIntensity == null) {
         obj.userData.visualBaseIntensity = obj.intensity;
       }
@@ -231,6 +238,12 @@ const VisualQualitySystem = {
           obj.shadow.normalBias = Math.max(obj.shadow.normalBias || 0.02, 0.02);
           obj.shadow.needsUpdate = true;
         }
+      }
+      if (obj.isPointLight || obj.isSpotLight) {
+        const showLocalLights = settings.atmosphere && !this._isTouchDevice() && (this.level === 'high' || this.level === 'ultra');
+        obj.visible = showLocalLights;
+        obj.intensity = showLocalLights ? obj.userData.visualBaseIntensity : 0;
+        obj.castShadow = false;
       }
     });
   },
@@ -251,6 +264,56 @@ const VisualQualitySystem = {
     document.documentElement.style.setProperty('--visual-glow-b', tone[1]);
   },
 
+  _cacheCullables(world) {
+    if (!world || !world.scene) return;
+    const list = [];
+    world.scene.traverse(obj => {
+      const kind = obj && obj.userData && obj.userData.kind;
+      const isBudgetedLandmark = kind === 'shrine' || kind === 'sheikahTower';
+      if (!obj || !obj.userData || (obj.userData.perfCull !== true && !isBudgetedLandmark)) return;
+      // 只缓存根装饰物，子 Mesh 跟着父级 visible 即可；避免每次更新几千个子节点。
+      let p = obj.parent;
+      while (p && p !== world.scene) {
+        if (p.userData && p.userData.perfCull === true) return;
+        p = p.parent;
+      }
+      list.push(obj);
+    });
+    world._visualCullables = list;
+  },
+
+  _updateDistanceCulling(dt, game) {
+    const world = game && game.currentWorld;
+    const player = game && game.player;
+    if (!world || !player || !Array.isArray(world._visualCullables)) return;
+    this._cullTimer -= dt;
+    if (this._cullTimer > 0) return;
+    const touch = this._isTouchDevice();
+    const radius = touch || this.level === 'low' ? 34 : this.level === 'medium' ? 58 : 92;
+    const radiusSq = radius * radius;
+    this._cullTimer = touch || this.level === 'low' ? 0.22 : 0.32;
+    const px = player.position.x;
+    const pz = player.position.z;
+    for (const obj of world._visualCullables) {
+      if (!obj || !obj.position) continue;
+      const dx = obj.position.x - px;
+      const dz = obj.position.z - pz;
+      const kind = obj.userData && obj.userData.kind;
+      const objRadius = (kind === 'shrine' || kind === 'sheikahTower') ? radius * 1.45 : radius;
+      obj.visible = dx * dx + dz * dz <= objRadius * objRadius;
+    }
+    if (Array.isArray(world.enemies)) {
+      const enemyRadius = touch || this.level === 'low' ? 38 : this.level === 'medium' ? 58 : 110;
+      const enemyRadiusSq = enemyRadius * enemyRadius;
+      for (const enemy of world.enemies) {
+        if (!enemy || !enemy.mesh || enemy.dead || enemy.hp <= 0) continue;
+        const dx = enemy.mesh.position.x - px;
+        const dz = enemy.mesh.position.z - pz;
+        enemy.mesh.visible = enemy === game.lockedEnemy || dx * dx + dz * dz <= enemyRadiusSq;
+      }
+    }
+  },
+
   _updatePlayerAtmosphere(game) {
     const player = game && game.player;
     if (!player || !this._ui.vignette) return;
@@ -263,9 +326,15 @@ const VisualQualitySystem = {
   _readSavedLevel() {
     try {
       const saved = localStorage.getItem('zcodeVisualQuality');
-      return this.presets[saved] ? saved : 'high';
+      const touch = this._isTouchDevice();
+      if (this.presets[saved]) {
+        // 旧版本可能保存过 high/ultra。手机继续沿用旧高画质会直接变成个位数 FPS。
+        if (touch) return saved === 'medium' ? 'medium' : 'low';
+        return saved;
+      }
+      return touch ? 'low' : 'medium';
     } catch (_) {
-      return 'high';
+      return 'medium';
     }
   },
 
@@ -290,10 +359,22 @@ const VisualQualitySystem = {
       const merged = Object.assign({}, defaults, saved || {});
       merged.renderScale = Math.max(0.75, Math.min(2, Number(merged.renderScale) || defaults.renderScale));
       merged.shadowSize = [512, 1024, 2048, 3072].includes(Number(merged.shadowSize)) ? Number(merged.shadowSize) : defaults.shadowSize;
+      if (this._isTouchDevice()) {
+        merged.renderScale = 1;
+        merged.shadows = false;
+        if (level === 'low') merged.atmosphere = false;
+      } else if (level === 'medium') {
+        merged.renderScale = Math.min(1.1, merged.renderScale);
+        merged.shadows = false;
+      }
       return merged;
     } catch (_) {
       return defaults;
     }
+  },
+
+  _isTouchDevice() {
+    return ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
   },
 
   _saveLevel(level) {

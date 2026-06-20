@@ -56,6 +56,8 @@ const TouchRouter = {
 
   // ===== touchstart =====
   _onTouchStart(e) {
+    // HTML 按钮已有内联 touch 处理；如果目标阶段已经处理过，这里作为备份不再重复触发。
+    if (e.defaultPrevented) return;
     for (let i = 0; i < e.changedTouches.length; i++) {
       const t = e.changedTouches[i];
       const hit = this._findAction(t.clientX, t.clientY);
@@ -83,6 +85,7 @@ const TouchRouter = {
 
   // ===== touchend =====
   _onTouchEnd(e) {
+    if (e.defaultPrevented) return;
     for (let i = 0; i < e.changedTouches.length; i++) {
       const t = e.changedTouches[i];
       const id = t.identifier;
@@ -137,13 +140,18 @@ const TouchRouter = {
     if (this._mouseEl) this._mouseEl.classList.remove('pressed');
     if (handler) {
       if (handler.type === 'tap') {
-        handler.down && handler.down();
+        if (!this._recentInline(this._mouseAction)) handler.down && handler.down();
       } else {
         handler.up && handler.up();
       }
     }
     this._mouseAction = null;
     this._mouseEl = null;
+  },
+
+  _recentInline(action) {
+    const last = window.__btnInlineLast;
+    return !!(last && last.action === action && performance.now() - last.time < 180);
   },
 
   _releaseAll() {

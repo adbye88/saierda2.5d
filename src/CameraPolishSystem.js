@@ -10,6 +10,7 @@ const CameraPolishSystem = {
   _raycaster: new THREE.Raycaster(),
   _inspectMode: false,
   _fadedOccluders: new Set(),
+  _fadeTimer: 0,
 
   update(dt, game, player) {
     if (!game || !game.camera || !player) return false;
@@ -106,7 +107,11 @@ const CameraPolishSystem = {
 
     camera.position.lerp(camPos, this._alpha(dt, locked || bow ? 7.5 : 6.2));
     camera.lookAt(lookAt.x, lookAt.y, lookAt.z);
-    this._fadeForegroundOccluders(dt, game, player, camera);
+    this._fadeTimer -= dt;
+    if (this._fadeTimer <= 0) {
+      this._fadeTimer = 0.12;
+      this._fadeForegroundOccluders(dt, game, player, camera);
+    }
     return true;
   },
 
@@ -169,12 +174,17 @@ const CameraPolishSystem = {
   _fadeForegroundOccluders(dt, game, player, camera) {
     const world = game.currentWorld;
     if (!world || !world.colliders || !player || !camera) return;
+    if (typeof VisualQualitySystem !== 'undefined' && VisualQualitySystem.level === 'low') {
+      for (const obj of this._fadedOccluders) this._setOccluderOpacity(obj, 1, 1);
+      this._fadedOccluders.clear();
+      return;
+    }
     const active = new Set();
     const a = camera.position;
     const b = player.position;
     const span = b.clone().sub(a);
     const lenSq = Math.max(0.001, span.lengthSq());
-    const fadeAlpha = this._alpha(dt, 10);
+    const fadeAlpha = this._alpha(0.12, 10);
     for (const obj of world.colliders) {
       if (!obj || !obj.userData || obj.userData.kind !== 'tree') continue;
       if (obj.position.distanceTo(camera.position) > 18) continue;

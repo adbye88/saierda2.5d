@@ -21,6 +21,7 @@ const MapMenu = {
   },
 
   init() {
+    if (this.el && document.body.contains(this.el)) return;
     this.el = document.createElement('div');
     this.el.id = 'map-menu';
     this.el.className = 'hidden';
@@ -77,7 +78,7 @@ const MapMenu = {
   _renderTravel() {
     const progress = SaveSystem.getProgress();
     const unlocked = progress.towers || [];
-    const currentWorld = window.game.currentWorld ? window.game.currentWorld.name : '';
+    const currentWorld = window.game && window.game.currentWorld ? window.game.currentWorld.name : '';
     let html = '<div class="world-map">';
     for (const [id, info] of Object.entries(this.WORLD_INFO)) {
       const isUnlocked = unlocked.includes(id);
@@ -254,7 +255,7 @@ const MapMenu = {
   },
 
   // ★ 全局存读档函数（被 onclick 内联调用）
-  doAction(act, slot) {
+  async doAction(act, slot) {
     if (act === 'save') {
       if (SaveSystem.save(slot)) {
         Dialogue.show(`✓ 已保存到槽位 ${slot+1}`);
@@ -264,7 +265,7 @@ const MapMenu = {
       const data = SaveSystem.load(slot);
       if (data) {
         if (typeof window.__ensureGameReady === 'function') {
-          window.__ensureGameReady(data.worldName || 'grassland');
+          await window.__ensureGameReady(data.worldName || 'grassland');
         }
         this.close();
         document.getElementById('menu').classList.add('hidden');

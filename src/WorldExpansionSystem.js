@@ -11,11 +11,13 @@ const WorldExpansionSystem = {
     const cfg = this.CONFIG[world.name];
     if (!cfg) return;
 
+    const factor = this._detailFactor();
     for (const hill of (cfg.hills || [])) this._addHill(world, hill);
     for (const ridge of (cfg.ridges || [])) this._addRidge(world, ridge);
     for (const patch of (cfg.groves || [])) this._addGrove(world, patch);
-    for (const camp of (cfg.campScenes || [])) this._addCampScene(world, camp);
-    for (const fire of (cfg.campfires || [])) this._addCampfireRest(world, fire);
+    const campLimit = factor <= 0.25 ? 1 : factor < 0.6 ? 2 : Infinity;
+    (cfg.campScenes || []).slice(0, campLimit).forEach(camp => this._addCampScene(world, camp));
+    (cfg.campfires || []).slice(0, factor <= 0.25 ? 0 : 1).forEach(fire => this._addCampfireRest(world, fire));
   },
 
   CONFIG: {
@@ -197,7 +199,7 @@ const WorldExpansionSystem = {
   },
 
   _addRidge(world, def) {
-    const count = def.count || 8;
+    const count = this._budgetCount(def.count || 8, 2);
     const len = def.len || 48;
     const rot = def.rot || 0;
     const tangent = new THREE.Vector3(Math.cos(rot), 0, Math.sin(rot));
@@ -217,7 +219,7 @@ const WorldExpansionSystem = {
   },
 
   _addGrove(world, def) {
-    const count = def.count || 20;
+    const count = this._budgetCount(def.count || 20, 3);
     for (let i = 0; i < count; i++) {
       const p = this._ellipsePoint(def.x, def.z, def.rx || 20, def.rz || 14);
       if (this._nearSpawn(world, p.x, p.z, 8)) continue;
@@ -228,7 +230,7 @@ const WorldExpansionSystem = {
       tree.position.set(p.x, 0, p.z);
       world.addProp(tree, !!tree.userData.collisionRadius);
     }
-    const bushes = def.bushes || 0;
+    const bushes = this._budgetCount(def.bushes || 0, 0);
     for (let i = 0; i < bushes; i++) {
       const p = this._ellipsePoint(def.x, def.z, (def.rx || 20) * 0.9, (def.rz || 14) * 0.9);
       const bush = def.style === 'desert' || def.style === 'palm' || def.style === 'cactus'
@@ -245,6 +247,7 @@ const WorldExpansionSystem = {
     g.position.set(def.x, 0, def.z);
     g.rotation.y = def.rot || 0;
     g.userData.kind = 'camp-scene';
+    g.userData.perfCull = true;
 
     const fire = AssetFactory.createCampfire();
     fire.position.set(0, 0, 0);
@@ -306,6 +309,7 @@ const WorldExpansionSystem = {
     const g = new THREE.Group();
     g.position.set(def.x, 0, def.z);
     g.rotation.y = def.rot || 0;
+    g.userData.perfCull = true;
     const fire = AssetFactory.createCampfire();
     g.add(fire);
     for (let i = 0; i < 2; i++) {
@@ -521,6 +525,20 @@ const WorldExpansionSystem = {
     obj.traverse(c => {
       if (c.isMesh && c.material && c.material.color) c.material.color.lerp(new THREE.Color(color), 0.35);
     });
+  },
+
+  _detailFactor() {
+    const level = (typeof VisualQualitySystem !== 'undefined' && VisualQualitySystem.level) || 'medium';
+    const touch = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
+    if (touch || level === 'low') return 0.2;
+    if (level === 'medium') return 0.38;
+    if (level === 'ultra') return 1;
+    return 0.62;
+  },
+
+  _budgetCount(count, min = 1) {
+    if (!count) return 0;
+    return Math.max(min, Math.round(count * this._detailFactor()));
   }
 };
 

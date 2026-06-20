@@ -2125,6 +2125,36 @@ html.desktop-mode #extra-buttons {
   display: flex; align-items: center; justify-content: center;
   backdrop-filter: blur(10px);
 }
+
+#perf-meter {
+  position: absolute;
+  top: max(8px, env(safe-area-inset-top));
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 130;
+  padding: 5px 10px;
+  border: 1px solid rgba(255, 213, 106, .55);
+  border-radius: 999px;
+  background: rgba(5, 9, 14, .68);
+  color: #eaf7df;
+  font: 700 12px/1.2 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  letter-spacing: .4px;
+  text-shadow: 0 1px 2px rgba(0,0,0,.8);
+  pointer-events: none;
+  box-shadow: 0 6px 18px rgba(0,0,0,.32), inset 0 0 16px rgba(255,213,106,.06);
+}
+
+#perf-meter.perf-warn {
+  color: #ffe08a;
+  border-color: rgba(255, 184, 77, .82);
+  background: rgba(48, 28, 6, .72);
+}
+
+#perf-meter.perf-bad {
+  color: #ffb4a8;
+  border-color: rgba(255, 94, 78, .85);
+  background: rgba(62, 12, 8, .75);
+}
 .map-panel {
   width: min(820px, 96%); height: min(600px, 92%);
   background: linear-gradient(160deg, rgba(30,45,70,.96), rgba(15,25,40,.96));

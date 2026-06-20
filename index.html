@@ -40,6 +40,9 @@
 <!-- ★ 加载诊断信息（永远可见，帮 iPhone 排查）-->
 <div id="boot-status" style="position:absolute;top:60%;left:50%;transform:translateX(-50%);z-index:101;color:#fff;font-size:12px;background:rgba(0,0,0,.7);padding:6px 14px;border-radius:8px;pointer-events:none;text-align:center;max-width:90vw;"></div>
 
+<!-- ★ 顶部性能监控：菜单/登录/游戏阶段都显示 FPS 和长帧 -->
+<div id="perf-meter">FPS -- · 长帧 --ms · loading</div>
+
 <!-- ★ 按钮事件日志（屏幕中央上方，永远可见，显示按钮是否被触发）-->
 <div id="btn-log" style="position:absolute;top:55%;left:50%;transform:translateX(-50%);z-index:99;background:rgba(0,0,0,.8);color:#5aff5a;font-family:monospace;font-size:11px;padding:6px 12px;border-radius:6px;max-width:90vw;max-height:120px;overflow:hidden;pointer-events:none;display:none;"></div>
 
@@ -334,13 +337,64 @@ window.__loadState = {
   ready: false,
   startTime: Date.now()
 };
+window.__APP_VERSION = '20260620-fps-lazy-3';
 var __assetParams = new URLSearchParams(location.search);
-window.__assetPass = __assetParams.get('artpass') || __assetParams.get('v') || __assetParams.get('cache') || String(Date.now());
+window.__assetPass = __assetParams.get('artpass') || __assetParams.get('v') || __assetParams.get('cache') || window.__APP_VERSION;
+
+// ★ 顶部 FPS / 长帧监控：不依赖游戏引擎，菜单阶段也能看卡顿
+(function startPerfMeter() {
+  var el = document.getElementById('perf-meter');
+  if (!el || window.__perfMeterStarted) return;
+  window.__perfMeterStarted = true;
+  var frames = 0;
+  var last = performance.now();
+  var lastFrame = last;
+  var fps = 0;
+  var worst = 0;
+  var stage = 'loading';
+  function tick(now) {
+    frames++;
+    var dt = now - lastFrame;
+    lastFrame = now;
+    if (dt > worst) worst = dt;
+    if (now - last >= 500) {
+      fps = Math.round(frames * 1000 / (now - last));
+      stage = (window.game && window.game.state === 'playing') ? 'game'
+        : (window.__gameplayState && window.__gameplayState.loading) ? 'loading-game'
+        : (window.__loadState && window.__loadState.ready) ? 'menu'
+        : 'loading';
+      var detail = '';
+      if (window.game && window.game.renderer && window.game.renderer.info) {
+        var info = window.game.renderer.info;
+        var calls = info.render ? info.render.calls || 0 : 0;
+        var tris = info.render ? info.render.triangles || 0 : 0;
+        detail += ' · draw ' + calls + ' · tri ' + Math.round(tris / 1000) + 'k';
+      }
+      if (window.__gamePerf) {
+        var top = Object.keys(window.__gamePerf).map(function(k) {
+          return { k: k, v: window.__gamePerf[k] && window.__gamePerf[k].avg || 0 };
+        }).filter(function(x) { return x.v >= 0.15; }).sort(function(a, b) { return b.v - a.v; }).slice(0, 3);
+        if (top.length) {
+          detail += ' · ' + top.map(function(x) { return x.k + ' ' + x.v.toFixed(1) + 'ms'; }).join(' / ');
+        }
+      }
+      el.textContent = 'FPS ' + fps + ' · 长帧 ' + Math.round(worst) + 'ms · ' + stage + detail;
+      el.classList.toggle('perf-bad', fps > 0 && fps < 28 || worst > 120);
+      el.classList.toggle('perf-warn', !el.classList.contains('perf-bad') && (fps < 45 || worst > 70));
+      frames = 0;
+      worst = 0;
+      last = now;
+    }
+    requestAnimationFrame(tick);
+  }
+  requestAnimationFrame(tick);
+})();
 
 // ★★★ 全局按钮处理函数（内联事件调用，最早定义，不依赖任何脚本加载）★★★
 window.__btnState = { attack:false, jump:false, shield:false, parry:false };
 window.__btnEvents = [];
 window.__btn = function(action, isDown) {
+  window.__btnInlineLast = { action: action, isDown: !!isDown, time: performance.now() };
   // 记录所有事件（调试用）
   window.__btnEvents.push(action + (isDown ? '+down' : '+up'));
   if (window.__btnEvents.length > 20) window.__btnEvents.shift();
@@ -471,6 +525,25 @@ window.__loadScript = function(url, retries) {
   });
 };
 
+window.__loadedScripts = window.__loadedScripts || {};
+window.__loadScripts = function(list, label) {
+  var chain = Promise.resolve();
+  list.forEach(function(url) {
+    chain = chain.then(function() {
+      if (window.__loadedScripts[url]) return true;
+      return window.__loadScript(url).then(function(ok) {
+        if (ok) window.__loadedScripts[url] = true;
+        return ok;
+      });
+    });
+  });
+  return chain.then(function() {
+    var failed = window.__loadState.failed || [];
+    if (failed.length) throw new Error((label || '资源') + '加载失败：' + failed.join(', '));
+    return true;
+  });
+};
+
 // 启用开始按钮（关键！加载完成前禁用，避免点击无效）
 window.__enableStartButton = function() {
   if (window.__loadState.ready) return;  // 防重复
@@ -525,79 +598,116 @@ window.__retryFailed = function() {
 };
 
 // 主加载入口
+window.__INITIAL_SCRIPTS = [
+  'src/SaveSystem.js',
+  'src/CloudAccountSystem.js',
+  'src/ui/Dialogue.js',
+  'src/ui/MapMenu.js',
+  'src/main.js'
+];
+
+window.__GAMEPLAY_SCRIPTS = [
+  'libs/three.min.js',
+  'src/Debug.js',
+  'src/Item.js',
+  'src/CookingSystem.js',
+  'src/ShopSystem.js',
+  'src/CraftingSystem.js',
+  'src/QuestSystem.js',
+  'src/StorySystem.js',
+  'src/ChampionSystem.js',
+  'src/DivineBeastChallengeSystem.js',
+  'src/MainQuestSystem.js',
+  'src/CompendiumData.js',
+  'src/QuizData.js',
+  'src/Shrine.js',
+  'src/Textures.js',
+  'src/ArtAssets.js',
+  'src/core/AssetFactory.js',
+  'src/core/Input.js',
+  'src/TouchRouter.js',
+  'src/TouchControls.js',
+  'src/Effects.js',
+  'src/AudioSystem.js',
+  'src/VisualQualitySystem.js',
+  'src/ArtDirectionSystem.js',
+  'src/ModelPolishSystem.js',
+  'src/CharacterArtSystem.js',
+  'src/WorldPolishSystem.js',
+  'src/BillboardPolishSystem.js',
+  'src/CameraPolishSystem.js',
+  'src/AdaptivePerformanceSystem.js',
+  'src/ExplorationSystem.js',
+  'src/WorldExpansionSystem.js',
+  'src/Player.js',
+  'src/Enemy.js',
+  'src/Inventory.js',
+  'src/World/BaseScene.js',
+  'src/World/Grassland.js',
+  'src/World/Forest.js',
+  'src/World/Highland.js',
+  'src/World/Dungeon.js',
+  'src/World/Snowland.js',
+  'src/World/Volcano.js',
+  'src/World/Desert.js',
+  'src/World/HyruleCastle.js',
+  'src/ui/Joystick.js',
+  'src/ui/ActionButtons.js',
+  'src/ui/HUD.js',
+  'src/ui/InventoryUI.js',
+  'src/ui/CookingUI.js',
+  'src/ui/ShopUI.js',
+  'src/ui/QuestUI.js',
+  'src/ui/ShrineUI.js',
+  'src/ui/StatueUI.js',
+  'src/ui/CompendiumUI.js',
+  'src/ui/QualitySettingsUI.js',
+  'src/core/Game.js'
+];
+
+window.__gameplayState = {
+  loaded: false,
+  loading: false,
+  promise: null
+};
+
+window.__loadGameplayScripts = function() {
+  if (window.__gameplayState.loaded) return Promise.resolve(true);
+  if (window.__gameplayState.promise) return window.__gameplayState.promise;
+  window.__gameplayState.loading = true;
+  var loading = document.getElementById('loading');
+  var menu = document.getElementById('menu');
+  var fill = document.getElementById('loading-fill');
+  var text = document.getElementById('loading-text');
+  if (loading) loading.classList.remove('hidden');
+  if (menu) menu.classList.add('hidden');
+  if (fill) fill.style.width = '0%';
+  if (text) text.textContent = '正在加载游戏资源…';
+  window.__loadState.total = window.__GAMEPLAY_SCRIPTS.length;
+  window.__loadState.loaded = 0;
+  window.__loadState.failed = [];
+  window.__loadState.scriptsLoaded = false;
+  window.__gameplayState.promise = window.__loadScripts(window.__GAMEPLAY_SCRIPTS, '游戏资源').then(function() {
+    window.__gameplayState.loaded = true;
+    window.__gameplayState.loading = false;
+    if (text) text.textContent = '游戏资源加载完成，正在进入世界…';
+    return true;
+  }).catch(function(err) {
+    window.__gameplayState.loading = false;
+    if (text) text.textContent = err.message || '游戏资源加载失败';
+    throw err;
+  });
+  return window.__gameplayState.promise;
+};
+
 window.__startLoading = function() {
-  var scripts = [
-    'libs/three.min.js',        // ★ 必须第一个加载
-    'src/Debug.js',             // 调试工具第二个（早于其它，能捕获它们的日志）
-    'src/Item.js',
-    'src/SaveSystem.js',
-    'src/CloudAccountSystem.js',
-    'src/CookingSystem.js',
-    'src/ShopSystem.js',
-    'src/CraftingSystem.js',
-    'src/QuestSystem.js',
-    'src/StorySystem.js',
-    'src/ChampionSystem.js',
-    'src/DivineBeastChallengeSystem.js',
-    'src/MainQuestSystem.js',
-    'src/CompendiumData.js',
-    'src/QuizData.js',
-    'src/Shrine.js',
-    'src/Textures.js',
-    'src/ArtAssets.js',
-    'src/core/AssetFactory.js',
-    'src/core/Input.js',
-    'src/TouchRouter.js',
-    'src/TouchControls.js',
-    'src/Effects.js',
-    'src/AudioSystem.js',
-    'src/VisualQualitySystem.js',
-    'src/ArtDirectionSystem.js',
-    'src/ModelPolishSystem.js',
-    'src/CharacterArtSystem.js',
-    'src/WorldPolishSystem.js',
-    'src/BillboardPolishSystem.js',
-    'src/CameraPolishSystem.js',
-    'src/AdaptivePerformanceSystem.js',
-    'src/ExplorationSystem.js',
-    'src/WorldExpansionSystem.js',
-    'src/Player.js',
-    'src/Enemy.js',
-    'src/Inventory.js',
-    'src/World/BaseScene.js',
-    'src/World/Grassland.js',
-    'src/World/Forest.js',
-    'src/World/Highland.js',
-    'src/World/Dungeon.js',
-    'src/World/Snowland.js',
-    'src/World/Volcano.js',
-    'src/World/Desert.js',
-    'src/World/HyruleCastle.js',
-    'src/ui/Joystick.js',
-    'src/ui/ActionButtons.js',
-    'src/ui/HUD.js',
-    'src/ui/InventoryUI.js',
-    'src/ui/Dialogue.js',
-    'src/ui/CookingUI.js',
-    'src/ui/ShopUI.js',
-    'src/ui/QuestUI.js',
-    'src/ui/ShrineUI.js',
-    'src/ui/StatueUI.js',
-    'src/ui/MapMenu.js',
-    'src/ui/CompendiumUI.js',
-    'src/ui/QualitySettingsUI.js',
-    'src/core/Game.js',
-    'src/main.js'
-  ];
+  var scripts = window.__INITIAL_SCRIPTS;
   window.__loadState.total = scripts.length;
 
-  // 顺序加载（保证依赖顺序）：three.min.js → 其它 → main.js
-  var chain = Promise.resolve();
-  scripts.forEach(function(url) {
-    chain = chain.then(function() { return window.__loadScript(url); });
-  });
+  // 第一阶段只加载菜单/账号/存档；重 3D 游戏脚本在点击开始时再加载
+  var chain = window.__loadScripts(scripts, '菜单资源');
   chain.then(function() {
-    console.log('=== 全部脚本加载链完成 ===');
+    console.log('=== 菜单脚本加载链完成 ===');
     if (window.__loadState.failed.length === 0) {
       window.__loadState.scriptsLoaded = true;
       window.__updateLoadProgress();

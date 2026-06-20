@@ -387,6 +387,7 @@ class Grassland extends BaseScene {
   }
 
   _addRoadPolyline(points, width, mat) {
+    const detail = this._sceneDetailFactor ? this._sceneDetailFactor() : 0.42;
     for (let i = 0; i < points.length - 1; i++) {
       const a = points[i], b = points[i + 1];
       const dx = b.x - a.x;
@@ -398,7 +399,7 @@ class Grassland extends BaseScene {
       strip.position.set((a.x + b.x) / 2, 0.062, (a.z + b.z) / 2);
       strip.renderOrder = 1;
       this.scene.add(strip);
-      const steps = Math.max(3, Math.floor(len / 6));
+      const steps = Math.max(2, Math.floor((len / 6) * Math.max(0.35, detail)));
       for (let j = 0; j <= steps; j++) {
         const t = j / steps;
         const x = a.x + dx * t;
@@ -430,6 +431,7 @@ class Grassland extends BaseScene {
     patch.scale.set(1.6 + Math.random() * 0.9, 0.55 + Math.random() * 0.35, 1);
     patch.position.set(x, 0.068, z);
     patch.renderOrder = 2;
+    patch.userData.perfCull = true;
     this.scene.add(patch);
   }
 
@@ -446,6 +448,7 @@ class Grassland extends BaseScene {
   }
 
   _addRouteDetailClusters() {
+    const detail = this._sceneDetailFactor ? this._sceneDetailFactor() : 0.42;
     const clusters = [
       { x: 2, z: 20, trees: 2, rocks: 3, grass: 16 },
       { x: 8, z: 2, trees: 1, rocks: 2, grass: 12 },
@@ -456,9 +459,9 @@ class Grassland extends BaseScene {
       { x: -4, z: -88, trees: 1, rocks: 8, grass: 12 }
     ];
     for (const c of clusters) {
-      for (let i = 0; i < c.trees; i++) this._placeClusterProp(AssetFactory.createTree(), c, 7, true);
-      for (let i = 0; i < c.rocks; i++) this._placeClusterProp(AssetFactory.createRock(0.25 + Math.random() * 0.5), c, 6, false);
-      for (let i = 0; i < c.grass; i++) this._placeClusterProp(i % 5 === 0 ? AssetFactory.createFlower() : AssetFactory.createGrassTuft(), c, 8, false);
+      for (let i = 0; i < Math.max(0, Math.round(c.trees * detail)); i++) this._placeClusterProp(AssetFactory.createTree(), c, 7, true);
+      for (let i = 0; i < Math.max(1, Math.round(c.rocks * detail)); i++) this._placeClusterProp(AssetFactory.createRock(0.25 + Math.random() * 0.5), c, 6, false);
+      for (let i = 0; i < Math.max(2, Math.round(c.grass * detail)); i++) this._placeClusterProp(i % 5 === 0 ? AssetFactory.createFlower() : AssetFactory.createGrassTuft(), c, 8, false);
     }
   }
 
@@ -482,13 +485,16 @@ class Grassland extends BaseScene {
       patch.renderOrder = 1;
       this.scene.add(patch);
     }
-    for (let i = 0; i < 72; i++) {
+    const detail = this._sceneDetailFactor ? this._sceneDetailFactor() : 0.42;
+    const reedCount = Math.max(12, Math.round(72 * detail));
+    for (let i = 0; i < reedCount; i++) {
       const side = i % 2 ? 1 : -1;
       const z = -112 + Math.random() * 244;
       const x = -35 + side * (6.1 + Math.random() * 2.8);
       const reed = this._createReeds();
       reed.position.set(x, 0.02, z);
       reed.rotation.y = Math.random() * Math.PI * 2;
+      reed.userData.perfCull = true;
       this.scene.add(reed);
     }
     for (let i = 0; i < 6; i++) {
@@ -526,6 +532,7 @@ class Grassland extends BaseScene {
       );
       stump.position.set(x - 4 + i * 2.2, 0.28, z + 5 + Math.sin(i) * 1.3);
       stump.rotation.y = Math.random() * Math.PI;
+      stump.userData.perfCull = true;
       this.scene.add(stump);
     }
   }
@@ -550,6 +557,7 @@ class Grassland extends BaseScene {
       box.position.set(x + 3.5 + (i % 2) * 0.8, 0.28, z - 2.8 + Math.floor(i / 2) * 0.75);
       box.rotation.y = Math.random() * 0.8;
       box.castShadow = true;
+      box.userData.perfCull = true;
       this.scene.add(box);
     }
     this.fire = this.fire || fire;
@@ -596,6 +604,7 @@ class Grassland extends BaseScene {
     g.position.set(x, 0, z);
     g.rotation.y = Math.random() * 0.35 - 0.15;
     g.userData.label = label;
+    g.userData.perfCull = true;
     this.scene.add(g);
   }
 

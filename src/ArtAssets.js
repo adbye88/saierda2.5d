@@ -20,6 +20,7 @@ const ArtAssets = {
     'bush-leaves': 'ai-polish-bush-leaves',
     'pine-needles': 'ai-polish-pine-needles',
     'carved-wood': 'ai-polish-carved-wood',
+    'cloth': 'ai-polish-desert-fabric',
     'desert-fabric': 'ai-polish-desert-fabric',
     'warm-quilt': 'ai-polish-warm-quilt'
   },

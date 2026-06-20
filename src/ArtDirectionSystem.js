@@ -78,12 +78,19 @@ const ArtDirectionSystem = {
   applyRenderer(game) {
     if (!game || !game.renderer) return;
     const r = game.renderer;
+    const quality = this._quality();
+    const settings = this._qualitySettings();
+    const touch = this._isTouchDevice();
+    const shadows = !!(settings.shadows && quality !== 'low' && !touch);
     if ('outputColorSpace' in r && THREE.SRGBColorSpace) r.outputColorSpace = THREE.SRGBColorSpace;
     if ('outputEncoding' in r && THREE.sRGBEncoding) r.outputEncoding = THREE.sRGBEncoding;
     r.toneMapping = THREE.ACESFilmicToneMapping;
     r.toneMappingExposure = 0.98;
-    r.shadowMap.enabled = true;
+    // 性能修复：这里曾经无条件重新打开阴影，覆盖了 VisualQualitySystem 的低画质/手机设置。
+    // 大量树木和角色都 castShadow 时，手机会直接掉到个位数 FPS。
+    r.shadowMap.enabled = shadows;
     r.shadowMap.type = THREE.PCFSoftShadowMap;
+    r.setPixelRatio(Math.min(window.devicePixelRatio || 1, settings.renderScale || (touch ? 1 : 1.25)));
     if (game.camera) {
       game.camera.fov = 55;
       game.camera.updateProjectionMatrix();
@@ -111,6 +118,11 @@ const ArtDirectionSystem = {
   },
 
   _applyAtmosphere(world, preset) {
+    const quality = this._quality();
+    const settings = this._qualitySettings();
+    const touch = this._isTouchDevice();
+    const shadows = !!(settings.shadows && quality !== 'low' && !touch);
+    const shadowSize = settings.shadowSize || (quality === 'medium' ? 1024 : 2048);
     world.scene.background = new THREE.Color(preset.sky);
     world.scene.fog = new THREE.FogExp2(preset.fog, preset.density);
     world.scene.traverse(obj => {
@@ -123,8 +135,9 @@ const ArtDirectionSystem = {
       if (obj.isDirectionalLight) {
         obj.color.setHex(preset.sun);
         obj.intensity = obj === world.sun ? 1.06 : Math.min(obj.intensity || 0.35, 0.36);
+        obj.castShadow = shadows && obj === world.sun;
         if (obj.shadow) {
-          obj.shadow.mapSize.set(2048, 2048);
+          obj.shadow.mapSize.set(shadowSize, shadowSize);
           obj.shadow.bias = -0.00022;
           obj.shadow.normalBias = 0.045;
           if (obj.shadow.camera) {
@@ -296,10 +309,11 @@ const ArtDirectionSystem = {
     group.name = 'art-ground-details';
     world.scene.add(group);
 
-    this._addDirtPatches(world, preset, group);
-    this._addInstancedGrass(world, preset, group);
-    this._addInstancedFlowers(world, preset, group);
-    this._addInstancedPebbles(world, preset, group);
+    const tuned = this._tunedPreset(preset);
+    this._addDirtPatches(world, tuned, group);
+    this._addInstancedGrass(world, tuned, group);
+    this._addInstancedFlowers(world, tuned, group);
+    this._addInstancedPebbles(world, tuned, group);
   },
 
   _addDirtPatches(world, preset, group) {
@@ -330,7 +344,7 @@ const ArtDirectionSystem = {
     const mat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.92, vertexColors: true, flatShading: true });
     const mesh = new THREE.InstancedMesh(geo, mat, count);
     mesh.name = 'art-instanced-grass';
-    mesh.frustumCulled = false;
+    mesh.frustumCulled = true;
     const cBase = new THREE.Color(preset.grass);
     for (let i = 0; i < count; i++) {
       const p = this._randomPoint(world, 4);
@@ -345,7 +359,7 @@ const ArtDirectionSystem = {
     }
     if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
     mesh.castShadow = false;
-    mesh.receiveShadow = true;
+    mesh.receiveShadow = this._quality() !== 'low';
     group.add(mesh);
   },
 
@@ -367,6 +381,7 @@ const ArtDirectionSystem = {
       mesh.setColorAt(i, new THREE.Color(preset.flower[i % preset.flower.length]));
     }
     if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+    mesh.frustumCulled = true;
     group.add(mesh);
   },
 
@@ -389,8 +404,9 @@ const ArtDirectionSystem = {
       mesh.setColorAt(i, col);
     }
     if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
-    mesh.castShadow = true;
-    mesh.receiveShadow = true;
+    mesh.frustumCulled = true;
+    mesh.castShadow = this._quality() !== 'low' && !this._isTouchDevice();
+    mesh.receiveShadow = this._quality() !== 'low';
     group.add(mesh);
   },
 
@@ -464,9 +480,40 @@ const ArtDirectionSystem = {
         stone.position.set(side * (width / 2 + 0.56 + Math.random() * 0.55), 0.14, -length / 2 + Math.random() * length);
         stone.scale.set(1.25, 0.45, 0.8 + Math.random() * 0.4);
         stone.rotation.set(Math.random(), Math.random() * Math.PI, Math.random());
-        stone.castShadow = true;
+        stone.castShadow = this._quality() !== 'low' && !this._isTouchDevice();
         river.add(stone);
       }
+    });
+  },
+
+  _quality() {
+    return (typeof VisualQualitySystem !== 'undefined' && VisualQualitySystem.level) || (this._isTouchDevice() ? 'low' : 'medium');
+  },
+
+  _qualitySettings() {
+    if (typeof VisualQualitySystem !== 'undefined' && VisualQualitySystem.getSettings) {
+      return VisualQualitySystem.getSettings();
+    }
+    return {
+      renderScale: this._isTouchDevice() ? 1 : 1.25,
+      shadows: !this._isTouchDevice(),
+      shadowSize: this._isTouchDevice() ? 512 : 1024
+    };
+  },
+
+  _isTouchDevice() {
+    return ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
+  },
+
+  _tunedPreset(preset) {
+    const quality = this._quality();
+    const touch = this._isTouchDevice();
+    const factor = quality === 'low' || touch ? 0.26 : quality === 'medium' ? 0.55 : quality === 'ultra' ? 1 : 0.78;
+    return Object.assign({}, preset, {
+      grassCount: Math.max(80, Math.floor((preset.grassCount || 0) * factor)),
+      flowerCount: Math.max(8, Math.floor((preset.flowerCount || 0) * factor)),
+      pebbleCount: Math.max(18, Math.floor((preset.pebbleCount || 0) * factor)),
+      patchCount: Math.max(4, Math.floor((preset.patchCount || 0) * Math.max(0.5, factor)))
     });
   },
 

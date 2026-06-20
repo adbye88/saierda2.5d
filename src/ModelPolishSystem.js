@@ -12,6 +12,8 @@ const ModelPolishSystem = {
   _raycaster: new THREE.Raycaster(),
   _occluders: new Set(),
   _occlusionTimer: 0,
+  _ownerTimer: 0,
+  _landmarkTimer: 0,
   _tmpBox: new THREE.Box3(),
   _tmpSize: new THREE.Vector3(),
 
@@ -26,6 +28,8 @@ const ModelPolishSystem = {
     world.scene.traverse(obj => {
       if (obj.isMesh) this._polishMesh(obj);
     });
+    this._cacheLandmarks(world);
+    world._modelPolished = true;
   },
 
   update(dt, game) {
@@ -34,13 +38,19 @@ const ModelPolishSystem = {
     if (!world || !world.scene) return;
     if (world.name !== this._worldName || !world._modelPolished) {
       this.polishWorld(world);
-      world._modelPolished = true;
     }
+    const quality = this._quality();
+    const lowCost = quality === 'low';
+    this._ownerTimer -= dt;
+    const updateOwners = this._ownerTimer <= 0;
+    if (updateOwners) this._ownerTimer = lowCost ? 0.18 : 0.08;
     if (game.player && game.player.mesh) {
-      game.player.mesh.traverse(obj => { if (obj.isMesh) this._polishMesh(obj); });
-      this._updateContactShadow(game.player, world.scene, 0.82, 0.32);
-      this._ensureOwnerOutline(game.player, 0x101612, 0.18);
-      this._setOwnerOutlineVisible(game.player, this._outlineEnabled());
+      this._polishOwnerOnce(game.player);
+      if (updateOwners) this._updateContactShadow(game.player, world.scene, 0.82, lowCost ? 0.22 : 0.32);
+      if (!lowCost) {
+        this._ensureOwnerOutline(game.player, 0x101612, 0.18);
+        this._setOwnerOutlineVisible(game.player, this._outlineEnabled());
+      }
     }
     if (Array.isArray(world.enemies)) {
       for (const enemy of world.enemies) {
@@ -49,18 +59,33 @@ const ModelPolishSystem = {
           this._removeContactShadow(enemy);
           continue;
         }
-        enemy.mesh.traverse(obj => { if (obj.isMesh) this._polishMesh(obj); });
-        this._updateContactShadow(enemy, world.scene, enemy.boss ? 2.2 : 1.0, enemy.boss ? 0.36 : 0.24);
-        this._ensureOwnerOutline(enemy, enemy.boss ? 0x2b1020 : 0x11140f, enemy.boss ? 0.2 : 0.14);
-        this._setOwnerOutlineVisible(enemy, this._outlineEnabled());
+        this._polishOwnerOnce(enemy);
+        if (updateOwners) this._updateContactShadow(enemy, world.scene, enemy.boss ? 2.2 : 1.0, lowCost ? 0.18 : (enemy.boss ? 0.36 : 0.24));
+        if (!lowCost) {
+          this._ensureOwnerOutline(enemy, enemy.boss ? 0x2b1020 : 0x11140f, enemy.boss ? 0.2 : 0.14);
+          this._setOwnerOutlineVisible(enemy, this._outlineEnabled());
+        }
       }
     }
-    this._updateLandmarks(dt, world);
-    this._occlusionTimer -= dt;
-    if (this._occlusionTimer <= 0) {
-      this._occlusionTimer = 0.12;
-      this._updateCameraOcclusion(game, world);
+    this._landmarkTimer -= dt;
+    if (this._landmarkTimer <= 0) {
+      this._landmarkTimer = lowCost ? 0.12 : 0.04;
+      this._updateLandmarks(dt, world);
     }
+    this._occlusionTimer -= dt;
+    if (!lowCost && this._occlusionTimer <= 0) {
+      this._occlusionTimer = quality === 'medium' ? 0.3 : 0.16;
+      this._updateCameraOcclusion(game, world);
+    } else if (lowCost && this._occluders.size) {
+      for (const obj of this._occluders) this._restoreOccluder(obj);
+      this._occluders.clear();
+    }
+  },
+
+  _polishOwnerOnce(owner) {
+    if (!owner || !owner.mesh || owner._modelPolishMeshesReady) return;
+    owner.mesh.traverse(obj => { if (obj.isMesh) this._polishMesh(obj); });
+    owner._modelPolishMeshesReady = true;
   },
 
   _polishMesh(mesh) {
@@ -124,10 +149,16 @@ const ModelPolishSystem = {
       scene.add(shadow);
     }
 
-    this._tmpBox.setFromObject(mesh);
-    this._tmpBox.getSize(this._tmpSize);
-    const sx = Math.max(radius, Math.min(3.2, this._tmpSize.x * 0.68 || radius));
-    const sz = Math.max(radius * 0.58, Math.min(2.4, this._tmpSize.z * 0.58 || radius * 0.58));
+    if (!owner._contactShadowScale) {
+      this._tmpBox.setFromObject(mesh);
+      this._tmpBox.getSize(this._tmpSize);
+      owner._contactShadowScale = {
+        x: Math.max(radius, Math.min(3.2, this._tmpSize.x * 0.68 || radius)),
+        z: Math.max(radius * 0.58, Math.min(2.4, this._tmpSize.z * 0.58 || radius * 0.58))
+      };
+    }
+    const sx = owner._contactShadowScale.x;
+    const sz = owner._contactShadowScale.z;
     shadow.scale.set(sx, sz, 1);
     shadow.position.set(mesh.position.x, 0.045, mesh.position.z);
     shadow.material.opacity = opacity;
@@ -194,7 +225,7 @@ const ModelPolishSystem = {
 
   _outlineEnabled() {
     const quality = (typeof VisualQualitySystem !== 'undefined' && VisualQualitySystem.level) || 'high';
-    return quality !== 'low';
+    return quality === 'high' || quality === 'ultra';
   },
 
   _setOwnerOutlineVisible(owner, visible) {
@@ -223,13 +254,15 @@ const ModelPolishSystem = {
 
   _updateLandmarks(dt, world) {
     if (!world || !world.scene) return;
-    world.scene.traverse(obj => {
-      if (!obj || !obj.userData) return;
+    const list = world._modelPolishLandmarks || [];
+    const stepDt = Math.max(dt, this._landmarkTimer || 0.016);
+    for (const obj of list) {
+      if (!obj || !obj.userData) continue;
       if (obj.userData.kind === 'shrine') {
         const p = obj.userData.parts || {};
         const t = performance.now() * 0.001;
-        if (p.halo) p.halo.rotation.z += dt * 0.7;
-        if (p.runeRing) p.runeRing.rotation.z -= dt * 0.35;
+        if (p.halo) p.halo.rotation.z += stepDt * 0.7;
+        if (p.runeRing) p.runeRing.rotation.z -= stepDt * 0.35;
         if (p.beam && p.beam.material) p.beam.material.opacity = 0.18 + Math.sin(t * 2.2 + obj.position.x) * 0.045;
         if (p.baseGlow && p.baseGlow.material) p.baseGlow.material.opacity = 0.26 + Math.sin(t * 2.7 + obj.position.z) * 0.07;
         if (p.light) p.light.intensity += (1.45 + Math.sin(t * 2.4) * 0.18 - p.light.intensity) * 0.08;
@@ -237,9 +270,9 @@ const ModelPolishSystem = {
       if (obj.userData.kind === 'sheikahTower') {
         const p = obj.userData.parts || {};
         const t = performance.now() * 0.001;
-        if (p.top) p.top.rotation.y += dt * 0.8;
+        if (p.top) p.top.rotation.y += stepDt * 0.8;
         if (Array.isArray(p.rings)) {
-          p.rings.forEach((ring, i) => { ring.rotation.z += dt * (0.35 + i * 0.08); });
+          p.rings.forEach((ring, i) => { ring.rotation.z += stepDt * (0.35 + i * 0.08); });
         }
         if (Array.isArray(p.glyphs)) {
           p.glyphs.forEach((glyph, i) => {
@@ -248,7 +281,17 @@ const ModelPolishSystem = {
         }
         if (p.topLight) p.topLight.intensity = 1.75 + Math.sin(t * 2) * 0.35;
       }
+    }
+  },
+
+  _cacheLandmarks(world) {
+    if (!world || !world.scene) return;
+    const list = [];
+    world.scene.traverse(obj => {
+      if (!obj || !obj.userData) return;
+      if (obj.userData.kind === 'shrine' || obj.userData.kind === 'sheikahTower') list.push(obj);
     });
+    world._modelPolishLandmarks = list;
   },
 
   _updateCameraOcclusion(game, world) {
@@ -263,7 +306,8 @@ const ModelPolishSystem = {
     this._raycaster.near = 0.2;
     this._raycaster.far = Math.max(0.5, dist - 0.65);
 
-    const hits = this._raycaster.intersectObjects(world.scene.children, true);
+    const targets = Array.isArray(world.colliders) && world.colliders.length ? world.colliders : world.scene.children;
+    const hits = this._raycaster.intersectObjects(targets, true);
     const next = new Set();
     for (const hit of hits) {
       const obj = hit.object;
@@ -347,6 +391,10 @@ const ModelPolishSystem = {
       cur = cur.parent;
     }
     return false;
+  },
+
+  _quality() {
+    return (typeof VisualQualitySystem !== 'undefined' && VisualQualitySystem.level) || 'high';
   }
 };
 

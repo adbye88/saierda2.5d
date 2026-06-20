@@ -11,6 +11,8 @@ const HUD = {
   vignetteEl: null,
   // 怪物血条缓存（DOM 元素）
   _enemyBars: new Map(),
+  _cache: {},
+  _timers: { minimap: 0, enemyBars: 0, buffs: 0, champions: 0 },
 
   init() {
     this.heartsEl = document.getElementById('hearts');
@@ -25,6 +27,8 @@ const HUD = {
     this.bossHpFill = document.getElementById('boss-hp-fill');
     this.bossNameEl = document.getElementById('boss-name');
     this.vignetteEl = document.getElementById('damage-vignette');
+    this._cache = {};
+    this._timers = { minimap: 0, enemyBars: 0, buffs: 0, champions: 0 };
   },
 
   show() { document.getElementById('hud').classList.remove('hidden'); },
@@ -130,25 +134,36 @@ const HUD = {
   },
 
   // ===== 主更新 =====
-  update(game) {
+  update(game, dt = 0.016) {
     if (!game.player) return;
     const p = game.player;
     // 心心
     const totalHearts = p.maxHp;
     const hpInHearts = p.hp / 4;
-    let html = '';
-    for (let i = 0; i < totalHearts; i++) {
-      const fill = hpInHearts - i;
-      let cls = 'heart';
-      if (fill <= 0) cls += ' empty';
-      else if (fill < 1) cls += ' half';
-      html += `<div class="${cls}"><div class="fill"></div></div>`;
+    const heartKey = totalHearts + '|' + Math.round(hpInHearts * 2) / 2;
+    if (this._cache.hearts !== heartKey) {
+      let html = '';
+      for (let i = 0; i < totalHearts; i++) {
+        const fill = hpInHearts - i;
+        let cls = 'heart';
+        if (fill <= 0) cls += ' empty';
+        else if (fill < 1) cls += ' half';
+        html += `<div class="${cls}"><div class="fill"></div></div>`;
+      }
+      this.heartsEl.innerHTML = html;
+      this._cache.hearts = heartKey;
     }
-    this.heartsEl.innerHTML = html;
     // 体力
-    this.stamEl.style.width = (p.stamina / p.maxStamina * 100) + '%';
+    const staminaPct = Math.round(p.stamina / p.maxStamina * 100);
+    if (this._cache.stamina !== staminaPct) {
+      this.stamEl.style.width = staminaPct + '%';
+      this._cache.stamina = staminaPct;
+    }
     // 卢比
-    this.rupeeEl.innerHTML = `${ArtAssets.itemIconHtml('rupee', 'hud-item-icon')} ${p.inventory.rupees}`;
+    if (this._cache.rupees !== p.inventory.rupees) {
+      this.rupeeEl.innerHTML = `${ArtAssets.itemIconHtml('rupee', 'hud-item-icon')} ${p.inventory.rupees}`;
+      this._cache.rupees = p.inventory.rupees;
+    }
     // 武器信息
     const w = p.inventory.equipped.weapon;
     const s = p.inventory.equipped.shield;
@@ -170,23 +185,48 @@ const HUD = {
       parts.push(`${ArtAssets.itemIconHtml(b.itemId, 'hud-item-icon')} <span style="font-size:11px">${b.durability}/${d.durability} | ➹${p.inventory.arrows}</span>${aim}`);
     }
     if (parts.length === 0) parts.push('空手 — 按🎒拿武器');
-    this.weaponEl.innerHTML = parts.join('<br>');
+    const weaponHtml = parts.join('<br>');
+    if (this._cache.weapon !== weaponHtml) {
+      this.weaponEl.innerHTML = weaponHtml;
+      this._cache.weapon = weaponHtml;
+    }
     if (this.arrowEl) {
       const hasBowInPack = !!b || (p.inventory.slots.bow && p.inventory.slots.bow.length > 0);
       const hasArrowInfo = hasBowInPack || p.inventory.arrows > 0;
-      this.arrowEl.classList.toggle('hidden', !hasArrowInfo);
-      this.arrowEl.disabled = p.inventory.arrows <= 0;
       const label = p.arrowTypeLabel ? p.arrowTypeLabel() : '普通箭';
-      this.arrowEl.textContent = `➹ ${label} ×${p.inventory.arrows}`;
-      this.arrowEl.classList.toggle('active', !!p.bowMode);
+      const arrowText = `➹ ${label} ×${p.inventory.arrows}`;
+      const arrowKey = `${hasArrowInfo}|${p.inventory.arrows <= 0}|${arrowText}|${!!p.bowMode}`;
+      if (this._cache.arrow !== arrowKey) {
+        this.arrowEl.classList.toggle('hidden', !hasArrowInfo);
+        this.arrowEl.disabled = p.inventory.arrows <= 0;
+        this.arrowEl.textContent = arrowText;
+        this.arrowEl.classList.toggle('active', !!p.bowMode);
+        this._cache.arrow = arrowKey;
+      }
     }
     // 小地图
-    this._drawMinimap(game);
+    this._timers.minimap -= dt;
+    if (this._timers.minimap <= 0) {
+      this._timers.minimap = 0.16;
+      this._drawMinimap(game);
+    }
     // 怪物血条
-    this.updateEnemyBars(game);
+    this._timers.enemyBars -= dt;
+    if (this._timers.enemyBars <= 0) {
+      this._timers.enemyBars = 0.08;
+      this.updateEnemyBars(game);
+    }
     // Buff 栏
-    this._updateBuffs(p);
-    this._updateChampions(p);
+    this._timers.buffs -= dt;
+    if (this._timers.buffs <= 0) {
+      this._timers.buffs = 0.25;
+      this._updateBuffs(p);
+    }
+    this._timers.champions -= dt;
+    if (this._timers.champions <= 0) {
+      this._timers.champions = 0.35;
+      this._updateChampions(p);
+    }
     // 抗性提示（极端地形警告）
     this._updateResistWarn(p);
     // 锁定视觉

@@ -1,195 +1,190 @@
 /* ========================================================
-   main.js v3 — 入口（彻底解决按钮绑定时序问题）
-   - boot() 初始化游戏
-   - boot 完成后主动绑定菜单按钮
-   - 提供全局 __bindMenuButtons 给加载器调用
+   main.js v4 — 两阶段入口
+   - 第一阶段：只启动菜单、账号、云存档（不创建 WebGL，不加载完整游戏）
+   - 第二阶段：点击开始/读档后再加载 3D 游戏脚本并构建世界
    ======================================================== */
 
 (function () {
   let game = null;
   let booted = false;
+  let runtimeReady = false;
   let worldsRegistered = false;
   let playerReady = false;
+  let gameOverTimer = 0;
 
-  // 等待资源加载完成
   function whenReady(cb) {
     function check() {
-      if (window.__loadState && window.__loadState.scriptsLoaded) {
-        cb();
-      } else {
-        setTimeout(check, 100);
-      }
+      if (window.__loadState && window.__loadState.scriptsLoaded) cb();
+      else setTimeout(check, 80);
     }
     check();
   }
 
-  function boot() {
+  function bootMenu() {
     if (booted) return;
     booted = true;
     try {
-      if (typeof THREE === 'undefined') throw new Error('THREE 未加载');
-      if (typeof Game === 'undefined') throw new Error('Game 类未加载');
+      window.__setStatus && window.__setStatus('menu: 初始化账号与存档...');
 
-      window.__setStatus && window.__setStatus('boot: 检测设备...');
-
-      // ★ 设备检测
       const isTouchDevice = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
       const isProbablyDesktop = !isTouchDevice && window.matchMedia && window.matchMedia('(hover: hover)').matches;
-      if (isProbablyDesktop) {
-        document.documentElement.classList.add('desktop-mode');
-      }
+      if (isProbablyDesktop) document.documentElement.classList.add('desktop-mode');
 
-      window.__setStatus && window.__setStatus('boot: 创建游戏...');
-      game = new Game();
-      window.game = game;
-
-      window.__setStatus && window.__setStatus('boot: 初始化引擎...');
-      game.init();
-
-      window.__setStatus && window.__setStatus('boot: 初始化 UI...');
-      Debug.init();
-      HUD.init();
-      Joystick.init();
-      ActionButtons.init();
-      InventoryUI.init();
-      Dialogue.init();
-      CookingUI.init();
-      ShopUI.init();
-      QuestUI.init();
-      ShrineUI.init();
-      StatueUI.init();
-      MapMenu.init();
-      if (typeof CompendiumUI !== 'undefined') CompendiumUI.init();
+      if (typeof Dialogue !== 'undefined') Dialogue.init();
+      if (typeof MapMenu !== 'undefined') MapMenu.init();
       if (typeof CloudAccountSystem !== 'undefined') CloudAccountSystem.init();
-      QuestSystem.init();
-      if (typeof StorySystem !== 'undefined') StorySystem.init();
-      ChampionSystem.init();
-      if (typeof DivineBeastChallengeSystem !== 'undefined') DivineBeastChallengeSystem.init();
-      if (typeof MainQuestSystem !== 'undefined') MainQuestSystem.init();
-      AudioSystem.init();
-      if (typeof VisualQualitySystem !== 'undefined') VisualQualitySystem.init(game);
-      if (typeof ArtDirectionSystem !== 'undefined') ArtDirectionSystem.init(game);
-      if (typeof QualitySettingsUI !== 'undefined') QualitySettingsUI.init(game);
-      if (typeof ModelPolishSystem !== 'undefined') ModelPolishSystem.init(game);
-      if (typeof CharacterArtSystem !== 'undefined') CharacterArtSystem.init(game);
-      if (typeof WorldPolishSystem !== 'undefined') WorldPolishSystem.init(game);
-      if (typeof BillboardPolishSystem !== 'undefined') BillboardPolishSystem.init(game);
-      if (typeof AdaptivePerformanceSystem !== 'undefined') AdaptivePerformanceSystem.init(game);
-      if (typeof ExplorationSystem !== 'undefined') ExplorationSystem.init(game);
-      TouchControls.init();
 
-      window.__setStatus && window.__setStatus('boot: 准备菜单与账号...');
-      registerWorlds();
-      window.__setStatus && window.__setStatus('boot: 完成！');
-      // 隐藏 boot 状态条（加载完成后不需要）
-      var bs = document.getElementById('boot-status');
+      window.__setStatus && window.__setStatus('menu: 完成');
+      const bs = document.getElementById('boot-status');
       if (bs) bs.style.display = 'none';
-      console.log('=== 游戏初始化完成 ===');
+
       if (typeof window.__enableStartButton === 'function') window.__enableStartButton();
       window.__bindMenuButtons();
-
-      setInterval(() => {
-        if (game.state === 'dead') showGameOver();
-      }, 500);
-
+      console.log('=== 轻量菜单初始化完成 ===');
     } catch (e) {
-      console.error('★★★ boot 失败:', e.message);
-      console.error(e.stack);
-      // ★ 即使失败也定义 __bindMenuButtons，让按钮显示错误
-      window.__bindMenuButtons = function() {
-        const bind = (id, msg) => {
-          const btn = document.getElementById(id);
-          if (!btn) return;
-          const nb = btn.cloneNode(true);
-          btn.parentNode.replaceChild(nb, btn);
-          nb.disabled = false;
-          nb.style.opacity = '1';
-          const fire = (e) => {
-            e.preventDefault();
-            alert('初始化失败: ' + msg + '\n请刷新页面重试');
-          };
-          nb.addEventListener('touchend', fire, { passive: false });
-          nb.addEventListener('click', fire);
-        };
-        bind('btn-start', e.message);
-        bind('btn-continue', e.message);
-        document.getElementById('btn-howto').textContent = '查看错误';
-        bind('btn-howto', e.message);
-      };
-      if (typeof window.__enableStartButton === 'function') window.__enableStartButton();
-      window.__bindMenuButtons();
+      console.error('★★★ 菜单初始化失败:', e);
+      showBootFailure(e);
     }
   }
 
-  // ★ 提前定义 __bindMenuButtons 的占位（让加载器能调用）
-  // boot 成功后会被覆盖
-  window.__bindMenuButtons = function() {
-    console.log('__bindMenuButtons 占位（boot 未完成）');
-  };
+  function showBootFailure(e) {
+    window.__bindMenuButtons = function() {
+      const bind = (id, msg) => {
+        const btn = document.getElementById(id);
+        if (!btn) return;
+        const nb = btn.cloneNode(true);
+        btn.parentNode.replaceChild(nb, btn);
+        nb.disabled = false;
+        nb.style.opacity = '1';
+        const fire = ev => {
+          ev.preventDefault();
+          alert('初始化失败: ' + msg + '\n请刷新页面重试');
+        };
+        nb.addEventListener('touchend', fire, { passive: false });
+        nb.addEventListener('click', fire);
+      };
+      bind('btn-start', e.message || String(e));
+      bind('btn-continue', e.message || String(e));
+      bind('btn-cloud', e.message || String(e));
+      bind('btn-howto', e.message || String(e));
+    };
+    if (typeof window.__enableStartButton === 'function') window.__enableStartButton();
+    window.__bindMenuButtons();
+  }
 
-  // ===== 全局函数：绑定菜单按钮（加载器和 boot 都可调用）=====
   window.__bindMenuButtons = function() {
-    if (!game) {
-      console.log('game 还没初始化，等 boot');
-      return;
-    }
-    console.log('绑定菜单按钮事件');
-
-    // ★ 用多种事件确保 iPhone 能触发
     const bind = (id, handler) => {
       const btn = document.getElementById(id);
-      if (!btn) { console.log('⚠️ 找不到', id); return; }
-      // 移除旧监听（避免重复）
+      if (!btn) return;
       const newBtn = btn.cloneNode(true);
       btn.parentNode.replaceChild(newBtn, btn);
-      // 确保 disabled=false
       newBtn.disabled = false;
       newBtn.style.opacity = '1';
       newBtn.style.pointerEvents = 'auto';
 
       let triggered = false;
-      const fire = (e) => {
+      const fire = e => {
         if (e) { e.preventDefault(); e.stopPropagation(); }
         if (triggered) return;
         triggered = true;
-        setTimeout(() => { triggered = false; }, 300);
-        console.log('▶ 触发', id);
-        handler();
+        setTimeout(() => { triggered = false; }, 350);
+        const result = handler();
+        if (result && typeof result.catch === 'function') {
+          result.catch(err => {
+            console.error('按钮动作失败:', err);
+            if (typeof Dialogue !== 'undefined') Dialogue.show('⚠️ ' + (err.message || '操作失败'), 2600);
+          });
+        }
       };
-      // touchend（iPhone 主力）
       newBtn.addEventListener('touchend', fire, { passive: false });
-      // click（桌面/兜底）
       newBtn.addEventListener('click', fire);
-      // pointerup（部分浏览器）
-      newBtn.addEventListener('pointerup', (e) => {
-        if (e.pointerType === 'touch') return; // 避免和 touchend 重复
+      newBtn.addEventListener('pointerup', e => {
+        if (e.pointerType === 'touch') return;
         fire(e);
       });
     };
 
     bind('btn-start', startGame);
-    bind('btn-continue', () => {
-      MapMenu.open('load');
-    });
-    bind('btn-cloud', () => {
-      MapMenu.open('cloud');
-    });
+    bind('btn-continue', () => MapMenu.open('load'));
+    bind('btn-cloud', () => MapMenu.open('cloud'));
     bind('btn-howto', () => {
-      document.getElementById('howto').classList.toggle('hidden');
+      const howto = document.getElementById('howto');
+      if (howto) howto.classList.toggle('hidden');
     });
-    bind('btn-quality-menu', () => {
-      if (typeof QualitySettingsUI !== 'undefined') QualitySettingsUI.open();
-    });
+    bind('btn-quality-menu', openQualityFromMenu);
   };
 
-  // ★ 也暴露给加载器检查
   window.__startGame = function() { return startGame(); };
   window.__ensureStarterRangedKit = ensureStarterRangedKit;
   window.__ensureGameReady = ensureGameReady;
 
+  async function openQualityFromMenu() {
+    await ensureRuntimeReady();
+    if (typeof QualitySettingsUI !== 'undefined') QualitySettingsUI.open();
+  }
+
+  async function ensureRuntimeReady() {
+    if (runtimeReady && game) return true;
+
+    window.__setStatus && window.__setStatus('正在加载游戏脚本...');
+    if (typeof window.__loadGameplayScripts === 'function') {
+      await window.__loadGameplayScripts();
+    }
+
+    if (typeof THREE === 'undefined') throw new Error('THREE 未加载');
+    if (typeof Game === 'undefined') throw new Error('Game 类未加载');
+
+    window.__setStatus && window.__setStatus('正在创建游戏引擎...');
+    game = new Game();
+    window.game = game;
+    game.init();
+
+    window.__setStatus && window.__setStatus('正在初始化游戏 UI...');
+    if (typeof Debug !== 'undefined') Debug.init();
+    if (typeof HUD !== 'undefined') HUD.init();
+    if (typeof Joystick !== 'undefined') Joystick.init();
+    if (typeof ActionButtons !== 'undefined') ActionButtons.init();
+    if (typeof InventoryUI !== 'undefined') InventoryUI.init();
+    if (typeof Dialogue !== 'undefined') Dialogue.init();
+    if (typeof CookingUI !== 'undefined') CookingUI.init();
+    if (typeof ShopUI !== 'undefined') ShopUI.init();
+    if (typeof QuestUI !== 'undefined') QuestUI.init();
+    if (typeof ShrineUI !== 'undefined') ShrineUI.init();
+    if (typeof StatueUI !== 'undefined') StatueUI.init();
+    if (typeof MapMenu !== 'undefined') MapMenu.init();
+    if (typeof CompendiumUI !== 'undefined') CompendiumUI.init();
+    if (typeof CloudAccountSystem !== 'undefined') CloudAccountSystem.init();
+    if (typeof QuestSystem !== 'undefined') QuestSystem.init();
+    if (typeof StorySystem !== 'undefined') StorySystem.init();
+    if (typeof ChampionSystem !== 'undefined') ChampionSystem.init();
+    if (typeof DivineBeastChallengeSystem !== 'undefined') DivineBeastChallengeSystem.init();
+    if (typeof MainQuestSystem !== 'undefined') MainQuestSystem.init();
+    if (typeof AudioSystem !== 'undefined') AudioSystem.init();
+    if (typeof VisualQualitySystem !== 'undefined') VisualQualitySystem.init(game);
+    if (typeof ArtDirectionSystem !== 'undefined') ArtDirectionSystem.init(game);
+    if (typeof QualitySettingsUI !== 'undefined') QualitySettingsUI.init(game);
+    if (typeof ModelPolishSystem !== 'undefined') ModelPolishSystem.init(game);
+    if (typeof CharacterArtSystem !== 'undefined') CharacterArtSystem.init(game);
+    if (typeof WorldPolishSystem !== 'undefined') WorldPolishSystem.init(game);
+    if (typeof BillboardPolishSystem !== 'undefined') BillboardPolishSystem.init(game);
+    if (typeof AdaptivePerformanceSystem !== 'undefined') AdaptivePerformanceSystem.init(game);
+    if (typeof ExplorationSystem !== 'undefined') ExplorationSystem.init(game);
+    if (typeof TouchControls !== 'undefined') TouchControls.init();
+
+    registerWorlds();
+    runtimeReady = true;
+    if (!gameOverTimer) {
+      gameOverTimer = setInterval(() => {
+        if (game && game.state === 'dead') showGameOver();
+      }, 500);
+    }
+    window.__bindMenuButtons();
+    return true;
+  }
+
   function registerWorlds() {
     if (!game || worldsRegistered) return;
-    window.__setStatus && window.__setStatus('boot: 注册世界索引...');
+    window.__setStatus && window.__setStatus('正在注册世界索引...');
     game.registerWorld('grassland', new Grassland());
     game.registerWorld('forest', new Forest());
     game.registerWorld('highland', new Highland());
@@ -201,7 +196,8 @@
     worldsRegistered = true;
   }
 
-  function ensureGameReady(worldName = 'grassland') {
+  async function ensureGameReady(worldName = 'grassland') {
+    await ensureRuntimeReady();
     if (!game) return false;
     registerWorlds();
     if (!game.currentWorld || game.currentWorld.name !== worldName) {
@@ -211,7 +207,7 @@
     if (!game.player) {
       window.__setStatus && window.__setStatus('正在创建角色...');
       game.createPlayer();
-      if (game.player && game.player.inventory) {
+      if (game.player && game.player.inventory && typeof InventoryUI !== 'undefined') {
         game.player.inventory.onChange(() => InventoryUI.refreshIfOpen());
       }
     }
@@ -258,32 +254,35 @@
     game.player.refreshEquipment();
   }
 
-  function startGame() {
+  async function startGame() {
     console.log('开始游戏！');
     const pendingPreview = SaveSystem.peekPendingCloudCurrent && SaveSystem.peekPendingCloudCurrent();
     const targetWorld = pendingPreview && pendingPreview.worldName || 'grassland';
-    if (!ensureGameReady(targetWorld)) return;
+    if (!await ensureGameReady(targetWorld)) return;
     const pendingCloud = SaveSystem.consumePendingCloudCurrent && SaveSystem.consumePendingCloudCurrent();
     if (pendingCloud) SaveSystem.applyLoad(pendingCloud);
     if (typeof AudioSystem !== 'undefined') AudioSystem.startMusic(game.currentWorld && game.currentWorld.name);
     ensureStarterRangedKit();
+    const loading = document.getElementById('loading');
     const menu = document.getElementById('menu');
+    if (loading) loading.classList.add('hidden');
     if (menu) menu.classList.add('hidden');
-    HUD.show();
+    if (typeof HUD !== 'undefined') HUD.show();
     window.gameStartTime = Date.now();
     game.state = 'playing';
     game.start();
-    QuestSystem.refreshHint();
+    if (typeof QuestSystem !== 'undefined') QuestSystem.refreshHint();
   }
 
   function showGameOver() {
     const menu = document.getElementById('menu');
-    document.getElementById('menu-title').textContent = '林克倒下了…';
-    document.getElementById('btn-start').textContent = '重新开始';
-    menu.classList.remove('hidden');
-    HUD.hide();
+    const title = document.getElementById('menu-title');
+    const startBtn = document.getElementById('btn-start');
+    if (title) title.textContent = '林克倒下了…';
+    if (startBtn) startBtn.textContent = '重新开始';
+    if (menu) menu.classList.remove('hidden');
+    if (typeof HUD !== 'undefined') HUD.hide();
   }
 
-  // 启动
-  whenReady(boot);
+  whenReady(bootMenu);
 })();

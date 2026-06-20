@@ -20,19 +20,21 @@ class Game {
     this.autoPath = null;
     this.linkTimeTimer = 0;
     this._loopStarted = false;
+    this._perf = {};
   }
 
   init() {
+    const touch = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
     // 渲染器（提升画质：抗锯齿 + 高分辨率 + PBR）
     this.renderer = new THREE.WebGLRenderer({
       canvas: this.canvas,
-      antialias: true,
+      antialias: !touch,
       powerPreference: 'high-performance'
     });
     // 手机高 DPI 屏，但限制避免性能问题
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    this.renderer.setPixelRatio(touch ? 1 : Math.min(window.devicePixelRatio, 1.5));
     this.renderer.setSize(window.innerWidth, window.innerHeight);
-    this.renderer.shadowMap.enabled = true;
+    this.renderer.shadowMap.enabled = !touch;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     this.renderer.outputEncoding = THREE.sRGBEncoding;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -292,44 +294,52 @@ class Game {
 
     // ★ 各子系统用独立 try/catch 隔离：一个出错不影响其他，避免连锁卡死
     if (this.player) {
-      try {
+      this._runSubsystem('player', () => {
         this.player.update(dt, this);
         if (this.player.inventory.tickBuffs(dt)) {
           this.player.inventory._emit();
         }
         if (typeof ChampionSystem !== 'undefined') ChampionSystem.tick(dt);
-      } catch (e) { this._subError('player', e); }
+      });
     }
     if (this.currentWorld) {
       const worldDt = this.linkTimeTimer > 0 ? dt * 0.035 : dt;
-      try { this.currentWorld.update(worldDt, this); }
-      catch (e) { this._subError('world', e); }
+      this._runSubsystem('world', () => this.currentWorld.update(worldDt, this));
     }
-    try { if (typeof StorySystem !== 'undefined') StorySystem.updateWorld(this.currentWorld, this, dt); }
-    catch (e) { this._subError('story', e); }
-    try { Effects.update(dt); }
-    catch (e) { this._subError('effects', e); }
+    this._runSubsystem('story', () => { if (typeof StorySystem !== 'undefined') StorySystem.updateWorld(this.currentWorld, this, dt); });
+    this._runSubsystem('effects', () => Effects.update(dt));
     if (this.lockedEnemy && (this.lockedEnemy.dead || this.lockedEnemy.hp <= 0)) {
       this.lockedEnemy = null;
     }
-    try { HUD.update(this); }
-    catch (e) { this._subError('hud', e); }
-    try { if (typeof VisualQualitySystem !== 'undefined') VisualQualitySystem.update(dt, this); }
-    catch (e) { this._subError('visual', e); }
-    try { if (typeof ArtDirectionSystem !== 'undefined') ArtDirectionSystem.update(dt, this); }
-    catch (e) { this._subError('art-direction', e); }
-    try { if (typeof ModelPolishSystem !== 'undefined') ModelPolishSystem.update(dt, this); }
-    catch (e) { this._subError('model-polish', e); }
-    try { if (typeof CharacterArtSystem !== 'undefined') CharacterArtSystem.update(dt, this); }
-    catch (e) { this._subError('character-art', e); }
-    try { if (typeof WorldPolishSystem !== 'undefined') WorldPolishSystem.update(dt, this); }
-    catch (e) { this._subError('world-polish', e); }
-    try { if (typeof BillboardPolishSystem !== 'undefined') BillboardPolishSystem.update(dt, this); }
-    catch (e) { this._subError('billboard-polish', e); }
-    try { if (typeof AdaptivePerformanceSystem !== 'undefined') AdaptivePerformanceSystem.update(dt, this); }
-    catch (e) { this._subError('adaptive-performance', e); }
-    try { QuestSystem.refreshHint(); }
-    catch (e) { this._subError('quest', e); }
+    this._runSubsystem('hud', () => HUD.update(this, dt));
+    this._runSubsystem('visual', () => { if (typeof VisualQualitySystem !== 'undefined') VisualQualitySystem.update(dt, this); });
+    this._runSubsystem('art-direction', () => { if (typeof ArtDirectionSystem !== 'undefined') ArtDirectionSystem.update(dt, this); });
+    this._runSubsystem('model-polish', () => { if (typeof ModelPolishSystem !== 'undefined') ModelPolishSystem.update(dt, this); });
+    this._runSubsystem('character-art', () => { if (typeof CharacterArtSystem !== 'undefined') CharacterArtSystem.update(dt, this); });
+    this._runSubsystem('world-polish', () => { if (typeof WorldPolishSystem !== 'undefined') WorldPolishSystem.update(dt, this); });
+    this._runSubsystem('billboard-polish', () => { if (typeof BillboardPolishSystem !== 'undefined') BillboardPolishSystem.update(dt, this); });
+    this._runSubsystem('adaptive-performance', () => { if (typeof AdaptivePerformanceSystem !== 'undefined') AdaptivePerformanceSystem.update(dt, this); });
+    this._questHintTimer = (this._questHintTimer || 0) - dt;
+    if (this._questHintTimer <= 0) {
+      this._questHintTimer = 0.35;
+      this._runSubsystem('quest', () => QuestSystem.refreshHint());
+    }
+    window.__gamePerf = this._perf;
     Input.endFrame();
+  }
+
+  _runSubsystem(name, fn) {
+    const t0 = performance.now();
+    try {
+      fn();
+    } catch (e) {
+      this._subError(name, e);
+    } finally {
+      const ms = performance.now() - t0;
+      const rec = this._perf[name] || (this._perf[name] = { avg: 0, last: 0, max: 0 });
+      rec.last = ms;
+      rec.avg = rec.avg ? rec.avg * 0.86 + ms * 0.14 : ms;
+      rec.max = Math.max(rec.max * 0.985, ms);
+    }
   }
 }

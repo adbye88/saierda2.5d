@@ -138,7 +138,11 @@ const QuestSystem = {
     const q = this.getCurrentQuest();
     if (q && HUD) {
       const detail = (typeof MainQuestSystem !== 'undefined') ? MainQuestSystem.getHudObjective(q) : q.name;
-      HUD.setQuest(`【第${q.chapter}章】${q.name}｜${detail}`);
+      const text = `【第${q.chapter}章】${q.name}｜${detail}`;
+      if (this._lastHudHint !== text) {
+        this._lastHudHint = text;
+        HUD.setQuest(text);
+      }
     }
   },
 
