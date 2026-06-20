@@ -11,6 +11,11 @@ const CameraPolishSystem = {
   _inspectMode: false,
   _fadedOccluders: new Set(),
   _fadeTimer: 0,
+  _smoothedForward: null,
+  _smoothedLookAt: null,
+  _smoothedCamTarget: null,
+  _lastWorld: null,
+  _lastMode: '',
 
   update(dt, game, player) {
     if (!game || !game.camera || !player) return false;
@@ -22,12 +27,24 @@ const CameraPolishSystem = {
     const gliding = player.isGliding;
     const shielding = Input.state.shield && player.inventory && player.inventory.equipped.shield;
     const attacking = player.isAttacking;
+    const mode = this._inspectMode ? 'inspect' : locked ? 'locked' : bow ? 'bow' : gliding ? 'glide' : attacking ? 'attack' : 'explore';
+
+    if (this._lastWorld !== game.currentWorld) {
+      this._smoothedForward = null;
+      this._smoothedLookAt = null;
+      this._smoothedCamTarget = null;
+      this._lastWorld = game.currentWorld;
+      this._lastMode = mode;
+    }
 
     let dist = distBase;
     let height = dist * 0.82;
     let lookHeight = 1.25;
     let lateral = 0;
     let camPos;
+    let rigForward = null;
+    let desiredForward = new THREE.Vector3(Math.sin(player.facing), 0, Math.cos(player.facing));
+    if (desiredForward.lengthSq() < 0.001) desiredForward.set(0, 0, 1);
 
     if (this._inspectMode) {
       const enemy = this._nearestInspectableEnemy(game, player);
@@ -36,9 +53,10 @@ const CameraPolishSystem = {
         : target.clone();
       const enemyDir = enemy
         ? new THREE.Vector3().subVectors(enemy.mesh.position, player.position).setY(0)
-        : new THREE.Vector3(Math.sin(player.facing), 0, Math.cos(player.facing));
+        : desiredForward.clone();
       if (enemyDir.lengthSq() < 0.001) enemyDir.set(0, 0, 1);
       enemyDir.normalize();
+      desiredForward = enemyDir.clone();
       const side = new THREE.Vector3(enemyDir.z, 0, -enemyDir.x);
       dist = enemy ? 4.8 : 4.2;
       height = enemy ? 3.0 : 2.7;
@@ -51,8 +69,9 @@ const CameraPolishSystem = {
       const enemyPos = game.lockedEnemy.mesh.position.clone();
       const toEnemy = new THREE.Vector3().subVectors(enemyPos, target);
       toEnemy.y = 0;
-      if (toEnemy.lengthSq() < 0.001) toEnemy.set(Math.sin(player.facing), 0, Math.cos(player.facing));
+      if (toEnemy.lengthSq() < 0.001) toEnemy.copy(desiredForward);
       toEnemy.normalize();
+      desiredForward = toEnemy.clone();
       const side = new THREE.Vector3(toEnemy.z, 0, -toEnemy.x);
       dist *= bow ? 0.82 : 0.9;
       height *= bow ? 0.78 : 0.86;
@@ -63,7 +82,8 @@ const CameraPolishSystem = {
         .add(new THREE.Vector3(0, height, 0));
       lookHeight = game.lockedEnemy.boss ? 2.0 : 1.35;
     } else {
-      const forward = new THREE.Vector3(Math.sin(player.facing), 0, Math.cos(player.facing));
+      const forward = this._smoothForward(desiredForward, dt, mode);
+      rigForward = forward.clone();
       const right = new THREE.Vector3(forward.z, 0, -forward.x);
       const cinematicBack = new THREE.Vector3(0.46, 0, 0.88).normalize();
       if (bow) {
@@ -84,11 +104,14 @@ const CameraPolishSystem = {
         .add(right.multiplyScalar(lateral));
     }
 
+    const smoothForward = rigForward || this._smoothForward(desiredForward, dt, mode);
     const lookAhead = this._inspectMode || locked || bow
       ? new THREE.Vector3()
-      : new THREE.Vector3(Math.sin(player.facing), 0, Math.cos(player.facing)).multiplyScalar(attacking ? 1.25 : 2.35);
-    const lookAt = target.clone().add(lookAhead).setY(target.y + lookHeight);
-    camPos = this._avoidCameraCollision(game, lookAt, camPos);
+      : smoothForward.clone().multiplyScalar(attacking ? 1.25 : 2.35);
+    const desiredLookAt = target.clone().add(lookAhead).setY(target.y + lookHeight);
+    const lookAt = this._smoothLookAt(desiredLookAt, dt, mode);
+    const safeCamPos = this._avoidCameraCollision(game, lookAt, camPos);
+    camPos = this._smoothCamTarget(safeCamPos, dt, mode);
     const fov = this._inspectMode ? 44 : gliding ? 64 : bow ? 52 : locked ? 56 : attacking ? 55 : 58;
     this._desiredFov += (fov - this._desiredFov) * this._alpha(dt, 6);
     if (Math.abs(camera.fov - this._desiredFov) > 0.05) {
@@ -107,6 +130,7 @@ const CameraPolishSystem = {
 
     camera.position.lerp(camPos, this._alpha(dt, locked || bow ? 7.5 : 6.2));
     camera.lookAt(lookAt.x, lookAt.y, lookAt.z);
+    this._lastMode = mode;
     this._fadeTimer -= dt;
     if (this._fadeTimer <= 0) {
       this._fadeTimer = 0.12;
@@ -144,6 +168,43 @@ const CameraPolishSystem = {
 
   _alpha(dt, speed) {
     return 1 - Math.exp(-Math.max(1, speed) * dt);
+  },
+
+  _smoothForward(desired, dt, mode) {
+    const target = desired && desired.lengthSq && desired.lengthSq() > 0.001
+      ? desired.clone().setY(0).normalize()
+      : new THREE.Vector3(0, 0, 1);
+    if (!this._smoothedForward || this._lastMode !== mode && (mode === 'locked' || mode === 'inspect')) {
+      this._smoothedForward = target.clone();
+      return target;
+    }
+    const speed = mode === 'locked' || mode === 'bow' ? 9.5 : mode === 'attack' ? 8 : 5.2;
+    this._smoothedForward.lerp(target, this._alpha(dt, speed));
+    if (this._smoothedForward.lengthSq() < 0.001) this._smoothedForward.copy(target);
+    this._smoothedForward.normalize();
+    return this._smoothedForward.clone();
+  },
+
+  _smoothLookAt(desired, dt, mode) {
+    if (!this._smoothedLookAt) {
+      this._smoothedLookAt = desired.clone();
+      return desired;
+    }
+    const modeChanged = this._lastMode && this._lastMode !== mode;
+    const speed = modeChanged ? 5.5 : (mode === 'locked' || mode === 'bow' ? 10 : 7.5);
+    this._smoothedLookAt.lerp(desired, this._alpha(dt, speed));
+    return this._smoothedLookAt.clone();
+  },
+
+  _smoothCamTarget(desired, dt, mode) {
+    if (!this._smoothedCamTarget) {
+      this._smoothedCamTarget = desired.clone();
+      return desired;
+    }
+    const modeChanged = this._lastMode && this._lastMode !== mode;
+    const speed = modeChanged ? 5.2 : (mode === 'locked' || mode === 'bow' ? 8 : 6.8);
+    this._smoothedCamTarget.lerp(desired, this._alpha(dt, speed));
+    return this._smoothedCamTarget.clone();
   },
 
   _avoidCameraCollision(game, lookAt, desired) {
