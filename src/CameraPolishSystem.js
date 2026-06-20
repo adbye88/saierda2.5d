@@ -44,6 +44,7 @@ const CameraPolishSystem = {
     } else {
       const forward = new THREE.Vector3(Math.sin(player.facing), 0, Math.cos(player.facing));
       const right = new THREE.Vector3(forward.z, 0, -forward.x);
+      const cinematicBack = new THREE.Vector3(0.46, 0, 0.88).normalize();
       if (bow) {
         dist *= 0.84;
         height *= 0.78;
@@ -57,7 +58,8 @@ const CameraPolishSystem = {
         height *= 0.84;
       }
       camPos = target.clone()
-        .add(new THREE.Vector3(0, height, dist))
+        .add(cinematicBack.multiplyScalar(dist))
+        .add(new THREE.Vector3(0, height * 0.92, 0))
         .add(right.multiplyScalar(lateral));
     }
 

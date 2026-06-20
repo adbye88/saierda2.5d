@@ -252,39 +252,40 @@ const AssetFactory = {
       branch.rotation.x = -Math.sin(a) * 0.75;
       g.add(branch);
     }
-    const greens = [0x4a8a3a, 0x5a9a4a, 0x3a7a2a, 0x6aaa5a];
     const leafMaps = [
       this._artMat('leaf-cluster', 0xffffff, { flat: false, rough: 0.9 }),
       this._artMat('leaf-cluster', 0xa8cf82, { flat: false, rough: 0.92 }),
       this._artMat('leaf-cluster', 0x6fa65a, { flat: false, rough: 0.92 })
     ];
-    const layers = 3 + Math.floor(Math.random() * 2);
-    for (let i = 0; i < layers; i++) {
-      const r = 1.2 - i * 0.22;
-      const leaves = new THREE.Mesh(
-        new THREE.ConeGeometry(Math.max(0.4, r), 1.0, 8),
-        leafMaps[i % leafMaps.length] || this._mat(greens[(i + Math.floor(Math.random()*4)) % greens.length])
+    const canopyCenters = [
+      [0, trunkH + 1.05, 0, 1.15],
+      [-0.55, trunkH + 0.72, 0.12, 0.82],
+      [0.58, trunkH + 0.78, -0.18, 0.86],
+      [0.1, trunkH + 1.55, 0.05, 0.72],
+      [-0.18, trunkH + 0.42, -0.58, 0.7],
+      [0.34, trunkH + 0.36, 0.56, 0.66]
+    ];
+    canopyCenters.forEach((c, i) => {
+      const clump = new THREE.Mesh(
+        new THREE.IcosahedronGeometry(c[3], 1),
+        leafMaps[i % leafMaps.length]
       );
-      leaves.position.y = trunkH + 0.3 + i * 0.6;
-      leaves.rotation.y = Math.random() * Math.PI;
-      leaves.castShadow = true;
-      g.add(leaves);
-      const shade = new THREE.Mesh(
-        new THREE.ConeGeometry(Math.max(0.34, r * 0.72), 0.18, 8),
-        this._artMat('leaf-cluster', i % 2 ? 0x4f8f45 : 0xc2df87, { flat: false, rough: 0.9 })
+      clump.position.set(c[0] + (Math.random() - 0.5) * 0.22, c[1] + (Math.random() - 0.5) * 0.16, c[2] + (Math.random() - 0.5) * 0.22);
+      clump.scale.set(1.12 + Math.random() * 0.22, 0.72 + Math.random() * 0.2, 0.98 + Math.random() * 0.2);
+      clump.rotation.set(Math.random() * 0.4, Math.random() * Math.PI, Math.random() * 0.35);
+      clump.castShadow = true;
+      clump.receiveShadow = true;
+      g.add(clump);
+    });
+    for (let i = 0; i < 5; i++) {
+      const a = Math.random() * Math.PI * 2;
+      const leafPatch = new THREE.Mesh(
+        new THREE.CircleGeometry(0.34 + Math.random() * 0.18, 7),
+        this._artMat('leaf-cluster', i % 2 ? 0x739d52 : 0xb4ce78, { flat: false, rough: 0.95 })
       );
-      shade.position.set(0, trunkH + 0.12 + i * 0.6, 0);
-      shade.scale.y = 0.45;
-      g.add(shade);
-      if (i < 2) {
-        const clump = new THREE.Mesh(
-          new THREE.IcosahedronGeometry(Math.max(0.32, r * 0.28), 1),
-          leafMaps[(i + 1) % leafMaps.length]
-        );
-        clump.position.set((Math.random() - 0.5) * 0.8, trunkH + 0.1 + i * 0.5, (Math.random() - 0.5) * 0.8);
-        clump.scale.y = 0.65;
-        g.add(clump);
-      }
+      leafPatch.position.set(Math.cos(a) * (0.55 + Math.random() * 0.35), trunkH + 0.82 + Math.random() * 0.85, Math.sin(a) * (0.55 + Math.random() * 0.35));
+      leafPatch.rotation.set(Math.random() * 0.7, a, Math.random() * 0.55);
+      g.add(leafPatch);
     }
     g.userData.collisionRadius = 0.9;
     g.userData.kind = 'tree';
@@ -2310,17 +2311,45 @@ const AssetFactory = {
     trunk.position.y = trunkH / 2;
     trunk.castShadow = true;
     g.add(trunk);
-    const greens = [0x3a6a2a, 0x4a7a3a, 0x5a8a3a, 0x2a5a1a];
-    // 更大更密的树冠
+    const trunkMat = trunk.material;
+    for (let i = 0; i < 6; i++) {
+      const a = (i / 6) * Math.PI * 2 + Math.random() * 0.18;
+      const root = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.16, 1.25, 6), trunkMat);
+      root.position.set(Math.cos(a) * 0.42, 0.16, Math.sin(a) * 0.42);
+      root.rotation.z = Math.cos(a) * 1.34;
+      root.rotation.x = -Math.sin(a) * 1.34;
+      g.add(root);
+    }
     for (let i = 0; i < 5; i++) {
-      const r = 2.0 - i * 0.25;
+      const a = (i / 5) * Math.PI * 2 + 0.35;
+      const branch = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.13, 1.35, 6), trunkMat);
+      branch.position.set(Math.cos(a) * 0.45, trunkH * (0.55 + i * 0.06), Math.sin(a) * 0.45);
+      branch.rotation.z = Math.cos(a) * 0.78;
+      branch.rotation.x = -Math.sin(a) * 0.78;
+      branch.castShadow = true;
+      g.add(branch);
+    }
+    const leafMats = [
+      this._artMat('leaf-cluster', 0x5f8a42, { flat: false, rough: 0.92 }),
+      this._artMat('leaf-cluster', 0x3f6a35, { flat: false, rough: 0.94 }),
+      this._artMat('leaf-cluster', 0x7a9b55, { flat: false, rough: 0.92 }),
+      this._artMat('leaf-cluster', 0x2f552b, { flat: false, rough: 0.95 })
+    ];
+    const clumps = 12;
+    for (let i = 0; i < clumps; i++) {
+      const a = (i / clumps) * Math.PI * 2 + Math.random() * 0.35;
+      const ring = i < 7 ? 1.05 + Math.random() * 0.85 : 0.35 + Math.random() * 0.55;
+      const y = trunkH + 0.65 + (i % 5) * 0.36 + Math.random() * 0.22;
+      const r = i < 4 ? 1.25 : 0.82 + Math.random() * 0.38;
       const leaves = new THREE.Mesh(
-        new THREE.SphereGeometry(Math.max(0.6, r), 6, 5),
-        this._mat(greens[i % greens.length])
+        new THREE.IcosahedronGeometry(r, 1),
+        leafMats[i % leafMats.length]
       );
-      leaves.position.y = trunkH + 0.3 + i * 0.7;
-      leaves.scale.y = 0.8;
+      leaves.position.set(Math.cos(a) * ring, y, Math.sin(a) * ring);
+      leaves.scale.set(1.25 + Math.random() * 0.28, 0.72 + Math.random() * 0.18, 1.0 + Math.random() * 0.28);
+      leaves.rotation.set(Math.random() * 0.4, Math.random() * Math.PI, Math.random() * 0.4);
       leaves.castShadow = true;
+      leaves.receiveShadow = true;
       g.add(leaves);
     }
     g.userData.collisionRadius = 1.4;

@@ -111,6 +111,12 @@ class BaseScene {
 
   // ---------- 地面（带轻微起伏的低多边形 + 程序化贴图） ----------
   _setupGround(color = 0x6a9a4a, textureType = 'grass') {
+    if (this.ground && this.ground.parent) {
+      this.ground.parent.remove(this.ground);
+      if (this.ground.geometry && this.ground.geometry.dispose) this.ground.geometry.dispose();
+      if (this.ground.material && this.ground.material.dispose) this.ground.material.dispose();
+      this.ground = null;
+    }
     const size = Math.max(this.bounds.maxX - this.bounds.minX, this.bounds.maxZ - this.bounds.minZ);
     // ★ 分段数随地图大小自适应（每格约 2.5 单位），起伏更细腻
     const seg = Math.min(96, Math.max(48, Math.round(size / 2.5)));

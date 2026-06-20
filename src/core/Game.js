@@ -116,6 +116,7 @@ class Game {
     HUD.setMinimapWorld(newWorld);
     if (typeof AudioSystem !== 'undefined') AudioSystem.setWorld(name);
     if (typeof VisualQualitySystem !== 'undefined') VisualQualitySystem.applyWorld(newWorld);
+    if (typeof ArtDirectionSystem !== 'undefined') ArtDirectionSystem.applyWorld(newWorld, this);
     if (typeof ModelPolishSystem !== 'undefined') ModelPolishSystem.polishWorld(newWorld);
     if (typeof WorldPolishSystem !== 'undefined') WorldPolishSystem.applyWorld(newWorld);
     if (typeof BillboardPolishSystem !== 'undefined') BillboardPolishSystem.applyWorld(newWorld);
@@ -307,6 +308,8 @@ class Game {
     catch (e) { this._subError('hud', e); }
     try { if (typeof VisualQualitySystem !== 'undefined') VisualQualitySystem.update(dt, this); }
     catch (e) { this._subError('visual', e); }
+    try { if (typeof ArtDirectionSystem !== 'undefined') ArtDirectionSystem.update(dt, this); }
+    catch (e) { this._subError('art-direction', e); }
     try { if (typeof ModelPolishSystem !== 'undefined') ModelPolishSystem.update(dt, this); }
     catch (e) { this._subError('model-polish', e); }
     try { if (typeof WorldPolishSystem !== 'undefined') WorldPolishSystem.update(dt, this); }

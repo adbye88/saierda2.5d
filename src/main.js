@@ -66,6 +66,7 @@
       if (typeof MainQuestSystem !== 'undefined') MainQuestSystem.init();
       AudioSystem.init();
       if (typeof VisualQualitySystem !== 'undefined') VisualQualitySystem.init(game);
+      if (typeof ArtDirectionSystem !== 'undefined') ArtDirectionSystem.init(game);
       if (typeof QualitySettingsUI !== 'undefined') QualitySettingsUI.init(game);
       if (typeof ModelPolishSystem !== 'undefined') ModelPolishSystem.init(game);
       if (typeof WorldPolishSystem !== 'undefined') WorldPolishSystem.init(game);
