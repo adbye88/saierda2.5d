@@ -24,19 +24,19 @@ const ENEMY_DEFS = {
   },
   blackBokoblin: {
     name: '黑色波克布林', hp: 240, atk: 14, speed: 3.5, radius: 0.65, sight: 16, expDrop: 4, dropRupee: 8,
-    mesh: () => AssetFactory.createBokoblin(0x2a2a2a, true),
+    mesh: () => AssetFactory.createBokoblin(0x2a2a2a, true, 'shield'),
     drops: () => weightedDrop([['bokoblinHorn', 2, 0.9], ['bokoblinGuts', 1, 0.3], ['rupee', 5, 0.6], ['knightSword', 1, 0.15], ['amber', 1, 0.2]]),
     ai: 'melee'
   },
   silverBokoblin: {
     name: '白银波克布林', hp: 720, atk: 24, speed: 4.0, radius: 0.7, sight: 18, expDrop: 8, dropRupee: 20,
-    mesh: () => AssetFactory.createBokoblin(0xddddcc, true),
+    mesh: () => AssetFactory.createBokoblin(0xddddcc, true, 'elite'),
     drops: () => weightedDrop([['bokoblinGuts', 2, 0.7], ['rupee', 15, 0.8], ['royalSword', 1, 0.1], ['amber', 2, 0.5], ['topaz', 1, 0.1]]),
     ai: 'melee'
   },
   goldBokoblin: {
     name: '金色波克布林', hp: 1080, atk: 32, speed: 4.25, radius: 0.72, sight: 20, expDrop: 12, dropRupee: 28,
-    mesh: () => AssetFactory.createBokoblin(0xd6b14a, true),
+    mesh: () => AssetFactory.createBokoblin(0xd6b14a, true, 'elite'),
     drops: () => weightedDrop([['bokoblinGuts', 3, 0.8], ['rupee', 24, 0.85], ['royalSword', 1, 0.08], ['topaz', 1, 0.18], ['luminousStone', 1, 0.22]]),
     ai: 'melee'
   },
@@ -55,7 +55,7 @@ const ENEMY_DEFS = {
   },
   archerBokoblin: {
     name: '弓箭波克布林', hp: 72, atk: 8, speed: 2.7, radius: 0.6, sight: 20, expDrop: 3, dropRupee: 5,
-    mesh: () => AssetFactory.createBokoblin(0x7a9a44, false),
+    mesh: () => AssetFactory.createBokoblin(0x7a9a44, false, 'archer'),
     drops: () => weightedDrop([['bokoblinHorn', 1, 0.75], ['arrow', 5, 0.65], ['travelerBow', 1, 0.12], ['rupee', 4, 0.5]]),
     ai: 'ranged'
   },
@@ -996,6 +996,7 @@ class Enemy {
   _animate(dt, state) {
     const p = this.mesh.userData.parts;
     if (!p) return;
+    const visualRole = this.mesh.userData.enemyRole || (this.def.ai === 'ranged' ? 'archer' : this.miniBoss ? 'elite' : 'melee');
     this._idlePhase += dt * 2.5;
     this._posePhase += dt * (state === 'chase' ? 6.5 : state === 'patrol' ? 4.5 : 2.8);
     const alpha = this._poseAlpha(dt, state === 'attack' ? 14 : 10);
@@ -1006,9 +1007,19 @@ class Enemy {
       const power = state === 'chase' ? 1 : 0.55;
       this._smoothRotation(p.legL, swing * power, 0, 0, alpha);
       this._smoothRotation(p.legR, -swing * power, 0, 0, alpha);
-      this._smoothRotation(p.armL, -swing * power, 0, 0.08 * power, alpha);
-      this._smoothRotation(p.armR, swing * power, 0, -0.08 * power, alpha);
-      this._smoothRotation(p.body, -0.035 * power, 0, Math.sin(this._walkPhase) * 0.045 * power, alpha);
+      if (visualRole === 'shield') {
+        this._smoothRotation(p.armL, -1.05, 0.06, -0.36, alpha);
+        this._smoothRotation(p.armR, swing * 0.42 * power, 0, -0.08 * power, alpha);
+        this._smoothRotation(p.body, -0.11 * power, 0, Math.sin(this._walkPhase) * 0.035 * power, alpha);
+      } else if (visualRole === 'archer') {
+        this._smoothRotation(p.armL, -0.62 + swing * 0.18, 0.08, -0.28, alpha);
+        this._smoothRotation(p.armR, -0.75 - swing * 0.16, -0.08, 0.26, alpha);
+        this._smoothRotation(p.body, -0.02 * power, Math.sin(this._walkPhase) * 0.035 * power, 0, alpha);
+      } else {
+        this._smoothRotation(p.armL, -swing * power, 0, 0.08 * power, alpha);
+        this._smoothRotation(p.armR, swing * power, 0, -0.08 * power, alpha);
+        this._smoothRotation(p.body, (visualRole === 'elite' ? -0.075 : -0.035) * power, 0, Math.sin(this._walkPhase) * 0.045 * power, alpha);
+      }
       this._smoothRotation(p.head, 0.04 * power, 0, 0, alpha);
       this._smoothScale(p.body, 1, 1, 1, alpha);
     } else if (state === 'attack') {
@@ -1017,9 +1028,17 @@ class Enemy {
         // 蓄力：举武器过头/身体后仰
         const progress = this.windup / this._windupTime();
         const ease = progress * progress * (3 - 2 * progress);
-        this._smoothRotation(p.armR, -1.15 - ease * 0.95, 0, -0.18, alpha);
-        this._smoothRotation(p.armL, -0.28 - ease * 0.18, 0, 0.12, alpha);
-        this._smoothRotation(p.body, -ease * 0.24, 0, Math.sin(this._posePhase * 3) * 0.035 * ease, alpha);
+        if (visualRole === 'shield') {
+          this._smoothRotation(p.armL, -1.45, 0.08, -0.48, alpha);
+          this._smoothRotation(p.armR, -0.78 - ease * 0.45, 0, 0.18, alpha);
+        } else if (visualRole === 'archer') {
+          this._smoothRotation(p.armL, -1.05, 0.16, -0.55, alpha);
+          this._smoothRotation(p.armR, -1.25 - ease * 0.25, -0.12, 0.45, alpha);
+        } else {
+          this._smoothRotation(p.armR, -1.15 - ease * (visualRole === 'elite' ? 1.18 : 0.95), 0, -0.18, alpha);
+          this._smoothRotation(p.armL, -0.28 - ease * 0.18, 0, 0.12, alpha);
+        }
+        this._smoothRotation(p.body, -ease * (visualRole === 'elite' ? 0.34 : 0.24), 0, Math.sin(this._posePhase * 3) * 0.035 * ease, alpha);
         this._smoothRotation(p.head, ease * 0.08, 0, 0, alpha);
         // 丘丘蓄力：身体压扁
         if (this.typeId === 'chuchu' || this.typeId === 'fireChuchu' || this.typeId === 'iceChuchu' || this.typeId === 'shockChuchu') {
@@ -1029,9 +1048,19 @@ class Enemy {
         }
       } else if (this.attackPhase === 'strike') {
         // 出招瞬间：快速前挥
-        this._smoothRotation(p.armR, 1.35, 0.08, 0.25, 1);
-        this._smoothRotation(p.armL, -0.15, 0, -0.12, 1);
-        this._smoothRotation(p.body, 0.28, 0, 0, 1);
+        if (visualRole === 'shield') {
+          this._smoothRotation(p.armL, -1.15, 0, -0.58, 1);
+          this._smoothRotation(p.armR, 1.1, 0.08, 0.24, 1);
+          this._smoothRotation(p.body, 0.2, 0, -0.08, 1);
+        } else if (visualRole === 'archer') {
+          this._smoothRotation(p.armL, -1.2, 0.18, -0.7, 1);
+          this._smoothRotation(p.armR, -0.42, -0.16, 0.58, 1);
+          this._smoothRotation(p.body, 0.08, 0.18, 0, 1);
+        } else {
+          this._smoothRotation(p.armR, 1.35, 0.08, 0.25, 1);
+          this._smoothRotation(p.armL, -0.15, 0, -0.12, 1);
+          this._smoothRotation(p.body, visualRole === 'elite' ? 0.38 : 0.28, 0, 0, 1);
+        }
         if (this.typeId === 'chuchu' || this.typeId === 'fireChuchu' || this.typeId === 'iceChuchu' || this.typeId === 'shockChuchu') {
           this._smoothScale(p.body, 0.78, 1.34, 0.92, 1);
         }
@@ -1061,8 +1090,16 @@ class Enemy {
         }
       }
       // 重置手臂
-      this._smoothRotation(p.armL, 0, 0, 0, alpha);
-      this._smoothRotation(p.armR, 0, 0, 0, alpha);
+      if (visualRole === 'shield') {
+        this._smoothRotation(p.armL, -0.78, 0, -0.28, alpha);
+        this._smoothRotation(p.armR, 0.05, 0, 0.05, alpha);
+      } else if (visualRole === 'archer') {
+        this._smoothRotation(p.armL, -0.32, 0.08, -0.22, alpha);
+        this._smoothRotation(p.armR, -0.22, -0.06, 0.18, alpha);
+      } else {
+        this._smoothRotation(p.armL, 0, 0, 0, alpha);
+        this._smoothRotation(p.armR, 0, 0, 0, alpha);
+      }
       this._smoothRotation(p.legL, 0, 0, 0, alpha);
       this._smoothRotation(p.legR, 0, 0, 0, alpha);
       this._smoothRotation(p.head, 0, 0, 0, alpha);
@@ -1137,6 +1174,8 @@ class Enemy {
     this.position.add(fromDir.clone().multiplyScalar(this.boss ? 0.15 : 0.6));
     if (this.boss) {
       Effects.hitBurst(this.mesh.position.clone().setY(5.3), 0xff8800, 12);
+    } else if (typeof Effects !== 'undefined' && Effects.lowPolyShatter) {
+      Effects.lowPolyShatter(this.mesh.position.clone().setY(1.05), weaponElement === 'fire' ? 0xff6644 : weaponElement === 'ice' ? 0x88ddff : weaponElement === 'shock' ? 0xffee66 : 0xd8c0a0, 7, 0.55);
     }
     if (this.hp <= 0) this._die();
   }
@@ -1148,6 +1187,12 @@ class Enemy {
     if (typeof AudioSystem !== 'undefined') AudioSystem.play(this.boss ? 'power' : 'pickup');
     Effects.deathPuff(this.mesh.position.clone().setY(1.2),
       this.boss ? 0x7a6a5a : (this.element === 'fire' ? 0xff4422 : this.element === 'ice' ? 0x66ddff : this.element === 'shock' ? 0xffee44 : 0x888888));
+    if (typeof Effects !== 'undefined' && Effects.lowPolyShatter) {
+      Effects.lowPolyShatter(this.mesh.position.clone().setY(this.boss ? 2.2 : 1.0),
+        this.boss ? 0x9a7a5a : (this.element === 'fire' ? 0xff5522 : this.element === 'ice' ? 0x7edfff : this.element === 'shock' ? 0xffee66 : 0xb8aa92),
+        this.boss ? 28 : 15,
+        this.boss ? 1.35 : 0.9);
+    }
     if (this.boss) {
       for (let i = 0; i < 5; i++) {
         setTimeout(() => {

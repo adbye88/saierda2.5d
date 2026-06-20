@@ -300,6 +300,53 @@ const Effects = {
     });
   },
 
+  lowPolyShatter(originPos, color = 0xd8c0a0, count = 12, scale = 1) {
+    if (!this.scene) return;
+    const group = new THREE.Group();
+    group.position.copy(originPos);
+    const shards = [];
+    const mat = new THREE.MeshStandardMaterial({
+      color,
+      roughness: 0.72,
+      metalness: 0.05,
+      flatShading: true,
+      emissive: color,
+      emissiveIntensity: 0.08,
+      transparent: true,
+      opacity: 0.95
+    });
+    for (let i = 0; i < count; i++) {
+      const shard = new THREE.Mesh(
+        i % 3 === 0
+          ? new THREE.TetrahedronGeometry((0.08 + Math.random() * 0.1) * scale)
+          : new THREE.BoxGeometry((0.08 + Math.random() * 0.08) * scale, (0.06 + Math.random() * 0.08) * scale, (0.07 + Math.random() * 0.1) * scale),
+        mat.clone()
+      );
+      const a = Math.random() * Math.PI * 2;
+      const outward = 1.1 + Math.random() * 2.2;
+      shard.userData.vel = new THREE.Vector3(Math.cos(a) * outward, 1.2 + Math.random() * 2.6, Math.sin(a) * outward);
+      shard.userData.spin = new THREE.Vector3((Math.random() - 0.5) * 10, (Math.random() - 0.5) * 12, (Math.random() - 0.5) * 10);
+      shard.position.set((Math.random() - 0.5) * 0.35 * scale, (Math.random() - 0.5) * 0.25 * scale, (Math.random() - 0.5) * 0.35 * scale);
+      group.add(shard);
+      shards.push(shard);
+    }
+    this.scene.add(group);
+    this.active.push({
+      mesh: group, life: 0.62, maxLife: 0.62,
+      update(dt, t) {
+        for (const shard of shards) {
+          shard.position.addScaledVector(shard.userData.vel, dt);
+          shard.userData.vel.y -= 7.8 * dt;
+          shard.rotation.x += shard.userData.spin.x * dt;
+          shard.rotation.y += shard.userData.spin.y * dt;
+          shard.rotation.z += shard.userData.spin.z * dt;
+          shard.material.opacity = 0.95 * (1 - t);
+          shard.scale.setScalar(1 - t * 0.35);
+        }
+      }
+    });
+  },
+
   // ---------- 拾取闪光 ----------
   pickupFlash(originPos) {
     if (!this.scene) return;

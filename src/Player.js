@@ -725,6 +725,16 @@ class Player {
     const swing = Math.sin(this._walkPhase || 0) * (moving ? (0.22 + movePower * 0.36) : 0);
     this._posePhase += dt * (moving ? 7.5 : 2.2);
     const breath = Math.sin(this._posePhase) * 0.025;
+    const runBob = moving ? Math.abs(Math.sin(this._walkPhase || 0)) * 0.055 * movePower : breath * 0.55;
+    const setBaseY = (obj) => {
+      if (!obj) return;
+      if (obj.userData.baseY === undefined) obj.userData.baseY = obj.position.y;
+    };
+    [p.body, p.head, p.armL, p.armR].forEach(setBaseY);
+    if (p.body) p.body.position.y = p.body.userData.baseY + runBob * 0.55;
+    if (p.head) p.head.position.y = p.head.userData.baseY + runBob * 0.75;
+    if (p.armL) p.armL.position.y = p.armL.userData.baseY + runBob * 0.45;
+    if (p.armR) p.armR.position.y = p.armR.userData.baseY + runBob * 0.45;
     const poseAlpha = this._poseAlpha(dt, this.isGliding ? 16 : 13);
     // ★ 防御姿态：按住盾牌时左臂（持盾臂）抬起举盾
     const shielding = Input.state.shield && this.inventory.equipped.shield;

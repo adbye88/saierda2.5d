@@ -52,7 +52,7 @@ const AssetFactory = {
     const bootMat = this._artMat('leather-straps', 0x7a4a24, { flat: false, rough: 0.9 });
     const stitchMat = this._mat(0xd8bd76, { flat: false, rough: 0.9 });
 
-    const legGeo = new THREE.BoxGeometry(0.22, 0.78, 0.24);
+    const legGeo = new THREE.CylinderGeometry(0.105, 0.135, 0.78, 6);
     const legL = new THREE.Mesh(legGeo, trousers); legL.position.set(-0.17, 0.43, 0); g.add(legL); legL.name = 'legL';
     const legR = new THREE.Mesh(legGeo, trousers); legR.position.set(0.17, 0.43, 0); g.add(legR); legR.name = 'legR';
     [-0.17, 0.17].forEach(x => {
@@ -67,10 +67,18 @@ const AssetFactory = {
       g.add(cuff);
     });
 
-    const hip = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.22, 0.42), tunicDark);
+    const hip = new THREE.Mesh(new THREE.BoxGeometry(0.72, 0.2, 0.42), tunicDark);
     hip.position.y = 0.88; g.add(hip);
-    const body = new THREE.Mesh(new THREE.BoxGeometry(0.68, 0.82, 0.43), tunic);
+    const body = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.82, 0.38), tunic);
     body.position.y = 1.28; g.add(body); body.name = 'body';
+    const chest = new THREE.Mesh(new THREE.BoxGeometry(0.72, 0.36, 0.11), tunicDark);
+    chest.position.set(0, 1.45, 0.24);
+    chest.rotation.x = -0.08;
+    g.add(chest);
+    const chestPlate = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.42, 0.06), stitchMat);
+    chestPlate.position.set(0, 1.32, 0.29);
+    chestPlate.rotation.x = -0.1;
+    g.add(chestPlate);
 
     const skirtFront = new THREE.Mesh(new THREE.ConeGeometry(0.34, 0.42, 4), tunic);
     skirtFront.position.set(0, 0.88, 0.22);
@@ -116,10 +124,20 @@ const AssetFactory = {
       hand.position.y = -0.62; arm.add(hand);
       g.add(arm);
     });
+    [-1, 1].forEach(s => {
+      const shoulderPad = new THREE.Mesh(new THREE.BoxGeometry(0.25, 0.09, 0.32), tunicDark);
+      shoulderPad.position.set(s * 0.48, 1.55, -0.01);
+      shoulderPad.rotation.set(0.06, 0, s * 0.24);
+      g.add(shoulderPad);
+      const knee = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.1, 0.08), leather);
+      knee.position.set(s * 0.17, 0.5, 0.16);
+      g.add(knee);
+    });
 
     const neck = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.12, 0.2), skin);
     neck.position.y = 1.72; g.add(neck);
-    const head = new THREE.Mesh(new THREE.BoxGeometry(0.52, 0.52, 0.48), skin);
+    const head = new THREE.Mesh(new THREE.DodecahedronGeometry(0.34, 0), skin);
+    head.scale.set(0.82, 0.92, 0.76);
     head.position.y = 2.0; g.add(head); head.name = 'head';
     const hairTop = new THREE.Mesh(new THREE.BoxGeometry(0.58, 0.2, 0.54), blond);
     hairTop.position.set(0, 2.22, -0.02); g.add(hairTop);
@@ -153,9 +171,14 @@ const AssetFactory = {
     capBand.position.set(0, 2.25, 0.02);
     g.add(capBand);
 
+    const quiver = new THREE.Mesh(new THREE.CylinderGeometry(0.075, 0.09, 0.58, 7), bootMat);
+    quiver.rotation.z = Math.PI / 2;
+    quiver.rotation.y = 0.18;
+    quiver.position.set(0.22, 1.43, -0.39);
+    g.add(quiver);
     const backBedroll = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.11, 0.58, 8), leather);
     backBedroll.rotation.z = Math.PI / 2;
-    backBedroll.position.set(0, 1.33, -0.34);
+    backBedroll.position.set(-0.08, 1.28, -0.38);
     g.add(backBedroll);
     const backCloth = new THREE.Mesh(new THREE.BoxGeometry(0.46, 0.58, 0.06), tunicDark);
     backCloth.position.set(0, 1.18, -0.36);
@@ -457,7 +480,7 @@ const AssetFactory = {
   },
 
   // ---------- 怪物：波克布林（精致版） ----------
-  createBokoblin(color = 0xcc4444, big = false) {
+  createBokoblin(color = 0xcc4444, big = false, role = 'melee') {
     const g = new THREE.Group();
     const s = big ? 1.4 : 1.0;
     const mat = this._artMat('bokoblin-skin', color, { flat: false });
@@ -468,7 +491,7 @@ const AssetFactory = {
 
     // 身体（梨形）
     const body = new THREE.Mesh(new THREE.SphereGeometry(0.5 * s, 7, 6), mat);
-    body.scale.set(1, 1.15, 0.95);
+    body.scale.set(role === 'shield' ? 1.22 : 1, role === 'archer' ? 1.05 : 1.15, role === 'shield' ? 1.05 : 0.95);
     body.position.y = 0.85 * s;
     g.add(body);
     // 肚子（浅色）
@@ -541,7 +564,7 @@ const AssetFactory = {
       anklet.rotation.x = Math.PI / 2;
       g.add(anklet);
     });
-    const crest = new THREE.Mesh(new THREE.ConeGeometry(0.11 * s, 0.34 * s, 4), darkMat);
+    const crest = new THREE.Mesh(new THREE.ConeGeometry((role === 'elite' ? 0.16 : 0.11) * s, (role === 'elite' ? 0.48 : 0.34) * s, 4), darkMat);
     crest.position.set(0, 1.88 * s, -0.02 * s);
     crest.rotation.x = -0.25;
     g.add(crest);
@@ -571,21 +594,50 @@ const AssetFactory = {
       boneCrest.rotation.x = -0.18;
       g.add(boneCrest);
     }
-    // ★ 右手持武器：木棒（波克布林的标志性武器）
-    const club = new THREE.Mesh(
-      new THREE.BoxGeometry((isBlack || isSilver ? 0.16 : 0.12) * s, (isBlack || isSilver ? 0.9 : 0.7) * s, (isBlack || isSilver ? 0.16 : 0.12) * s),
-      this._mat(0x6a4a2a)
-    );
-    club.position.set(0, -0.4 * s, 0);  // 挂在手臂下方
-    club.castShadow = true;
-    armR.add(club);
-    if (isSilver) {
-      const spike = new THREE.Mesh(new THREE.ConeGeometry(0.045 * s, 0.18 * s, 4), this._shiny(0xd8d0bc));
-      spike.position.set(0, -0.86 * s, 0);
-      spike.rotation.x = Math.PI;
-      armR.add(spike);
+    if (role === 'archer') {
+      const bow = this.createBowMesh('travelerBow');
+      bow.scale.setScalar(0.78 * s);
+      bow.position.set(0.03 * s, -0.35 * s, 0.1 * s);
+      bow.rotation.set(0.25, 0.1, 0.2);
+      armR.add(bow);
+      const quiver = new THREE.Mesh(new THREE.CylinderGeometry(0.08 * s, 0.1 * s, 0.55 * s, 7), leather);
+      quiver.rotation.z = Math.PI / 2;
+      quiver.position.set(-0.28 * s, 1.04 * s, -0.42 * s);
+      g.add(quiver);
+      for (let i = 0; i < 3; i++) {
+        const arrow = new THREE.Mesh(new THREE.CylinderGeometry(0.012 * s, 0.012 * s, 0.42 * s, 4), this._mat(0xe8d8a8));
+        arrow.rotation.z = Math.PI / 2;
+        arrow.position.set((-0.33 + i * 0.035) * s, 1.12 * s, -0.42 * s);
+        g.add(arrow);
+      }
+    } else {
+      // ★ 右手持武器：木棒（波克布林的标志性武器）
+      const club = new THREE.Mesh(
+        new THREE.BoxGeometry((isBlack || isSilver || role === 'elite' ? 0.16 : 0.12) * s, (isBlack || isSilver || role === 'elite' ? 0.9 : 0.7) * s, (isBlack || isSilver || role === 'elite' ? 0.16 : 0.12) * s),
+        this._mat(0x6a4a2a)
+      );
+      club.position.set(0, -0.4 * s, 0);  // 挂在手臂下方
+      club.castShadow = true;
+      armR.add(club);
+      if (isSilver || role === 'elite') {
+        const spike = new THREE.Mesh(new THREE.ConeGeometry(0.045 * s, 0.18 * s, 4), this._shiny(0xd8d0bc));
+        spike.position.set(0, -0.86 * s, 0);
+        spike.rotation.x = Math.PI;
+        armR.add(spike);
+      }
+    }
+    if (role === 'shield') {
+      const shield = this.createShieldMesh('soldierShield');
+      shield.scale.setScalar(0.58 * s);
+      shield.position.set(-0.08 * s, -0.18 * s, 0.08 * s);
+      shield.rotation.set(0.05, 0.12, 0.2);
+      armL.add(shield);
+      const mask = new THREE.Mesh(new THREE.BoxGeometry(0.42 * s, 0.22 * s, 0.06 * s), rankMat || this._mat(0x5a4a3a, { flat: false, metal: 0.18 }));
+      mask.position.set(0, 1.49 * s, 0.42 * s);
+      g.add(mask);
     }
     g.userData.parts = { legL, legR, armL, armR, head, body };
+    g.userData.enemyRole = role;
     return g;
   },
 
