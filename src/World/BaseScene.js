@@ -32,6 +32,7 @@ class BaseScene {
       this._setupGround();
       this.build();
       this._setupExplorationDefaults();
+      if (typeof WorldExpansionSystem !== 'undefined') WorldExpansionSystem.apply(this);
       this._built = true;
     }
   }

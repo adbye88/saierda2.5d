@@ -11,7 +11,7 @@ const ActionButtons = {
       TouchRouter.on('attack', 'hold', () => Input.pressAttack(), () => Input.releaseAttack());
       TouchRouter.on('jump', 'hold', () => Input.pressJump(), () => Input.releaseJump());
       TouchRouter.on('shield', 'hold', () => Input.pressShield(), () => Input.releaseShield());
-      TouchRouter.on('parry', 'tap', () => Input.pressParry());
+      TouchRouter.on('parry', 'hold', () => Input.pressParryGuard(), () => Input.releaseParryGuard());
       TouchRouter.on('flurryRush', 'tap', () => Input.pressFlurryRush());
       TouchRouter.on('lock', 'tap', () => Input.toggleLock());
       TouchRouter.on('bag', 'tap', () => Input.toggleInventory());

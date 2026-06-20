@@ -96,26 +96,27 @@ const Input = {
       if (k === 'r') this._trigger('justArrowType');
       if (k === 'z') this._trigger('justWeaponCycle');
       if (k === 'x') this._trigger('justBowCycle');
-      if (k === 'f') this.pressParry();
+      if (k === 'f') this.pressParryGuard();
       if (k === 'o') this._trigger('justQuest');
       if (k === 'p') this._trigger('justQuality');
       if (k === 'i') this._trigger('justInventory');
-      if (k === 'shift') this._trigger('justShield');
-      this.state.shield = !!(this._keys['shift']);
+      if (k === 'shift') this.pressShield();
       this.state.jump = !!(this._keys[' ']);
       this.state.attack = !!(this._keys['j']);
       this.state.lock = !!(this._keys['q']);
-      this.state.shield = !!(this._keys['shift']);
+      this._syncShieldState();
       this.state.interact = !!(this._keys['e']);
     });
     window.addEventListener('keyup', e => {
       const k = e.key.toLowerCase();
       this._keys[k] = false;
       this._refreshMove();
+      if (k === 'f') this.releaseParryGuard();
+      if (k === 'shift') this.releaseShield();
       this.state.jump = !!(this._keys[' ']);
       this.state.attack = !!(this._keys['j']);
       this.state.lock = !!(this._keys['q']);
-      this.state.shield = !!(this._keys['shift']);
+      this._syncShieldState();
       this.state.interact = !!(this._keys['e']);
     });
   },
@@ -205,19 +206,34 @@ const Input = {
   releaseAttack() { this.state.attack = false; },
   pressJump() { this.state.jump = true; this._trigger('justJump'); },
   releaseJump() { this.state.jump = false; },
-  pressShield() { this._holdShield = true; this.state.shield = true; this._trigger('justShield'); },
-  releaseShield() { this._holdShield = false; if (!this._parryShield) this.state.shield = false; },
-  pressParry() {
-    this._parryShield = true;
+  pressShield() {
+    this._holdShield = true;
     this.state.shield = true;
-    this._trigger('justShield');
-    this._trigger('justParry');
-    if (this._parryReleaseTimer) clearTimeout(this._parryReleaseTimer);
-    this._parryReleaseTimer = setTimeout(() => {
-      this._parryShield = false;
-      if (!this._holdShield) this.state.shield = false;
-      this._parryReleaseTimer = null;
-    }, 420);
+  },
+  releaseShield() {
+    this._holdShield = false;
+    this._syncShieldState();
+  },
+  pressParryGuard() {
+    this._parryGuardHeld = true;
+    this.state.shield = true;
+  },
+  releaseParryGuard() {
+    const wasGuarding = this._parryGuardHeld || this.state.shield;
+    this._parryGuardHeld = false;
+    if (wasGuarding) {
+      // 松开这一帧仍保持举盾状态，给 Player / Enemy 同帧完成盾反判定。
+      this._parryReleaseGrace = true;
+      this.state.shield = true;
+      this._trigger('justParry');
+    } else {
+      this._syncShieldState();
+    }
+  },
+  // 兼容旧调用：点按会变成“一帧举盾后松手盾反”，但 UI 已改为按住/松开。
+  pressParry() {
+    this.pressParryGuard();
+    this.releaseParryGuard();
   },
   pressFlurryRush() { this._trigger('justFlurryRush'); },
   toggleLock() { this._trigger('justLock'); },
@@ -247,8 +263,12 @@ const Input = {
   _interactBuffer: 0,
   _interactReleaseTimer: null,
   _holdShield: false,
-  _parryShield: false,
-  _parryReleaseTimer: null,
+  _parryGuardHeld: false,
+  _parryReleaseGrace: false,
+
+  _syncShieldState() {
+    this.state.shield = !!(this._holdShield || this._parryGuardHeld || this._parryReleaseGrace || (this._keys && this._keys['shift']));
+  },
 
   // ---------- 每帧末尾调用：清掉边沿触发标记 ----------
   endFrame() {
@@ -270,6 +290,10 @@ const Input = {
     this.state.justQuality = false;
     this.state.camera.dx = 0;
     this.state.camera.dy = 0;
+    if (this._parryReleaseGrace) {
+      this._parryReleaseGrace = false;
+      this._syncShieldState();
+    }
   }
 };
 

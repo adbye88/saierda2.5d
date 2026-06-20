@@ -185,7 +185,6 @@ class Player {
 
     // 麻痹时不能移动/攻击
     if (this._stunTimer <= 0) {
-      if (Input.justShield && this.inventory.equipped.shield) this._perfectGuardTimer = 0.28;
       if (this._perfectGuardTimer > 0) this._perfectGuardTimer -= dt;
       if (Input.justParry) this._handleQuickParry(game);
       if (Input.justFlurryRush) this._performFlurryRush(game);
@@ -905,7 +904,7 @@ class Player {
       Dialogue.show('没有装备盾牌，无法盾反');
       return false;
     }
-    this._perfectGuardTimer = Math.max(this._perfectGuardTimer || 0, 0.36);
+    this._perfectGuardTimer = Math.max(this._perfectGuardTimer || 0, 0.18);
     this._guardFacing = this._resolveAimFacing(game, { allowLock: true });
     this.facing = this._guardFacing;
     this.mesh.rotation.y = this.facing;
@@ -915,13 +914,14 @@ class Player {
     const now = performance.now();
     if (!this._quickParryHintAt || now - this._quickParryHintAt > 900) {
       this._quickParryHintAt = now;
-      Dialogue.showFloat('举盾！', this.position.clone().setY(2.25), '#c8f6ff');
+      Dialogue.showFloat('松手判定！', this.position.clone().setY(2.25), '#c8f6ff');
     }
     return false;
   }
 
   _tryShieldCounter(game) {
-    if (!Input.state.shield || !this.inventory.equipped.shield || this._shieldCounterWindow <= 0) return false;
+    const releaseParry = Input.justParry || this._perfectGuardTimer > 0;
+    if ((!Input.state.shield && !releaseParry) || !this.inventory.equipped.shield || this._shieldCounterWindow <= 0) return false;
     if (this.stamina < 18) {
       Dialogue.show('体力不足，盾反失败');
       return false;
@@ -1221,12 +1221,12 @@ class Player {
       if (guarded !== null) amount = guarded;
     }
 
-    // ★ 完美格挡（弹反）：按下盾牌的 0.25 秒内被攻击 + 面向攻击者
-    if ((Input.justShield || this._perfectGuardTimer > 0) && this.inventory.equipped.shield) {
+    // ★ 盾反：先举盾，松开盾反按钮后的极短窗口内被攻击 + 面向攻击者
+    if (this._perfectGuardTimer > 0 && this.inventory.equipped.shield) {
       const facing = shieldDir;
       if (incomingDir && facing.dot(incomingDir.clone().negate()) > 0.7) {
         // 完美格挡！完全免伤 + 特效
-        Dialogue.showFloat('⚡ 完美格挡！', this.mesh.position.clone().setY(2.5), '#ffd700');
+        Dialogue.showFloat('⚡ 盾反成功！', this.mesh.position.clone().setY(2.5), '#ffd700');
         if (typeof Effects !== 'undefined') Effects.parrySpark(this.mesh.position.clone().add(facing.clone().multiplyScalar(0.8)).setY(1.2));
         this.invuln = 0.5;
         this._perfectGuardTimer = 0;
@@ -1250,7 +1250,7 @@ class Player {
         this.inventory.damageShield(1);
         this._shieldCounterWindow = 0.42;
         this._shieldCounterDir = incomingDir.clone().negate();
-        Dialogue.show(`格挡！马上按“盾反”或攻击可反击`);
+        Dialogue.show(`格挡！继续按住“盾反”，看准下一击松开可反击`);
         this.invuln = 0.4;
         HUD.flashDamage();
         return reduced > 0 ? 'blocked-damaged' : 'blocked';
