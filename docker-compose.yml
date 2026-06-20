@@ -1,0 +1,12 @@
+version: "3.8"
+
+services:
+  wild-breath:
+    build: .
+    image: wild-breath-mini:latest
+    container_name: wild-breath-mini
+    ports:
+      - "8080:80"
+    restart: unless-stopped
+    # 手机/局域网访问：用主机 IP + 8080 端口
+    # 例如 http://192.168.1.100:8080

@@ -1,0 +1,646 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="旷野之息">
+<meta name="theme-color" content="#87CEEB">
+<!-- iOS 全屏：添加到主屏幕后可全屏 PWA 模式 -->
+<link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🗡️</text></svg>">
+<title>旷野之息 · 迷你版</title>
+<link rel="stylesheet" href="css/style.css?v=20260620-quality-settings-2">
+</head>
+<body>
+
+<!-- 加载画面 -->
+<div id="loading">
+  <div class="loading-inner">
+    <div class="loading-title">旷野之息</div>
+    <div class="loading-sub">迷你版 · Wild Breath Mini</div>
+    <div class="loading-bar"><div id="loading-fill"></div></div>
+    <div id="loading-text">正在唤醒林克…</div>
+  </div>
+</div>
+
+<!-- 竖屏提示 -->
+<div id="rotate-hint">
+  <div class="rotate-icon">📱</div>
+  <div class="rotate-text">请横置手机游玩</div>
+</div>
+
+<!-- 游戏画布 -->
+<canvas id="game-canvas"></canvas>
+
+<!-- ★ 调试浮层：显示按钮事件是否触发（手机上看不到 console.log）-->
+<div id="debug-overlay"></div>
+
+<!-- ★ 加载诊断信息（永远可见，帮 iPhone 排查）-->
+<div id="boot-status" style="position:absolute;top:60%;left:50%;transform:translateX(-50%);z-index:101;color:#fff;font-size:12px;background:rgba(0,0,0,.7);padding:6px 14px;border-radius:8px;pointer-events:none;text-align:center;max-width:90vw;"></div>
+
+<!-- ★ 按钮事件日志（屏幕中央上方，永远可见，显示按钮是否被触发）-->
+<div id="btn-log" style="position:absolute;top:55%;left:50%;transform:translateX(-50%);z-index:99;background:rgba(0,0,0,.8);color:#5aff5a;font-family:monospace;font-size:11px;padding:6px 12px;border-radius:6px;max-width:90vw;max-height:120px;overflow:hidden;pointer-events:none;display:none;"></div>
+
+<!-- 受击红屏遮罩 -->
+<div id="damage-vignette"></div>
+
+<!-- ===== HUD ===== -->
+<div id="hud" class="hidden">
+  <!-- 左上：心心 + 体力 -->
+  <div id="hud-left">
+    <div id="hearts"></div>
+    <div id="stamina-wrap"><div id="stamina-fill"></div></div>
+    <div class="stamina-label">体 力</div>
+  </div>
+
+  <!-- 右上：卢比 + 武器 + 小地图 -->
+  <div id="hud-right">
+    <div id="rupee">💎 0</div>
+    <div id="weapon-info">空手</div>
+    <button id="arrow-type-btn" class="hidden" data-action="arrowType"
+      ontouchstart="event.preventDefault();"
+      ontouchend="event.preventDefault();window.__btn('arrowType',false);"
+      onclick="window.__btn('arrowType',false);">➹ 普通 ×0</button>
+    <canvas id="minimap" width="120" height="120"></canvas>
+  </div>
+
+  <!-- 顶部任务提示 -->
+  <div id="quest-tip"></div>
+
+  <!-- Boss 血条 -->
+  <div id="boss-hp">
+    <div id="boss-name">岩石巨像</div>
+    <div id="boss-hp-bar"><div id="boss-hp-fill"></div></div>
+  </div>
+
+  <!-- 活跃 buff 指示器 -->
+  <div id="buff-bar"></div>
+  <div id="champion-bar"></div>
+</div>
+
+<!-- 上下文提示（靠近 NPC/物品时显示） -->
+<div id="interact-hint" role="button" data-action="interact"
+  ontouchstart="event.preventDefault();"
+  ontouchend="event.preventDefault();window.__btn('interact',false);"
+  onclick="window.__btn('interact',false);">💬 按 E 或 ⬆键 对话</div>
+
+<!-- ===== 左下：固定虚拟摇杆 ===== -->
+<div id="joystick-fixed" class="touch-only">
+  <div class="joy-base">
+    <div class="joy-dir up">▲</div>
+    <div class="joy-dir down">▼</div>
+    <div class="joy-dir left">◀</div>
+    <div class="joy-dir right">▶</div>
+  </div>
+  <div class="joy-knob"></div>
+</div>
+
+<!-- ===== 左下额外按钮：背包 + 地图 + 对话/拾取 + 全屏 ===== -->
+<div id="extra-buttons" class="touch-only">
+  <button id="btn-bag" class="extra-btn" data-action="bag"
+    ontouchstart="event.preventDefault();window.__btn('bag',true);"
+    ontouchend="event.preventDefault();window.__btn('bag',false);"
+    onmousedown="window.__btn('bag',true);"
+    onmouseup="window.__btn('bag',false);"><img src="assets/icons/ui/bag.png" alt=""><span>背包</span></button>
+  <button id="btn-map" class="extra-btn" data-action="map"
+    ontouchstart="event.preventDefault();"
+    ontouchend="event.preventDefault();window.__btn('map',false);"
+    onmousedown="window.__btn('map',false);"
+    onclick="window.__btn('map',false);"><img src="assets/icons/ui/map.png" alt=""><span>地图</span></button>
+  <button id="btn-quest" class="extra-btn" data-action="quest"
+    ontouchstart="event.preventDefault();"
+    ontouchend="event.preventDefault();window.__btn('quest',false);"
+    onclick="window.__btn('quest',false);"><span class="text-icon">任</span><span>任务</span></button>
+  <button id="btn-compendium" class="extra-btn" data-action="compendium"
+    ontouchstart="event.preventDefault();"
+    ontouchend="event.preventDefault();window.__openCompendium && window.__openCompendium();"
+    onclick="window.__openCompendium && window.__openCompendium();"><span class="text-icon">鉴</span><span>图鉴</span></button>
+  <button id="btn-quality" class="extra-btn" data-action="quality" title="画质设置"
+    ontouchstart="event.preventDefault();"
+    ontouchend="event.preventDefault();window.__openQualitySettings && window.__openQualitySettings();"
+    onclick="window.__openQualitySettings && window.__openQualitySettings();"><span class="text-icon">质</span><span>画质</span></button>
+  <button id="btn-fullscreen" class="extra-btn" data-action="fullscreen"
+    ontouchstart="event.preventDefault();"
+    ontouchend="event.preventDefault();window.__btn('fullscreen',false);"
+    onclick="window.__btn('fullscreen',false);"><img src="assets/icons/ui/fullscreen.png" alt=""><span>全屏</span></button>
+  <button id="btn-interact" class="extra-btn" data-action="interact"
+    ontouchstart="event.preventDefault();"
+    ontouchend="event.preventDefault();window.__btn('interact',false);"
+    onclick="window.__btn('interact',false);"><img src="assets/icons/ui/interact.png" alt=""><span>对话</span></button>
+</div>
+
+<!-- ===== 画质设置 ===== -->
+<div id="quality-settings" class="hidden" role="dialog" aria-modal="true" aria-labelledby="quality-title">
+  <div class="quality-panel">
+    <div class="quality-header">
+      <div>
+        <span class="quality-kicker">VISUAL CONFIGURATION</span>
+        <h2 id="quality-title">画质设置</h2>
+      </div>
+      <div class="quality-header-actions">
+        <span id="quality-live-status">高级画质 · 60 FPS</span>
+        <button id="quality-close" aria-label="关闭画质设置">✕</button>
+      </div>
+    </div>
+
+    <div class="quality-content">
+      <section class="quality-section quality-presets" aria-labelledby="quality-preset-title">
+        <div class="quality-section-title">
+          <h3 id="quality-preset-title">画质预设</h3>
+          <span>选择后立即生效</span>
+        </div>
+        <div class="quality-preset-grid">
+          <button data-quality-level="low"><b>流畅</b><small>省电稳定</small><em>1.00×</em></button>
+          <button data-quality-level="medium"><b>均衡</b><small>清晰顺滑</small><em>1.35×</em></button>
+          <button data-quality-level="high"><b>高级</b><small>推荐品质</small><em>1.75×</em></button>
+          <button data-quality-level="ultra"><b>电影</b><small>极致细节</small><em>2.00×</em></button>
+        </div>
+      </section>
+
+      <section class="quality-section quality-options" aria-labelledby="quality-custom-title">
+        <div class="quality-section-title">
+          <h3 id="quality-custom-title">自定义细节</h3>
+          <span>高配置设备可逐项提升</span>
+        </div>
+
+        <div class="quality-row quality-slider-row">
+          <div><b>渲染精度</b><small>数值越高，模型边缘越清晰</small></div>
+          <div class="quality-slider-control">
+            <input id="quality-render-scale" type="range" min="0.75" max="2" step="0.05" value="1.75">
+            <output id="quality-render-value" for="quality-render-scale">1.75×</output>
+          </div>
+        </div>
+
+        <div class="quality-row">
+          <div><b>动态阴影</b><small>角色、怪物与场景投射柔和阴影</small></div>
+          <label class="quality-switch"><input id="quality-shadows" type="checkbox"><span></span></label>
+        </div>
+
+        <div class="quality-row">
+          <div><b>阴影精度</b><small>提高近景阴影的轮廓细节</small></div>
+          <select id="quality-shadow-size" aria-label="阴影精度">
+            <option value="512">低</option>
+            <option value="1024">中</option>
+            <option value="2048">高</option>
+            <option value="3072">极高</option>
+          </select>
+        </div>
+
+        <div class="quality-row">
+          <div><b>色彩增强</b><small>提升场景饱和度、对比度与明暗层次</small></div>
+          <label class="quality-switch"><input id="quality-color-grade" type="checkbox"><span></span></label>
+        </div>
+
+        <div class="quality-row">
+          <div><b>环境光效</b><small>启用氛围辉光、暗角与区域色调</small></div>
+          <label class="quality-switch"><input id="quality-atmosphere" type="checkbox"><span></span></label>
+        </div>
+
+        <div class="quality-row">
+          <div><b>自动性能保护</b><small>持续低帧率时自动降低一级画质</small></div>
+          <label class="quality-switch"><input id="quality-auto" type="checkbox"><span></span></label>
+        </div>
+      </section>
+    </div>
+
+    <div class="quality-footer">
+      <p>设置会自动保存到本机，下次启动继续使用。</p>
+      <div>
+        <button id="quality-reset">恢复推荐</button>
+        <button id="quality-done" class="primary">完成</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== 右下：圆形按键组（菱形布局） ===== -->
+<div id="action-pad" class="touch-only">
+  <button id="btn-jump"   class="btn-pressable" data-action="jump"
+    ontouchstart="event.preventDefault();window.__btn('jump',true);this.classList.add('pressed');"
+    ontouchend="event.preventDefault();window.__btn('jump',false);this.classList.remove('pressed');"
+    onmousedown="window.__btn('jump',true);this.classList.add('pressed');"
+    onmouseup="window.__btn('jump',false);this.classList.remove('pressed');"><img src="assets/icons/ui/jump.png" alt=""><span>跳/闪</span></button>
+  <button id="btn-shield" class="btn-pressable" data-action="shield"
+    ontouchstart="event.preventDefault();window.__btn('shield',true);this.classList.add('pressed');"
+    ontouchend="event.preventDefault();window.__btn('shield',false);this.classList.remove('pressed');"
+    onmousedown="window.__btn('shield',true);this.classList.add('pressed');"
+    onmouseup="window.__btn('shield',false);this.classList.remove('pressed');"><img src="assets/icons/ui/shield.png" alt=""><span>防</span></button>
+  <button id="btn-parry" class="btn-pressable" data-action="parry"
+    ontouchstart="event.preventDefault();"
+    ontouchend="event.preventDefault();window.__btn('parry',false);"
+    onclick="window.__btn('parry',false);"><span class="text-icon">反</span><span>盾反</span></button>
+  <button id="btn-flurry" class="btn-pressable" data-action="flurryRush"
+    ontouchstart="event.preventDefault();"
+    ontouchend="event.preventDefault();window.__btn('flurryRush',false);"
+    onclick="window.__btn('flurryRush',false);"><span class="text-icon">袭</span><span>突袭</span></button>
+  <button id="btn-attack" class="btn-pressable" data-action="attack"
+    ontouchstart="event.preventDefault();window.__btn('attack',true);this.classList.add('pressed');"
+    ontouchend="event.preventDefault();window.__btn('attack',false);this.classList.remove('pressed');"
+    onmousedown="window.__btn('attack',true);this.classList.add('pressed');"
+    onmouseup="window.__btn('attack',false);this.classList.remove('pressed');"><img src="assets/icons/ui/attack.png" alt=""><span>攻击</span></button>
+  <button id="btn-lock"   class="btn-pressable" data-action="lock"
+    ontouchstart="event.preventDefault();"
+    ontouchend="event.preventDefault();window.__btn('lock',false);"
+    onclick="window.__btn('lock',false);"><img src="assets/icons/ui/lock.png" alt=""><span>锁定</span></button>
+  <button id="btn-weapon-cycle" class="btn-pressable small-cycle" data-action="weaponCycle"
+    ontouchstart="event.preventDefault();"
+    ontouchend="event.preventDefault();window.__btn('weaponCycle',false);"
+    onclick="window.__btn('weaponCycle',false);"><span class="text-icon">剑</span><span>近战</span></button>
+  <button id="btn-bow-cycle" class="btn-pressable small-cycle" data-action="bowCycle"
+    ontouchstart="event.preventDefault();"
+    ontouchend="event.preventDefault();window.__btn('bowCycle',false);"
+    onclick="window.__btn('bowCycle',false);"><span class="text-icon">弓</span><span>弓箭</span></button>
+</div>
+
+<!-- ===== 背包界面 ===== -->
+<div id="inventory" class="hidden">
+  <div class="inv-panel">
+    <div class="inv-header">
+      <span>🎒 背包</span>
+      <span id="inv-rupee">💎 0　➹0</span>
+      <button id="inv-close">✕</button>
+    </div>
+    <div class="inv-tabs">
+      <button class="tab active" data-tab="weapon">⚔️ 武器</button>
+      <button class="tab" data-tab="shield">🛡️ 盾</button>
+      <button class="tab" data-tab="bow">🏹 弓</button>
+      <button class="tab" data-tab="armor_upper">👕 上衣</button>
+      <button class="tab" data-tab="armor_lower">👖 裤子</button>
+      <button class="tab" data-tab="food">🍎 食物</button>
+      <button class="tab" data-tab="material">✨ 材料</button>
+      <button class="tab" data-tab="craft">🔨 打造</button>
+      <button class="tab" data-tab="key">🔑 重要</button>
+    </div>
+    <div id="inv-grid" class="inv-grid"></div>
+    <div id="inv-detail" class="inv-detail">
+      <div class="detail-empty">点选物品查看详情</div>
+    </div>
+    <div class="inv-actions">
+      <button id="btn-equip" disabled>装备</button>
+      <button id="btn-use" disabled>使用</button>
+      <button id="btn-craft" disabled>合成</button>
+      <button id="btn-drop" disabled>丢弃</button>
+    </div>
+    <div class="equip-slots">
+      <div class="slot" id="slot-weapon"><span class="slot-label">武器</span></div>
+      <div class="slot" id="slot-shield"><span class="slot-label">盾</span></div>
+      <div class="slot" id="slot-bow"><span class="slot-label">弓</span></div>
+      <div class="slot" id="slot-armor_upper"><span class="slot-label">上衣</span></div>
+      <div class="slot" id="slot-armor_lower"><span class="slot-label">裤子</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== 对话气泡 ===== -->
+<div id="dialogue" class="hidden">
+  <div id="dialogue-text"></div>
+</div>
+
+<!-- ===== 开始/暂停菜单 ===== -->
+<div id="menu" class="hidden">
+  <div class="menu-panel">
+    <h1 id="menu-title">旷野之息</h1>
+    <button id="btn-start" disabled style="opacity:.4">加载中…</button>
+    <button id="btn-continue" disabled style="opacity:.4">继续游戏 (读档)</button>
+    <button id="btn-howto" disabled style="opacity:.4">操作说明</button>
+    <button id="btn-quality-menu" disabled style="opacity:.4">画质设置</button>
+    <div id="howto" class="hidden">
+      <p style="color:#ffd56a;font-weight:bold;text-align:center;letter-spacing:2px;">📱 手机操作</p>
+      <p><b>左下圆盘</b>：滑动控制移动方向</p>
+      <p><b>右下按键</b>：⚔️攻击 🟡盾反 🦘跳跃/战斗闪避 🛡️防御 🎯锁定/切换怪物</p>
+      <p><b>林克时间</b>：敌人出招瞬间，摇杆向左/右/后并按“跳/闪”，出现“突袭”后立刻点击</p>
+      <p><b>左上按钮</b>：🎒背包 / 🗺️地图(传送/存档) / 📖图鉴 / 💬对话(靠近时出现)</p>
+      <p style="color:#ffd56a;font-weight:bold;text-align:center;margin-top:14px;">🖥️ 桌面操作</p>
+      <p><b>移动</b>：WASD / 方向键　　<b>攻击</b>：鼠标左键 / J</p>
+      <p><b>跳跃</b>：空格　　<b>防御</b>：Shift　　<b>盾反</b>：F　　<b>锁定</b>：Q</p>
+      <p><b>弓箭目标</b>：Tab　　<b>背包</b>：I　　<b>地图</b>：M　　<b>图鉴</b>：C　　<b>对话/拾取/烹饪</b>：E</p>
+      <p style="color:#ffd56a;font-weight:bold;text-align:center;margin-top:14px;">🌍 世界</p>
+      <p>7 张地图：草原/森林/水牢/雪山/火山/沙漠/海拉鲁城堡</p>
+      <p>解锁远古塔后可任意传送，击败 5 个 Boss 拯救世界</p>
+    </div>
+  </div>
+</div>
+
+<!-- ===== 资源加载器：真实跟踪所有脚本下载进度，全部完成后才启用开始按钮 ===== -->
+<script>
+// 全局加载状态
+window.__loadState = {
+  total: 0, loaded: 0, failed: [],
+  ready: false,
+  startTime: Date.now()
+};
+var __assetParams = new URLSearchParams(location.search);
+window.__assetPass = __assetParams.get('artpass') || __assetParams.get('v') || __assetParams.get('cache') || String(Date.now());
+
+// ★★★ 全局按钮处理函数（内联事件调用，最早定义，不依赖任何脚本加载）★★★
+window.__btnState = { attack:false, jump:false, shield:false };
+window.__btnEvents = [];
+window.__btn = function(action, isDown) {
+  // 记录所有事件（调试用）
+  window.__btnEvents.push(action + (isDown ? '+down' : '+up'));
+  if (window.__btnEvents.length > 20) window.__btnEvents.shift();
+
+  // 立即设置状态（不依赖 Input 对象）
+  if (action === 'attack' || action === 'jump' || action === 'shield') {
+    window.__btnState[action] = isDown;
+  }
+
+  // 实时更新日志面板（仅调试模式开启时显示）
+  var logEl = document.getElementById('btn-log');
+  if (logEl && window.__debugShowLog) {
+    var recent = window.__btnEvents.slice(-5);
+    var stateStr = 'atk:' + (window.__btnState.attack?'●':'○') +
+                   ' jmp:' + (window.__btnState.jump?'●':'○') +
+                   ' shd:' + (window.__btnState.shield?'●':'○');
+    logEl.innerHTML = stateStr + '<br>' + recent.join(' | ');
+    logEl.style.display = 'block';
+  }
+
+  // 如果 Input 已加载，直接调用
+  if (typeof window.Input !== 'undefined' && window.Input) {
+    try {
+      if (action === 'attack') { isDown ? window.Input.pressAttack() : window.Input.releaseAttack(); }
+      else if (action === 'jump') { isDown ? window.Input.pressJump() : window.Input.releaseJump(); }
+      else if (action === 'shield') { isDown ? window.Input.pressShield() : window.Input.releaseShield(); }
+      else if (action === 'parry' && !isDown) { window.Input.pressParry(); }
+      else if (action === 'flurryRush' && !isDown) { window.Input.pressFlurryRush(); }
+      else if (action === 'lock' && !isDown) { window.Input.toggleLock(); }
+      else if (action === 'arrowType' && !isDown) { window.Input.cycleArrowType(); }
+      else if (action === 'weaponCycle' && !isDown) { window.Input.cycleWeapon(); }
+      else if (action === 'bowCycle' && !isDown) { window.Input.cycleBow(); }
+      else if (action === 'quest' && !isDown) { window.Input.toggleQuest(); }
+      else if (action === 'compendium' && !isDown) { if (typeof window.__openCompendium === 'function') window.__openCompendium(); }
+      else if (action === 'bag' && !isDown) { window.Input.toggleInventory(); }
+      else if (action === 'map' && !isDown) { if (typeof MapMenu !== 'undefined') MapMenu.toggle(); }
+      else if (action === 'interact' && !isDown) { window.Input.pressInteract(); }
+      else if (action === 'fullscreen' && !isDown) {
+        var el = document.documentElement;
+        var isFS = document.fullscreenElement || document.webkitFullscreenElement;
+        if (!isFS) {
+          // 桌面/Android：调用全屏 API
+          var req = el.requestFullscreen || el.webkitRequestFullscreen || el.webkitRequestFullScreen;
+          if (req) {
+            try { var p = req.call(el); if (p && p.catch) p.catch(function(){}); } catch(e){}
+          }
+          // iOS Safari 不支持元素全屏，用回弹 + 隐藏地址栏
+          window.scrollTo(0, 1);
+          document.body.style.height = '101vh';
+          setTimeout(function(){ window.scrollTo(0,1); }, 50);
+          setTimeout(function(){ document.body.style.height = ''; }, 400);
+          // iOS 提示添加到主屏幕（仅提示一次）
+          var isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+          var standalone = window.navigator.standalone === true ||
+            (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches);
+          if (isIOS && !standalone && !window.__fsHinted) {
+            window.__fsHinted = true;
+            if (typeof Dialogue !== 'undefined') {
+              Dialogue.show('🍎 苹果设备：点浏览器「分享」→「添加到主屏幕」，再从主屏幕打开即可全屏', 5000);
+            }
+          }
+        } else {
+          var ex = document.exitFullscreen || document.webkitExitFullscreen;
+          if (ex) { try { ex.call(document); } catch(e){} }
+        }
+      }
+    } catch(e) {
+      window.__btnEvents.push('ERROR:' + e.message);
+    }
+  } else {
+    window.__btnEvents.push('Input 未加载');
+  }
+};
+
+// ★ 屏幕可见状态（iPhone 排查用）
+window.__setStatus = function(msg) {
+  var el = document.getElementById('boot-status');
+  if (el) el.textContent = msg;
+  console.log('[STATUS]', msg);
+};
+
+window.__onScriptLoad = function(url, ok) {
+  window.__loadState.loaded++;
+  if (!ok) window.__loadState.failed.push(url);
+  window.__updateLoadProgress();
+};
+
+window.__updateLoadProgress = function() {
+  const s = window.__loadState;
+  const pct = s.total > 0 ? Math.round((s.loaded / s.total) * 100) : 0;
+  const fill = document.getElementById('loading-fill');
+  const text = document.getElementById('loading-text');
+  if (fill) fill.style.width = pct + '%';
+  if (text) {
+    if (s.loaded >= s.total && s.failed.length === 0) {
+      text.textContent = '加载完成！';
+      window.__enableStartButton();
+    } else if (s.failed.length > 0) {
+      text.innerHTML = '⚠️ 部分资源加载失败，<br>3秒后自动重试…';
+      setTimeout(window.__retryFailed, 3000);
+    } else {
+      text.textContent = '加载资源中… ' + pct + '% (' + s.loaded + '/' + s.total + ')';
+    }
+  }
+};
+
+// 动态加载单个脚本（带失败重试）
+window.__loadScript = function(url, retries) {
+  if (retries === undefined) retries = 3;
+  return new Promise(function(resolve) {
+    var s = document.createElement('script');
+    s.src = url + (url.indexOf('?') >= 0 ? '&' : '?') + 'v=' + encodeURIComponent(window.__assetPass);
+    s.onload = function() {
+      window.__setStatus('已加载: ' + url);
+      window.__onScriptLoad(url, true); resolve(true);
+    };
+    s.onerror = function() {
+      if (retries > 0) {
+        window.__setStatus('重试: ' + url);
+        setTimeout(function() { window.__loadScript(url, retries - 1).then(resolve); }, 800);
+      } else {
+        window.__setStatus('✗失败: ' + url);
+        window.__onScriptLoad(url, false);
+        resolve(false);
+      }
+    };
+    document.head.appendChild(s);
+  });
+};
+
+// 启用开始按钮（关键！加载完成前禁用，避免点击无效）
+window.__enableStartButton = function() {
+  if (window.__loadState.ready) return;  // 防重复
+  window.__loadState.ready = true;
+  console.log('=== 资源加载完成，启用按钮 ===');
+
+  // 显示菜单
+  var menu = document.getElementById('menu');
+  var loading = document.getElementById('loading');
+  if (loading) loading.classList.add('hidden');
+  if (menu) menu.classList.remove('hidden');
+
+  // 启用所有按钮
+  ['btn-start','btn-continue','btn-howto','btn-quality-menu'].forEach(function(id) {
+    var b = document.getElementById(id);
+    if (b) { b.disabled = false; b.style.opacity = '1'; b.style.pointerEvents = 'auto'; }
+  });
+  var startBtn = document.getElementById('btn-start');
+  if (startBtn) {
+    startBtn.textContent = '▶ 开始冒险';
+    startBtn.classList.add('ready');
+  }
+
+  // ★ 立即尝试绑定（如果 main.js 的 boot 还没跑，按钮会先无响应，
+  //    boot 完成后会再次 __bindMenuButtons 覆盖绑定）
+  if (typeof window.__bindMenuButtons === 'function') {
+    console.log('main.js 已就绪，直接绑定按钮');
+    window.__bindMenuButtons();
+  } else {
+    console.log('main.js boot 尚未完成，等待自动绑定');
+    // 轮询等待 boot 完成
+    var waitCount = 0;
+    var waitBoot = setInterval(function() {
+      waitCount++;
+      if (typeof window.__bindMenuButtons === 'function') {
+        clearInterval(waitBoot);
+        console.log('boot 完成，绑定按钮');
+        window.__bindMenuButtons();
+      } else if (waitCount > 50) {  // 5 秒超时
+        clearInterval(waitBoot);
+        console.log('⚠️ boot 超时，显示错误');
+        var t = document.getElementById('loading-text');
+        // 不隐藏菜单，让孩子能看到
+      }
+    }, 100);
+  }
+};
+
+// 重试失败的资源
+window.__retryFailed = function() {
+  var failed = window.__loadState.failed.slice();
+  window.__loadState.failed = [];
+  window.__loadState.total += failed.length;
+  // 不重复计数
+  window.__loadState.total -= failed.length;
+  failed.forEach(function(url) {
+    window.__loadScript(url);
+  });
+};
+
+// 主加载入口
+window.__startLoading = function() {
+  var scripts = [
+    'libs/three.min.js',        // ★ 必须第一个加载
+    'src/Debug.js',             // 调试工具第二个（早于其它，能捕获它们的日志）
+    'src/Item.js',
+    'src/SaveSystem.js',
+    'src/CookingSystem.js',
+    'src/ShopSystem.js',
+    'src/CraftingSystem.js',
+    'src/QuestSystem.js',
+    'src/StorySystem.js',
+    'src/ChampionSystem.js',
+    'src/DivineBeastChallengeSystem.js',
+    'src/CompendiumData.js',
+    'src/QuizData.js',
+    'src/Shrine.js',
+    'src/Textures.js',
+    'src/ArtAssets.js',
+    'src/core/AssetFactory.js',
+    'src/core/Input.js',
+    'src/TouchRouter.js',
+    'src/TouchControls.js',
+    'src/Effects.js',
+    'src/AudioSystem.js',
+    'src/VisualQualitySystem.js',
+    'src/ModelPolishSystem.js',
+    'src/WorldPolishSystem.js',
+    'src/BillboardPolishSystem.js',
+    'src/CameraPolishSystem.js',
+    'src/AdaptivePerformanceSystem.js',
+    'src/ExplorationSystem.js',
+    'src/Player.js',
+    'src/Enemy.js',
+    'src/Inventory.js',
+    'src/World/BaseScene.js',
+    'src/World/Grassland.js',
+    'src/World/Forest.js',
+    'src/World/Highland.js',
+    'src/World/Dungeon.js',
+    'src/World/Snowland.js',
+    'src/World/Volcano.js',
+    'src/World/Desert.js',
+    'src/World/HyruleCastle.js',
+    'src/ui/Joystick.js',
+    'src/ui/ActionButtons.js',
+    'src/ui/HUD.js',
+    'src/ui/InventoryUI.js',
+    'src/ui/Dialogue.js',
+    'src/ui/CookingUI.js',
+    'src/ui/ShopUI.js',
+    'src/ui/QuestUI.js',
+    'src/ui/ShrineUI.js',
+    'src/ui/StatueUI.js',
+    'src/ui/MapMenu.js',
+    'src/ui/CompendiumUI.js',
+    'src/ui/QualitySettingsUI.js',
+    'src/core/Game.js',
+    'src/main.js'
+  ];
+  window.__loadState.total = scripts.length;
+
+  // 顺序加载（保证依赖顺序）：three.min.js → 其它 → main.js
+  var chain = Promise.resolve();
+  scripts.forEach(function(url) {
+    chain = chain.then(function() { return window.__loadScript(url); });
+  });
+  chain.then(function() {
+    console.log('=== 全部脚本加载链完成 ===');
+    // ★ 无论计数对不对，链条走完就启用
+    setTimeout(function() {
+      if (!window.__loadState.ready) {
+        console.log('强制启用按钮（链完成）');
+        window.__enableStartButton();
+      }
+    }, 100);
+    // 再兜底：2 秒后无论如何都启用
+    setTimeout(function() {
+      if (!window.__loadState.ready) {
+        console.log('★ 超时强制启用按钮');
+        window.__enableStartButton();
+      }
+    }, 2000);
+  });
+  // 终极兜底：10 秒后无论如何都尝试启用
+  setTimeout(function() {
+    if (!window.__loadState.ready) {
+      console.log('★★ 终极超时，强制启用');
+      window.__forceEnable();
+    }
+  }, 10000);
+};
+
+// ★ 强制启用（即使有错误也显示菜单，让孩子能玩）
+window.__forceEnable = function() {
+  window.__loadState.ready = true;
+  var loading = document.getElementById('loading');
+  var menu = document.getElementById('menu');
+  if (loading) loading.classList.add('hidden');
+  if (menu) menu.classList.remove('hidden');
+  ['btn-start','btn-continue','btn-howto'].forEach(function(id) {
+    var b = document.getElementById(id);
+    if (b) { b.disabled = false; b.style.opacity = '1'; b.style.pointerEvents = 'auto'; }
+  });
+  var sb = document.getElementById('btn-start');
+  if (sb) { sb.textContent = '▶ 开始冒险'; sb.classList.add('ready'); }
+  if (typeof window.__bindMenuButtons === 'function') window.__bindMenuButtons();
+};
+
+// 初始禁用按钮已通过 HTML disabled 属性完成，无需 JS
+</script>
+
+<!-- 不再写死 script 标签，改由上面的加载器动态加载，保证顺序与进度跟踪 -->
+<script>window.__startLoading();</script>
+</body>
+</html>
