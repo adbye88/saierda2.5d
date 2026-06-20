@@ -93,7 +93,8 @@ const ChampionSystem = {
     if (changed) {
       SaveSystem.setProgress(p);
       if (typeof StorySystem !== 'undefined') StorySystem.markEvent(`liberated_${element}`);
-      Dialogue.show(`解放神兽 ${def.beast}！${def.champion}的意志回应了你，获得 ${def.ability}`);
+      const mainText = (typeof MainQuestSystem !== 'undefined') ? MainQuestSystem.onChampionUnlocked(element) : '';
+      Dialogue.show(mainText || `解放神兽 ${def.beast}！${def.champion}的意志回应了你，获得 ${def.ability}`);
       if (window.game && window.game.currentWorld && window.game.currentWorld.divineBeast) {
         this.setBeastLiberated(window.game.currentWorld.divineBeast, true);
       }
@@ -101,6 +102,7 @@ const ChampionSystem = {
         Effects.pickupFlash(window.game.player.position);
       }
       QuestSystem.refreshHint();
+      if (typeof QuestUI !== 'undefined' && QuestUI.isOpen) QuestUI.render();
     }
     return changed;
   },

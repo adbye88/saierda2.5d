@@ -62,6 +62,7 @@
       if (typeof StorySystem !== 'undefined') StorySystem.init();
       ChampionSystem.init();
       if (typeof DivineBeastChallengeSystem !== 'undefined') DivineBeastChallengeSystem.init();
+      if (typeof MainQuestSystem !== 'undefined') MainQuestSystem.init();
       AudioSystem.init();
       if (typeof VisualQualitySystem !== 'undefined') VisualQualitySystem.init(game);
       if (typeof QualitySettingsUI !== 'undefined') QualitySettingsUI.init(game);

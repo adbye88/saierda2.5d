@@ -127,12 +127,14 @@ const DivineBeastChallengeSystem = {
     }
     const status = this.status(def.element);
     if (!status.ok) {
-      Dialogue.show(`【${def.beast}终端】${def.title}尚未稳定：<br>${status.missing.map(x => '· ' + x).join('<br>')}`, 5200);
+      const progressText = (typeof MainQuestSystem !== 'undefined') ? MainQuestSystem.getTerminalMissingText(def.element) : status.missing.map(x => '· ' + x).join('<br>');
+      Dialogue.show(`【${def.beast}终端】${def.title}尚未稳定：<br>${progressText}`, 5600);
       HUD.setQuest(`准备神兽挑战：${def.beast}`, def.color);
       return;
     }
     this.completeTrial(def.element);
     this._setTerminalState(terminal, true, def.color);
+    if (typeof MainQuestSystem !== 'undefined') MainQuestSystem.onTerminalActivated(def.element);
     Dialogue.show(`【${def.beast}终端】${def.readyText}`, 5200);
     HUD.setQuest(`击败${def.boss}，解放${def.beast}`, def.color);
     if (window.game && window.game.player && typeof Effects !== 'undefined') {

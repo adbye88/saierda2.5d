@@ -233,6 +233,7 @@ const StorySystem = {
   },
 
   getSynopsis() {
+    if (typeof MainQuestSystem !== 'undefined') return MainQuestSystem.getSynopsis();
     const count = this.recoveredCount();
     if (SaveSystem.isBossDefeated('calamityGanon')) return '灾厄已被击败，王城迎来黎明。你仍可继续探索未找回的记忆。';
     if ((QuestSystem.progress.divineBeasts || []).length >= 4) return '四神兽已经重新对准王城。最终决战前，可以继续找回回忆，也可以直奔城堡。';

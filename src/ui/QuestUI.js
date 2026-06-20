@@ -67,13 +67,36 @@ const QuestUI = {
       </div>
     `).join('');
     const auto = window.game.autoPath && window.game.autoPath.active ? window.game.autoPath : null;
-    const beastRows = (typeof DIVINE_BEAST_CHALLENGES !== 'undefined')
-      ? Object.values(DIVINE_BEAST_CHALLENGES).map(def => {
-        const liberated = beasts.includes(def.element);
-        const ready = trials.includes(def.element);
-        const status = liberated ? '已解放' : ready ? '可挑战' : '准备中';
-        return `<div class="memory-row"><b>${def.beast}</b><span>${status}</span></div>`;
+    const beastRows = (typeof MainQuestSystem !== 'undefined')
+      ? MainQuestSystem.getBeastRows().map(row => {
+        const cls = row.liberated ? 'liberated' : row.trialReady ? 'ready' : row.stage.key;
+        const missing = row.missing.length ? `还需：${row.missing.join('、')}` : '终端已响应，前往核心战斗';
+        return `<div class="beast-row ${cls}">
+          <div>
+            <b>${row.def.beast} · ${row.story.region}</b>
+            <small>${row.stage.detail}<br>${row.liberated ? row.champ.ability + '：' + row.champ.desc : missing}</small>
+          </div>
+          <span>${row.stage.label}</span>
+        </div>`;
       }).join('')
+      : (typeof DIVINE_BEAST_CHALLENGES !== 'undefined'
+        ? Object.values(DIVINE_BEAST_CHALLENGES).map(def => {
+          const liberated = beasts.includes(def.element);
+          const ready = trials.includes(def.element);
+          const status = liberated ? '已解放' : ready ? '可挑战' : '准备中';
+          return `<div class="memory-row"><b>${def.beast}</b><span>${status}</span></div>`;
+        }).join('')
+        : '');
+    const guardianRows = (typeof MainQuestSystem !== 'undefined')
+      ? MainQuestSystem.getGuardianPowerRows().map(row => `
+        <div class="guardian-row ${row.unlocked ? row.ready ? 'ready' : 'cooling' : 'locked'}">
+          <div>
+            <b>${row.name}</b>
+            <small>${row.role} · ${row.desc}</small>
+          </div>
+          <span>${row.unlocked ? row.ready ? '可用' : row.remain + 's' : row.beast}</span>
+        </div>
+      `).join('')
       : '';
     const list = Object.values(QUESTS).map(item => {
       const done = item.complete(QuestSystem);
@@ -112,6 +135,10 @@ const QuestUI = {
       <div class="memory-list">
         <div class="quest-title">四大神兽挑战</div>
         ${beastRows || '<div class="memory-empty">前往四大区域启动神兽终端。</div>'}
+      </div>
+      <div class="memory-list">
+        <div class="quest-title">英杰守护之力</div>
+        ${guardianRows || '<div class="memory-empty">解放神兽后，英杰能力会显示在 HUD 中。</div>'}
       </div>
       <div class="quest-list">${list}</div>
     `;

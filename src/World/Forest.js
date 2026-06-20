@@ -181,10 +181,12 @@ class Forest extends BaseScene {
       const firstTalk = !QuestSystem.progress.metImpa;
       QuestSystem.set('metImpa', true);
       if (typeof StorySystem !== 'undefined') StorySystem.markEvent('metImpa');
-      Dialogue.show(firstTalk
-        ? '【英帕】勇者，你失去的不是力量，而是记忆。先寻找石板影像中的回忆点，再解放水、火、风、雷四神兽。'
-        : '【英帕】回忆会告诉你为何战斗，神兽会给予你战斗的力量。两件事都很重要。',
-        4200);
+      const text = (typeof MainQuestSystem !== 'undefined')
+        ? MainQuestSystem.getImpaDialogue(firstTalk)
+        : (firstTalk
+          ? '【英帕】勇者，你失去的不是力量，而是记忆。先寻找石板影像中的回忆点，再解放水、火、风、雷四神兽。'
+          : '【英帕】回忆会告诉你为何战斗，神兽会给予你战斗的力量。两件事都很重要。');
+      Dialogue.show(text, firstTalk ? 7600 : 5200);
       QuestSystem.check();
       QuestSystem.refreshHint();
     };

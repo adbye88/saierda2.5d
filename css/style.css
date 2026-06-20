@@ -706,6 +706,56 @@ html.desktop-mode #extra-buttons {
 }
 .memory-row b { font-size: 12px; color: #dffeff; }
 .memory-row span { font-size: 11px; color: #ffd56a; white-space: nowrap; }
+.beast-row,
+.guardian-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 9px;
+  align-items: center;
+  padding: 9px 10px;
+  border-radius: 9px;
+  background: rgba(255,255,255,.055);
+  border: 1px solid rgba(255,255,255,.12);
+}
+.beast-row b,
+.guardian-row b {
+  display: block;
+  color: #dffeff;
+  font-size: 12px;
+  margin-bottom: 3px;
+}
+.beast-row small,
+.guardian-row small {
+  display: block;
+  color: rgba(255,255,255,.72);
+  font-size: 10.5px;
+  line-height: 1.38;
+}
+.beast-row span,
+.guardian-row span {
+  color: #ffd56a;
+  font-size: 10.5px;
+  font-weight: 900;
+  white-space: nowrap;
+}
+.beast-row.liberated,
+.guardian-row.ready {
+  border-color: rgba(120,255,180,.34);
+  background: rgba(90,255,150,.08);
+}
+.beast-row.ready,
+.guardian-row.cooling {
+  border-color: rgba(255,213,106,.36);
+  background: rgba(255,213,106,.08);
+}
+.beast-row.tower,
+.beast-row.shrine,
+.beast-row.memory,
+.beast-row.terminal,
+.guardian-row.locked {
+  border-color: rgba(120,190,255,.2);
+  background: rgba(90,150,255,.055);
+}
 .memory-empty {
   padding: 8px 9px;
   border-radius: 8px;
