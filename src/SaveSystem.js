@@ -18,6 +18,7 @@ const SaveSystem = {
   },
   setProgress(data) {
     localStorage.setItem(this.KEY_PROGRESS, JSON.stringify(data));
+    if (typeof CloudAccountSystem !== 'undefined') CloudAccountSystem.scheduleAutoSync('progress');
   },
   unlockTower(worldName) {
     const p = this.getProgress();
@@ -93,24 +94,37 @@ const SaveSystem = {
   save(slot) {
     const game = window.game;
     if (!game || !game.player) return false;
-    const data = {
-      timestamp: Date.now(),
-      playTime: (this._loadPlayTime() + (Date.now() - (window.gameStartTime || Date.now()))) / 1000,
-      worldName: game.currentWorld ? game.currentWorld.name : 'grassland',
-      player: {
-        x: game.player.position.x, y: game.player.position.y, z: game.player.position.z,
-        facing: game.player.facing,
-        hp: game.player.hp, stamina: game.player.stamina
-      },
-      inventory: game.player.inventory.serialize()
-    };
+    const data = this.createSnapshot();
     try {
       localStorage.setItem(this.KEY_PREFIX + slot, JSON.stringify(data));
+      if (typeof CloudAccountSystem !== 'undefined') CloudAccountSystem.scheduleAutoSync('slot-save');
       return true;
     } catch (e) {
       console.error('存档失败', e);
       return false;
     }
+  },
+
+  createSnapshot() {
+    const game = window.game;
+    const now = Date.now();
+    const playTime = this._loadPlayTime() + ((game && game.player) ? (now - (window.gameStartTime || now)) / 1000 : 0);
+    const data = {
+      timestamp: now,
+      playTime,
+      worldName: game && game.currentWorld ? game.currentWorld.name : 'grassland',
+      player: null,
+      inventory: null
+    };
+    if (game && game.player) {
+      data.player = {
+        x: game.player.position.x, y: game.player.position.y, z: game.player.position.z,
+        facing: game.player.facing,
+        hp: game.player.hp, stamina: game.player.stamina
+      };
+      data.inventory = game.player.inventory.serialize();
+    }
+    return data;
   },
 
   load(slot) {
@@ -151,6 +165,54 @@ const SaveSystem = {
 
   deleteSlot(slot) {
     localStorage.removeItem(this.KEY_PREFIX + slot);
+    if (typeof CloudAccountSystem !== 'undefined') CloudAccountSystem.scheduleAutoSync('slot-delete');
+  },
+
+  exportCloudState(label = '云存档') {
+    const slots = [];
+    for (let i = 0; i < this.SLOT_COUNT; i++) {
+      try {
+        const raw = localStorage.getItem(this.KEY_PREFIX + i);
+        slots.push(raw ? JSON.parse(raw) : null);
+      } catch (e) {
+        slots.push(null);
+      }
+    }
+    return {
+      version: 1,
+      game: 'wildbreath-mini',
+      label,
+      timestamp: Date.now(),
+      progress: this.getProgress(),
+      playTime: this._loadPlayTime(),
+      slots,
+      current: this.createSnapshot()
+    };
+  },
+
+  importCloudState(archive, applyToGame = true) {
+    if (!archive) return false;
+    try {
+      if (archive.progress) this.setProgress(archive.progress);
+      if (Array.isArray(archive.slots)) {
+        for (let i = 0; i < this.SLOT_COUNT; i++) {
+          const data = archive.slots[i];
+          if (data) localStorage.setItem(this.KEY_PREFIX + i, JSON.stringify(data));
+          else localStorage.removeItem(this.KEY_PREFIX + i);
+        }
+      }
+      if (typeof archive.playTime === 'number') this._savePlayTime(archive.playTime);
+      if (applyToGame && archive.current && window.game && window.game.player) {
+        this.applyLoad(archive.current);
+      }
+      if (typeof QuestSystem !== 'undefined') QuestSystem.init();
+      if (typeof StorySystem !== 'undefined') StorySystem.init();
+      if (typeof ChampionSystem !== 'undefined') ChampionSystem.init();
+      return true;
+    } catch (e) {
+      console.error('导入云存档失败', e);
+      return false;
+    }
   },
 
   _loadPlayTime() {

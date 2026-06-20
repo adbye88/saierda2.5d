@@ -329,6 +329,7 @@
 // 全局加载状态
 window.__loadState = {
   total: 0, loaded: 0, failed: [],
+  scriptsLoaded: false,
   ready: false,
   startTime: Date.now()
 };
@@ -435,11 +436,10 @@ window.__updateLoadProgress = function() {
   if (fill) fill.style.width = pct + '%';
   if (text) {
     if (s.loaded >= s.total && s.failed.length === 0) {
-      text.textContent = '加载完成！';
-      window.__enableStartButton();
+      s.scriptsLoaded = true;
+      text.textContent = '脚本加载完成，正在初始化游戏…';
     } else if (s.failed.length > 0) {
-      text.innerHTML = '⚠️ 部分资源加载失败，<br>3秒后自动重试…';
-      setTimeout(window.__retryFailed, 3000);
+      text.innerHTML = '⚠️ 部分资源加载失败，请检查网络后刷新页面。<br><button class="loading-retry" onclick="window.__retryFailed()">重新加载</button>';
     } else {
       text.textContent = '加载资源中… ' + pct + '% (' + s.loaded + '/' + s.total + ')';
     }
@@ -520,14 +520,7 @@ window.__enableStartButton = function() {
 
 // 重试失败的资源
 window.__retryFailed = function() {
-  var failed = window.__loadState.failed.slice();
-  window.__loadState.failed = [];
-  window.__loadState.total += failed.length;
-  // 不重复计数
-  window.__loadState.total -= failed.length;
-  failed.forEach(function(url) {
-    window.__loadScript(url);
-  });
+  location.reload();
 };
 
 // 主加载入口
@@ -537,6 +530,7 @@ window.__startLoading = function() {
     'src/Debug.js',             // 调试工具第二个（早于其它，能捕获它们的日志）
     'src/Item.js',
     'src/SaveSystem.js',
+    'src/CloudAccountSystem.js',
     'src/CookingSystem.js',
     'src/ShopSystem.js',
     'src/CraftingSystem.js',
@@ -601,44 +595,16 @@ window.__startLoading = function() {
   });
   chain.then(function() {
     console.log('=== 全部脚本加载链完成 ===');
-    // ★ 无论计数对不对，链条走完就启用
-    setTimeout(function() {
-      if (!window.__loadState.ready) {
-        console.log('强制启用按钮（链完成）');
-        window.__enableStartButton();
-      }
-    }, 100);
-    // 再兜底：2 秒后无论如何都启用
-    setTimeout(function() {
-      if (!window.__loadState.ready) {
-        console.log('★ 超时强制启用按钮');
-        window.__enableStartButton();
-      }
-    }, 2000);
-  });
-  // 终极兜底：10 秒后无论如何都尝试启用
-  setTimeout(function() {
-    if (!window.__loadState.ready) {
-      console.log('★★ 终极超时，强制启用');
-      window.__forceEnable();
+    if (window.__loadState.failed.length === 0) {
+      window.__loadState.scriptsLoaded = true;
+      window.__updateLoadProgress();
     }
-  }, 10000);
+  });
 };
 
-// ★ 强制启用（即使有错误也显示菜单，让孩子能玩）
+// 仅保留兼容入口：不再绕过加载/初始化强制开始
 window.__forceEnable = function() {
-  window.__loadState.ready = true;
-  var loading = document.getElementById('loading');
-  var menu = document.getElementById('menu');
-  if (loading) loading.classList.add('hidden');
-  if (menu) menu.classList.remove('hidden');
-  ['btn-start','btn-continue','btn-howto'].forEach(function(id) {
-    var b = document.getElementById(id);
-    if (b) { b.disabled = false; b.style.opacity = '1'; b.style.pointerEvents = 'auto'; }
-  });
-  var sb = document.getElementById('btn-start');
-  if (sb) { sb.textContent = '▶ 开始冒险'; sb.classList.add('ready'); }
-  if (typeof window.__bindMenuButtons === 'function') window.__bindMenuButtons();
+  console.warn('资源或初始化尚未完成，已阻止提前开始游戏');
 };
 
 // 初始禁用按钮已通过 HTML disabled 属性完成，无需 JS

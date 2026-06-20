@@ -17,6 +17,7 @@ const ShrineUI = {
   qIndex: 0,         // 当前题目索引
   correctCount: 0,   // 答对数
   wrongThisQ: 0,     // 本题答错次数（用于温和提示）
+  answers: [],       // 每题作答记录，结束时用于错题回顾
 
   init() {
     // 动态创建独立 DOM（不依赖现有 HTML）
@@ -51,6 +52,7 @@ const ShrineUI = {
     this.questions = QuizHelper.pick(grade, 12);
     this.qIndex = 0;
     this.correctCount = 0;
+    this.answers = [];
     this.isOpen = true;
     this.el.classList.remove('hidden');
     this._renderQuestion();
@@ -84,17 +86,19 @@ const ShrineUI = {
     const body = document.getElementById('shrine-body');
     body.innerHTML = `
       <div class="quiz-subject">${subject}</div>
-      <div class="quiz-question">${q.q}</div>
+      <button class="quiz-question quiz-question-btn" id="quiz-question-read">${this._esc(q.q)}</button>
       <div class="quiz-options" id="quiz-options">
         ${q.options.map((opt, i) => `
           <button class="quiz-option" data-i="${i}">
             <span class="opt-letter">${'ABCD'[i]}</span>
-            <span class="opt-text">${opt}</span>
+            <span class="opt-text">${this._esc(opt)}</span>
           </button>
         `).join('')}
       </div>
-      <div class="quiz-feedback" id="quiz-feedback"></div>
+      <div class="quiz-feedback" id="quiz-feedback">点选答案后会自动进入下一题</div>
     `;
+    const qBtn = document.getElementById('quiz-question-read');
+    if (qBtn) qBtn.addEventListener('click', () => this._pulseOptions());
     // 绑定点击
     body.querySelectorAll('.quiz-option').forEach(btn => {
       btn.addEventListener('click', () => this._answer(parseInt(btn.dataset.i)));
@@ -105,40 +109,31 @@ const ShrineUI = {
   _answer(choice) {
     const q = this.questions[this.qIndex];
     const feedback = document.getElementById('quiz-feedback');
-    const options = document.querySelectorAll('.quiz-option');
+    const options = Array.from(document.querySelectorAll('.quiz-option'));
+    if (!options.length || options.some(o => o.disabled)) return;
 
-    if (choice === q.answer) {
-      // 答对了！
-      this.correctCount++;
-      options[choice].classList.add('correct');
-      // 全部禁用，避免重复点
-      options.forEach(o => o.disabled = true);
-      feedback.className = 'quiz-feedback correct';
-      feedback.innerHTML = `
-        <div class="feedback-icon">🎉</div>
-        <div class="feedback-text">${this._praise()}</div>
-        <div class="feedback-explain">${q.explain}</div>
-        <button class="quiz-next" id="quiz-next">${this.qIndex + 1 < this.questions.length ? '下一题 →' : '完成挑战 ✨'}</button>
-      `;
-      document.getElementById('quiz-next').addEventListener('click', () => this._next());
-      // 鼓励烟花
-      this._confetti();
-    } else {
-      // 答错了，温和提示，可重试
-      this.wrongThisQ++;
-      options[choice].classList.add('wrong-shake');
-      options[choice].disabled = true;  // 错的选项变灰不再可选
-      feedback.className = 'quiz-feedback wrong';
-      const hints = [
-        '再想想看，不着急～',
-        '没关系，仔细看看其他选项',
-        '别灰心，答案就在剩下的里面',
-        '慢慢来，你一定能找到的'
-      ];
-      feedback.innerHTML = `<div class="feedback-icon">💪</div><div class="feedback-text">${hints[Math.min(this.wrongThisQ - 1, hints.length - 1)]}</div>`;
-      // 轻微抖动后移除 class（不闪，只抖一下）
-      setTimeout(() => options[choice].classList.remove('wrong-shake'), 400);
-    }
+    const correct = choice === q.answer;
+    if (correct) this.correctCount++;
+    this.answers.push({
+      question: q.q,
+      subject: q.subject,
+      options: q.options.slice(),
+      choice,
+      answer: q.answer,
+      correct,
+      explain: q.explain
+    });
+
+    options.forEach(o => o.disabled = true);
+    if (options[q.answer]) options[q.answer].classList.add('correct');
+    if (!correct && options[choice]) options[choice].classList.add('wrong-shake', 'picked-wrong');
+
+    feedback.className = correct ? 'quiz-feedback correct' : 'quiz-feedback wrong';
+    feedback.innerHTML = correct
+      ? `<div class="feedback-icon">🎉</div><div class="feedback-text">${this._praise()}</div><div class="feedback-explain">${this._esc(q.explain)}</div><div class="quiz-auto-next">自动进入下一题…</div>`
+      : `<div class="feedback-icon">💡</div><div class="feedback-text">已记录错题，正确答案：${'ABCD'[q.answer]} ${this._esc(q.options[q.answer])}</div><div class="feedback-explain">${this._esc(q.explain)}</div><div class="quiz-auto-next">自动进入下一题…</div>`;
+    if (correct) this._confetti();
+    setTimeout(() => this._next(), 900);
   },
 
   // ---------- 下一题 ----------
@@ -155,10 +150,13 @@ const ShrineUI = {
   _finish() {
     const total = this.questions.length;
     const correct = this.correctCount;
-    const passed = correct >= total;  // 答错不会进入下一题，最终一定是全答对通关
+    const passLine = Math.ceil(total * 0.7);
+    const passed = correct >= passLine;
+    const wrongRows = this.answers.filter(a => !a.correct);
+    const reviewHtml = this._renderWrongReview(wrongRows);
 
     const body = document.getElementById('shrine-body');
-    document.getElementById('shrine-progress-text').textContent = `挑战完成！`;
+    document.getElementById('shrine-progress-text').textContent = `挑战完成！答对 ${correct}/${total}`;
     document.getElementById('shrine-progress-fill').style.width = '100%';
 
     if (passed) {
@@ -166,8 +164,9 @@ const ShrineUI = {
         <div class="quiz-result pass">
           <div class="result-icon">🏆</div>
           <div class="result-title">挑战成功！</div>
-          <div class="result-score">答对 ${correct} / ${total} 题</div>
+          <div class="result-score">答对 ${correct} / ${total} 题，通过线 ${passLine} 题</div>
           <div class="result-msg">${this._finalPraise(correct, total)}</div>
+          ${reviewHtml}
           <button class="quiz-next" id="quiz-collect">领取奖励 ⭕ 克服之玉</button>
         </div>
       `;
@@ -181,8 +180,9 @@ const ShrineUI = {
         <div class="quiz-result fail">
           <div class="result-icon">🌱</div>
           <div class="result-title">再试一次吧</div>
-          <div class="result-score">答对 ${correct} / ${total} 题</div>
+          <div class="result-score">答对 ${correct} / ${total} 题，通过线 ${passLine} 题</div>
           <div class="result-msg">没关系，每一次尝试都是进步！休息一下再来挑战～</div>
+          ${reviewHtml}
           <button class="quiz-next" id="quiz-retry">重新挑战</button>
           <button class="quiz-quit" id="quiz-quit">先离开</button>
         </div>
@@ -190,6 +190,7 @@ const ShrineUI = {
       document.getElementById('quiz-retry').addEventListener('click', () => {
         this.qIndex = 0;
         this.correctCount = 0;
+        this.answers = [];
         // 换一组新题
         const diff = { grassland: 'easy', snowland: 'normal', volcano: 'normal', desert: 'normal', castle: 'hard' }[this.currentShrine.def.region] || 'normal';
         this.questions = QuizHelper.pick(QuizHelper.gradeByDifficulty(diff), 12);
@@ -208,6 +209,36 @@ const ShrineUI = {
     if (correct === total) return '全部答对！你是学习小达人！🌟';
     if (correct >= total - 1) return '非常出色！你掌握得真好！🌟';
     return '通过了挑战，继续努力会更好！🌟';
+  },
+
+  _renderWrongReview(rows) {
+    if (!rows.length) return '<div class="quiz-review empty">本次没有错题，太稳了！</div>';
+    return `
+      <div class="quiz-review">
+        <div class="quiz-review-title">错题回顾</div>
+        ${rows.map((r, i) => `
+          <div class="quiz-review-item">
+            <b>${i + 1}. ${this._esc(r.question)}</b>
+            <span>你的答案：${'ABCD'[r.choice] || '-'} ${this._esc(r.options[r.choice] || '未作答')}</span>
+            <span>正确答案：${'ABCD'[r.answer]} ${this._esc(r.options[r.answer])}</span>
+            <small>${this._esc(r.explain || '')}</small>
+          </div>
+        `).join('')}
+      </div>
+    `;
+  },
+
+  _pulseOptions() {
+    document.querySelectorAll('.quiz-option').forEach(btn => {
+      btn.classList.add('hint-pulse');
+      setTimeout(() => btn.classList.remove('hint-pulse'), 360);
+    });
+  },
+
+  _esc(text) {
+    return String(text == null ? '' : text).replace(/[&<>"']/g, ch => ({
+      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    }[ch]));
   },
 
   // ---------- 烟花效果（温和的粒子，不闪烁） ----------

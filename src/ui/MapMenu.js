@@ -8,7 +8,7 @@
 const MapMenu = {
   isOpen: false,
   el: null,
-  mode: 'travel',  // travel | save | load
+  mode: 'travel',  // travel | save | load | cloud
 
   WORLD_INFO: {
     grassland: { name: '起始台地', icon: '🌳', color: '#6a9a4a', x: 50, y: 50, desc: '草原，冒险起点' },
@@ -34,6 +34,7 @@ const MapMenu = {
           <button class="map-tab active" data-mode="travel">🗺️ 传送</button>
           <button class="map-tab" data-mode="save">💾 存档</button>
           <button class="map-tab" data-mode="load">📂 读档</button>
+          <button class="map-tab" data-mode="cloud">☁️ 云存档</button>
         </div>
         <div id="map-content" class="map-content"></div>
       </div>
@@ -68,7 +69,8 @@ const MapMenu = {
     const c = document.getElementById('map-content');
     if (this.mode === 'travel') c.innerHTML = this._renderTravel();
     else if (this.mode === 'save') c.innerHTML = this._renderSaveLoad(true);
-    else c.innerHTML = this._renderSaveLoad(false);
+    else if (this.mode === 'load') c.innerHTML = this._renderSaveLoad(false);
+    else c.innerHTML = this._renderCloud();
     this._bindEvents();
   },
 
@@ -190,6 +192,67 @@ const MapMenu = {
     return html;
   },
 
+  _renderCloud() {
+    if (typeof CloudAccountSystem === 'undefined') {
+      return '<div class="save-list"><div class="save-hint">云存档模块尚未加载。</div></div>';
+    }
+    const esc = (s) => String(s || '').replace(/[&<>"']/g, ch => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[ch]));
+    if (!CloudAccountSystem.isLoggedIn()) {
+      return `
+        <div class="cloud-panel">
+          <div class="cloud-card">
+            <h3>☁️ 账号登录 / 注册</h3>
+            <p>当前是本机 JSON 云存档设计：账号、自动同步、手动云档都写入浏览器 localStorage，不调用数据库。以后接服务器时可以直接替换这一层。</p>
+            <input id="cloud-user" class="cloud-input" placeholder="账号名，例如 link">
+            <input id="cloud-pass" class="cloud-input" placeholder="密码，至少 4 位" type="password">
+            <div class="cloud-actions">
+              <button class="slot-btn" onclick="MapMenu.cloudAction('login')">登录并自动同步</button>
+              <button class="slot-btn" onclick="MapMenu.cloudAction('register')">注册账号</button>
+            </div>
+            <div class="cloud-msg">${esc(CloudAccountSystem.lastMessage)}</div>
+          </div>
+        </div>
+      `;
+    }
+    const rows = CloudAccountSystem.getArchiveRows();
+    const latest = CloudAccountSystem.getLatestArchive();
+    const archiveHtml = rows.length ? rows.map(a => {
+      const date = new Date(a.timestamp || 0).toLocaleString('zh-CN', { month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit' });
+      const world = a.current && a.current.worldName ? (this.WORLD_INFO[a.current.worldName] ? this.WORLD_INFO[a.current.worldName].name : a.current.worldName) : '未知地点';
+      const type = a.kind === 'auto' ? '自动同步' : '手动云档';
+      const del = a.kind === 'manual' ? `<button class="slot-btn del" onclick="MapMenu.cloudAction('delete','${a.id}')">删除</button>` : '';
+      return `
+        <div class="save-slot filled cloud-archive">
+          <div class="slot-num">${type}</div>
+          <div class="slot-info">
+            <div><b>${esc(a.label || type)}</b></div>
+            <div>📍 ${esc(world)}　🕒 ${date}</div>
+          </div>
+          <button class="slot-btn" onclick="MapMenu.cloudAction('load','${a.id}')">加载</button>
+          <button class="slot-btn" onclick="MapMenu.cloudAction('download','${a.id}')">导出JSON</button>
+          ${del}
+        </div>`;
+    }).join('') : '<div class="save-slot empty"><div class="slot-info">暂无云存档，先创建一个。</div></div>';
+    return `
+      <div class="cloud-panel">
+        <div class="cloud-top">
+          <div>
+            <b>${esc(CloudAccountSystem.getStatusText())}</b>
+            <small>${latest ? '登录后会自动加载最新云进度；普通本地存档变化会自动更新“自动同步”云档。' : '还没有云端 JSON 档案。'}</small>
+          </div>
+          <button class="slot-btn del" onclick="MapMenu.cloudAction('logout')">退出账号</button>
+        </div>
+        <div class="cloud-actions">
+          <button class="slot-btn" onclick="MapMenu.cloudAction('manual')">创建手动云存档</button>
+          <button class="slot-btn" onclick="MapMenu.cloudAction('sync')">上传当前进度</button>
+          <button class="slot-btn" onclick="MapMenu.cloudAction('latest')">加载最新云档</button>
+        </div>
+        <div class="cloud-msg">${esc(CloudAccountSystem.lastMessage)}</div>
+        <div class="save-list">${archiveHtml}</div>
+      </div>
+    `;
+  },
+
   // ★ 全局存读档函数（被 onclick 内联调用）
   doAction(act, slot) {
     if (act === 'save') {
@@ -212,6 +275,32 @@ const MapMenu = {
       Dialogue.show(`已删除槽位 ${slot+1}`);
       this.render();
     }
+  },
+
+  cloudAction(act, id = null) {
+    if (typeof CloudAccountSystem === 'undefined') return;
+    const userEl = document.getElementById('cloud-user');
+    const passEl = document.getElementById('cloud-pass');
+    if (act === 'register') {
+      CloudAccountSystem.register(userEl ? userEl.value : '', passEl ? passEl.value : '');
+    } else if (act === 'login') {
+      CloudAccountSystem.login(userEl ? userEl.value : '', passEl ? passEl.value : '');
+    } else if (act === 'logout') {
+      CloudAccountSystem.logout();
+    } else if (act === 'manual') {
+      CloudAccountSystem.createArchive('手动云存档', false);
+    } else if (act === 'sync') {
+      CloudAccountSystem.createArchive('手动上传当前进度', true);
+    } else if (act === 'latest') {
+      CloudAccountSystem.syncLatestToLocal(false);
+    } else if (act === 'load') {
+      CloudAccountSystem.loadArchive(id);
+    } else if (act === 'delete') {
+      CloudAccountSystem.deleteArchive(id);
+    } else if (act === 'download') {
+      CloudAccountSystem.downloadArchive(id);
+    }
+    this.render();
   },
 
   _bindEvents() {

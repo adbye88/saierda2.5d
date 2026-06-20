@@ -12,7 +12,7 @@
   // 等待资源加载完成
   function whenReady(cb) {
     function check() {
-      if (window.__loadState && window.__loadState.ready) {
+      if (window.__loadState && window.__loadState.scriptsLoaded) {
         cb();
       } else {
         setTimeout(check, 100);
@@ -58,6 +58,7 @@
       StatueUI.init();
       MapMenu.init();
       if (typeof CompendiumUI !== 'undefined') CompendiumUI.init();
+      if (typeof CloudAccountSystem !== 'undefined') CloudAccountSystem.init();
       QuestSystem.init();
       if (typeof StorySystem !== 'undefined') StorySystem.init();
       ChampionSystem.init();
@@ -111,6 +112,7 @@
       var bs = document.getElementById('boot-status');
       if (bs) bs.style.display = 'none';
       console.log('=== 游戏初始化完成 ===');
+      if (typeof window.__enableStartButton === 'function') window.__enableStartButton();
       window.__bindMenuButtons();
 
       setInterval(() => {
@@ -141,6 +143,7 @@
         document.getElementById('btn-howto').textContent = '查看错误';
         bind('btn-howto', e.message);
       };
+      if (typeof window.__enableStartButton === 'function') window.__enableStartButton();
       window.__bindMenuButtons();
     }
   }
