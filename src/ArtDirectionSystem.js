@@ -342,25 +342,25 @@ const ArtDirectionSystem = {
     const geo = new THREE.ConeGeometry(0.035, 0.42, 3);
     geo.translate(0, 0.21, 0);
     const mat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.92, vertexColors: true, flatShading: true });
-    const mesh = new THREE.InstancedMesh(geo, mat, count);
-    mesh.name = 'art-instanced-grass';
-    mesh.frustumCulled = true;
     const cBase = new THREE.Color(preset.grass);
+    const instances = [];
     for (let i = 0; i < count; i++) {
       const p = this._randomPoint(world, 4);
       const s = 0.62 + Math.random() * 1.05;
-      this._dummy.position.set(p.x, 0.03, p.z);
-      this._dummy.rotation.set((Math.random() - 0.5) * 0.22, Math.random() * Math.PI * 2, (Math.random() - 0.5) * 0.46);
-      this._dummy.scale.set(0.75 + Math.random() * 0.45, s, 0.75 + Math.random() * 0.45);
-      this._dummy.updateMatrix();
-      mesh.setMatrixAt(i, this._dummy.matrix);
       const col = cBase.clone().offsetHSL((Math.random() - 0.5) * 0.035, (Math.random() - 0.5) * 0.12, (Math.random() - 0.5) * 0.12);
-      mesh.setColorAt(i, col);
+      instances.push({
+        x: p.x,
+        y: 0.03,
+        z: p.z,
+        rot: [(Math.random() - 0.5) * 0.22, Math.random() * Math.PI * 2, (Math.random() - 0.5) * 0.46],
+        scale: [0.75 + Math.random() * 0.45, s, 0.75 + Math.random() * 0.45],
+        color: col
+      });
     }
-    if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
-    mesh.castShadow = false;
-    mesh.receiveShadow = this._quality() !== 'low';
-    group.add(mesh);
+    this._addCellInstancedLayer(world, group, 'art-instanced-grass', geo, mat, instances, {
+      castShadow: false,
+      receiveShadow: this._quality() !== 'low'
+    });
   },
 
   _addInstancedFlowers(world, preset, group) {
@@ -368,21 +368,23 @@ const ArtDirectionSystem = {
     if (count <= 0) return;
     const geo = new THREE.IcosahedronGeometry(0.055, 0);
     const mat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.8, vertexColors: true, emissive: 0x111111, emissiveIntensity: 0.04 });
-    const mesh = new THREE.InstancedMesh(geo, mat, count);
-    mesh.name = 'art-instanced-flowers';
+    const instances = [];
     for (let i = 0; i < count; i++) {
       const p = this._randomPoint(world, 6);
       const s = 0.65 + Math.random() * 0.95;
-      this._dummy.position.set(p.x, 0.18 + Math.random() * 0.05, p.z);
-      this._dummy.rotation.set(Math.random(), Math.random() * Math.PI * 2, Math.random());
-      this._dummy.scale.setScalar(s);
-      this._dummy.updateMatrix();
-      mesh.setMatrixAt(i, this._dummy.matrix);
-      mesh.setColorAt(i, new THREE.Color(preset.flower[i % preset.flower.length]));
+      instances.push({
+        x: p.x,
+        y: 0.18 + Math.random() * 0.05,
+        z: p.z,
+        rot: [Math.random(), Math.random() * Math.PI * 2, Math.random()],
+        scale: [s, s, s],
+        color: new THREE.Color(preset.flower[i % preset.flower.length])
+      });
     }
-    if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
-    mesh.frustumCulled = true;
-    group.add(mesh);
+    this._addCellInstancedLayer(world, group, 'art-instanced-flowers', geo, mat, instances, {
+      castShadow: false,
+      receiveShadow: false
+    });
   },
 
   _addInstancedPebbles(world, preset, group) {
@@ -390,24 +392,70 @@ const ArtDirectionSystem = {
     if (count <= 0) return;
     const geo = new THREE.DodecahedronGeometry(0.12, 0);
     const mat = new THREE.MeshStandardMaterial({ color: 0x9b9686, roughness: 0.95, flatShading: true, vertexColors: true });
-    const mesh = new THREE.InstancedMesh(geo, mat, count);
-    mesh.name = 'art-instanced-pebbles';
+    const instances = [];
     for (let i = 0; i < count; i++) {
       const p = this._randomPoint(world, 5);
       const s = 0.55 + Math.random() * 1.55;
-      this._dummy.position.set(p.x, 0.08, p.z);
-      this._dummy.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, Math.random() * Math.PI);
-      this._dummy.scale.set(1.25 * s, 0.45 * s, 0.9 * s);
-      this._dummy.updateMatrix();
-      mesh.setMatrixAt(i, this._dummy.matrix);
       const col = new THREE.Color(i % 4 === 0 ? preset.dirt : '#9b9686').offsetHSL(0, 0, (Math.random() - 0.5) * 0.12);
-      mesh.setColorAt(i, col);
+      instances.push({
+        x: p.x,
+        y: 0.08,
+        z: p.z,
+        rot: [Math.random() * Math.PI, Math.random() * Math.PI, Math.random() * Math.PI],
+        scale: [1.25 * s, 0.45 * s, 0.9 * s],
+        color: col
+      });
     }
-    if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
-    mesh.frustumCulled = true;
-    mesh.castShadow = this._quality() !== 'low' && !this._isTouchDevice();
-    mesh.receiveShadow = this._quality() !== 'low';
-    group.add(mesh);
+    this._addCellInstancedLayer(world, group, 'art-instanced-pebbles', geo, mat, instances, {
+      castShadow: this._quality() !== 'low' && !this._isTouchDevice(),
+      receiveShadow: this._quality() !== 'low'
+    });
+  },
+
+  _addCellInstancedLayer(world, group, name, geo, mat, instances, opts = {}) {
+    const cellSize = (typeof WorldStreamingSystem !== 'undefined' && WorldStreamingSystem._cellSize) || 48;
+    const buckets = new Map();
+    for (const inst of instances) {
+      const cx = Math.floor(inst.x / cellSize);
+      const cz = Math.floor(inst.z / cellSize);
+      const key = `${cx},${cz}`;
+      let bucket = buckets.get(key);
+      if (!bucket) {
+        bucket = { cx, cz, list: [] };
+        buckets.set(key, bucket);
+      }
+      bucket.list.push(inst);
+    }
+
+    world._artGroundDetailCells = world._artGroundDetailCells || [];
+    for (const bucket of buckets.values()) {
+      const mesh = new THREE.InstancedMesh(geo, mat, bucket.list.length);
+      const centerX = bucket.cx * cellSize + cellSize * 0.5;
+      const centerZ = bucket.cz * cellSize + cellSize * 0.5;
+      mesh.name = `${name}-cell-${bucket.cx}-${bucket.cz}`;
+      mesh.position.set(centerX, 0, centerZ);
+      mesh.visible = false;
+      mesh.frustumCulled = true;
+      mesh.castShadow = !!opts.castShadow;
+      mesh.receiveShadow = !!opts.receiveShadow;
+      mesh.userData.perfCull = true;
+      mesh.userData.kind = 'groundDetail';
+      mesh.userData.detailLayer = true;
+      mesh.userData.streamBaseVisible = true;
+      for (let i = 0; i < bucket.list.length; i++) {
+        const inst = bucket.list[i];
+        this._dummy.position.set(inst.x - centerX, inst.y, inst.z - centerZ);
+        this._dummy.rotation.set(inst.rot[0], inst.rot[1], inst.rot[2]);
+        this._dummy.scale.set(inst.scale[0], inst.scale[1], inst.scale[2]);
+        this._dummy.updateMatrix();
+        mesh.setMatrixAt(i, this._dummy.matrix);
+        if (inst.color) mesh.setColorAt(i, inst.color);
+      }
+      if (mesh.instanceMatrix) mesh.instanceMatrix.needsUpdate = true;
+      if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+      world._artGroundDetailCells.push(mesh);
+      group.add(mesh);
+    }
   },
 
   _polishWater(world, preset) {

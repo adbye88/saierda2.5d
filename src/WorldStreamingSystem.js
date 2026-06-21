@@ -21,6 +21,8 @@ const WorldStreamingSystem = {
     dormantEnemies: 0,
     visibleProps: 0,
     hiddenProps: 0,
+    visibleDetailCells: 0,
+    hiddenDetailCells: 0,
     activeCells: 0,
     passiveCells: 0,
     totalCells: 0,
@@ -52,6 +54,8 @@ const WorldStreamingSystem = {
       dormantEnemies: 0,
       visibleProps: 0,
       hiddenProps: 0,
+      visibleDetailCells: 0,
+      hiddenDetailCells: 0,
       activeCells: 0,
       passiveCells: 0,
       totalCells: world._streamCells ? world._streamCells.size : 0,
@@ -109,7 +113,7 @@ const WorldStreamingSystem = {
         if (p.userData && p.userData.perfCull === true) return;
         p = p.parent;
       }
-      obj.userData.streamBaseVisible = obj.visible !== false;
+      if (obj.userData.streamBaseVisible == null) obj.userData.streamBaseVisible = obj.visible !== false;
       list.push(obj);
     });
     world._streamProps = list;
@@ -146,7 +150,10 @@ const WorldStreamingSystem = {
       const cell = ensure(obj.position.x, obj.position.z);
       obj.userData.streamCellKey = cell.key;
       const kind = obj.userData.kind;
-      if (kind === 'shrine' || kind === 'sheikahTower' || kind === 'campfire' || kind === 'chest') {
+      if (obj.userData.detailLayer) {
+        cell.details = cell.details || [];
+        cell.details.push(obj);
+      } else if (kind === 'shrine' || kind === 'sheikahTower' || kind === 'campfire' || kind === 'chest') {
         cell.landmarks.push(obj);
       } else {
         cell.props.push(obj);
@@ -246,10 +253,13 @@ const WorldStreamingSystem = {
     const nextVisible = new Set();
     let visible = 0;
     let hidden = 0;
+    let visibleDetails = 0;
+    let hiddenDetails = 0;
 
     for (const cell of cells) {
       for (const obj of cell.props) this._updatePropVisibility(obj, px, pz, budget, false, nextVisible);
       for (const obj of cell.landmarks) this._updatePropVisibility(obj, px, pz, budget, true, nextVisible);
+      for (const obj of (cell.details || [])) this._updateDetailVisibility(obj, px, pz, budget, nextVisible);
     }
 
     for (const obj of previous) {
@@ -261,12 +271,17 @@ const WorldStreamingSystem = {
 
     const props = Array.isArray(world._streamProps) ? world._streamProps : [];
     for (const obj of props) {
-      if (obj && obj.visible) visible++;
+      if (obj && obj.userData && obj.userData.detailLayer) {
+        if (obj.visible) visibleDetails++;
+        else hiddenDetails++;
+      } else if (obj && obj.visible) visible++;
       else hidden++;
     }
 
     this._stats.visibleProps = visible;
     this._stats.hiddenProps = hidden;
+    this._stats.visibleDetailCells = visibleDetails;
+    this._stats.hiddenDetailCells = hiddenDetails;
     this._stats.totalCells = world._streamCells ? world._streamCells.size : 0;
     world._streamingStats = this._stats;
   },
@@ -281,6 +296,20 @@ const WorldStreamingSystem = {
     const shouldShow = obj.visible
       ? distSq <= hideRadius * hideRadius
       : distSq <= showRadius * showRadius;
+    obj.visible = obj.userData.streamBaseVisible !== false && shouldShow;
+    if (obj.visible) nextVisible.add(obj);
+  },
+
+  _updateDetailVisibility(obj, px, pz, budget, nextVisible) {
+    if (!obj || !obj.position || !obj.userData) return;
+    const dx = obj.position.x - px;
+    const dz = obj.position.z - pz;
+    const distSq = dx * dx + dz * dz;
+    const detailRadius = budget.detailRadius || budget.propRadius;
+    const hideRadius = detailRadius * 1.18;
+    const shouldShow = obj.visible
+      ? distSq <= hideRadius * hideRadius
+      : distSq <= detailRadius * detailRadius;
     obj.visible = obj.userData.streamBaseVisible !== false && shouldShow;
     if (obj.visible) nextVisible.add(obj);
   },
@@ -342,6 +371,7 @@ const WorldStreamingSystem = {
         passiveRadius: 58,
         hideRadius: 72,
         propRadius: 34,
+        detailRadius: 42,
         landmarkRadius: 64,
         frontBoost: 22
       };
@@ -352,6 +382,7 @@ const WorldStreamingSystem = {
         passiveRadius: 82,
         hideRadius: 102,
         propRadius: 54,
+        detailRadius: 58,
         landmarkRadius: 92,
         frontBoost: 30
       };
@@ -361,6 +392,7 @@ const WorldStreamingSystem = {
       passiveRadius: 118,
       hideRadius: 144,
       propRadius: 82,
+      detailRadius: 78,
       landmarkRadius: 138,
       frontBoost: 38
     };

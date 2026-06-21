@@ -120,12 +120,12 @@ class Game {
     HUD.setMinimapWorld(newWorld);
     if (typeof AudioSystem !== 'undefined') AudioSystem.setWorld(name);
     if (typeof VisualQualitySystem !== 'undefined') VisualQualitySystem.applyWorld(newWorld);
-    if (typeof WorldStreamingSystem !== 'undefined') WorldStreamingSystem.applyWorld(newWorld, this);
     if (typeof ArtDirectionSystem !== 'undefined') ArtDirectionSystem.applyWorld(newWorld, this);
     if (typeof ModelPolishSystem !== 'undefined') ModelPolishSystem.polishWorld(newWorld);
     if (typeof CharacterArtSystem !== 'undefined') CharacterArtSystem.applyWorld(newWorld, this);
     if (typeof WorldPolishSystem !== 'undefined') WorldPolishSystem.applyWorld(newWorld);
     if (typeof BillboardPolishSystem !== 'undefined') BillboardPolishSystem.applyWorld(newWorld);
+    if (typeof WorldStreamingSystem !== 'undefined') WorldStreamingSystem.applyWorld(newWorld, this);
     if (typeof StorySystem !== 'undefined') StorySystem.onWorldLoaded(newWorld);
     // 10. 立即渲染一帧（防黑屏）
     if (this.renderer && this.scene && this.camera) {
