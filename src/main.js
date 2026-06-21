@@ -166,6 +166,7 @@
     if (typeof Dialogue !== 'undefined') Dialogue.init();
     if (typeof CookingUI !== 'undefined') CookingUI.init();
     if (typeof ShopUI !== 'undefined') ShopUI.init();
+    if (typeof BlacksmithUI !== 'undefined') BlacksmithUI.init();
     if (typeof QuestUI !== 'undefined') QuestUI.init();
     if (typeof ShrineUI !== 'undefined') ShrineUI.init();
     if (typeof StatueUI !== 'undefined') StatueUI.init();
@@ -188,6 +189,7 @@
     if (typeof BillboardPolishSystem !== 'undefined') BillboardPolishSystem.init(game);
     if (typeof AdaptivePerformanceSystem !== 'undefined') AdaptivePerformanceSystem.init(game);
     if (typeof ExplorationSystem !== 'undefined') ExplorationSystem.init(game);
+    if (typeof BloodMoonSystem !== 'undefined') BloodMoonSystem.init(game);
     if (typeof TouchControls !== 'undefined') TouchControls.init();
 
     registerWorlds();

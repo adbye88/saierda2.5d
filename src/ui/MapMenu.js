@@ -99,8 +99,114 @@ const MapMenu = {
     html += '</div>';
     const beasts = progress.progress && progress.progress.divineBeasts ? progress.progress.divineBeasts.length : 0;
     html += `<div class="map-legend">已解锁 ${unlocked.length}/${Object.keys(this.WORLD_INFO).length} 个远古塔　解放神兽 ${beasts}/4　击败Boss ${(progress.bosses||[]).length} 个</div>`;
+    html += this._renderRegionExploration(currentWorld);
+    html += this._renderMapMarkers(currentWorld);
     html += this._renderAutoPathTargets();
     return html;
+  },
+
+  getRegionExploration(worldName) {
+    const p = SaveSystem.getProgress();
+    const world = window.game && window.game.worlds ? window.game.worlds[worldName] : null;
+    const byPrefix = (list, prefix) => (list || []).filter(id => String(id).startsWith(prefix)).length;
+    const total = {
+      chests: world && world._supplyChestDefs ? world._supplyChestDefs.length : 0,
+      shrines: world && world.shrines ? world.shrines.length : 0,
+      camps: world && world.camps ? world.camps.length : 0,
+      harvest: world && world._harvestNodeDefs ? world._harvestNodeDefs.length : 0,
+      rumors: world && world.rumors ? world.rumors.length : 0,
+      scans: Math.max(3, (world && ((world.enemies || []).length + (world.camps || []).length + (world._harvestNodeDefs || []).length)) || 3),
+      bosses: world && world.boss ? 1 : 0
+    };
+    const current = {
+      chests: byPrefix(p.chests, worldName),
+      shrines: (world && world.shrines ? world.shrines : []).filter(s => s.cleared || (SaveSystem.isShrineCleared && SaveSystem.isShrineCleared(s.id))).length,
+      camps: byPrefix(p.clearedCamps, worldName),
+      harvest: byPrefix(p.harvestedNodes, worldName),
+      rumors: byPrefix(p.rumorsHeard, worldName),
+      scans: byPrefix(p.scannedCompendium, worldName),
+      bosses: (p.bosses || []).filter(id => String(id).includes(worldName) || (world && world.boss && id === world.boss.typeId)).length
+    };
+    const sumCurrent = Object.keys(total).reduce((sum, key) => sum + Math.min(current[key] || 0, total[key] || 0), 0);
+    const sumTotal = Object.values(total).reduce((sum, n) => sum + Math.max(0, n || 0), 0) || 1;
+    return { current, total, percent: Math.round(sumCurrent / sumTotal * 100) };
+  },
+
+  _renderRegionExploration(worldName) {
+    if (!worldName) return '';
+    const info = this.getRegionExploration(worldName);
+    const label = this.WORLD_INFO[worldName] ? this.WORLD_INFO[worldName].name : worldName;
+    const row = (name, key) => `<span>${name} ${info.current[key] || 0}/${info.total[key] || 0}</span>`;
+    return `
+      <div class="path-panel exploration-panel">
+        <div class="path-title">区域探索度：${label} ${info.percent}%</div>
+        <div class="map-legend">
+          ${row('宝箱', 'chests')}　${row('神庙', 'shrines')}　${row('营地', 'camps')}　${row('采集', 'harvest')}　${row('传闻', 'rumors')}　${row('扫描', 'scans')}　${row('Boss', 'bosses')}
+        </div>
+      </div>`;
+  },
+
+  _markersForWorld(worldName) {
+    const p = SaveSystem.getProgress();
+    if (!p.mapMarkers) p.mapMarkers = {};
+    if (!Array.isArray(p.mapMarkers[worldName])) p.mapMarkers[worldName] = [];
+    return { p, list: p.mapMarkers[worldName] };
+  },
+
+  _renderMapMarkers(worldName) {
+    if (!worldName) return '';
+    const { list } = this._markersForWorld(worldName);
+    const rows = list.map(m => `
+      <button class="path-target" onclick="MapMenu.startMarkerPath('${m.id}')">
+        <span>${this._markerIcon(m.type)} ${this._esc(m.label || '自定义标记')}</span><small>${Math.round(m.x)}, ${Math.round(m.z)} · <em onclick="event.stopPropagation();MapMenu.removeMarker('${m.id}')">删除</em></small>
+      </button>
+    `).join('');
+    return `
+      <div class="path-panel marker-panel">
+        <div class="path-title">地图标记</div>
+        <div class="cloud-actions">
+          <button class="slot-btn" onclick="MapMenu.addMarkerAtPlayer('custom')">添加自定义标记</button>
+          <button class="slot-btn" onclick="MapMenu.addMarkerAtPlayer('camp')">标记营地</button>
+          <button class="slot-btn" onclick="MapMenu.addMarkerAtPlayer('chest')">标记宝箱</button>
+          <button class="slot-btn" onclick="MapMenu.addMarkerAtPlayer('harvest')">标记采集点</button>
+        </div>
+        <div class="path-grid">${rows || '<div class="memory-empty">暂无标记。站到目标附近后可添加标记，云存档会保存坐标。</div>'}</div>
+      </div>`;
+  },
+
+  _markerIcon(type) {
+    return { chest: '🎁', shrine: '🔷', camp: '⛺', harvest: '🌿', boss: '💀', custom: '📍' }[type] || '📍';
+  },
+
+  addMarkerAtPlayer(type = 'custom') {
+    if (!window.game || !window.game.currentWorld || !window.game.player) return;
+    const worldName = window.game.currentWorld.name;
+    const { p, list } = this._markersForWorld(worldName);
+    const pos = window.game.player.position;
+    const id = `${worldName}_${type}_${Date.now().toString(36)}`;
+    const label = type === 'custom' ? '自定义标记' : ({ chest: '宝箱', shrine: '神庙', camp: '营地', harvest: '采集点', boss: 'Boss' }[type] || '标记');
+    list.push({ id, type, label, x: Math.round(pos.x), z: Math.round(pos.z) });
+    SaveSystem.setProgress(p);
+    Dialogue.show(`${this._markerIcon(type)} 已添加${label}`);
+    this.render();
+  },
+
+  removeMarker(id) {
+    if (!window.game || !window.game.currentWorld) return;
+    const { p, list } = this._markersForWorld(window.game.currentWorld.name);
+    p.mapMarkers[window.game.currentWorld.name] = list.filter(m => m.id !== id);
+    SaveSystem.setProgress(p);
+    this.render();
+  },
+
+  startMarkerPath(id) {
+    if (!window.game || !window.game.currentWorld) return;
+    const { list } = this._markersForWorld(window.game.currentWorld.name);
+    const marker = list.find(m => m.id === id);
+    if (!marker) return;
+    window.game.autoPath = { active: true, target: { x: marker.x, z: marker.z }, label: marker.label || '地图标记', radius: 2.8 };
+    Dialogue.show(`开始自动寻路：${marker.label || '地图标记'}`);
+    this.close();
   },
 
   _renderAutoPathTargets() {
@@ -125,6 +231,8 @@ const MapMenu = {
     };
     for (const t of world.towers || []) push(t.userData.towerName || '远古塔', t.position, 3);
     for (const s of world.shrines || []) push(s.cleared ? '已通关神庙' : '神庙挑战', s.mesh.position, 3);
+    for (const c of world.camps || []) push((c.cleared ? '已安全：' : '营地：') + (c.name || '怪物营地'), { x: c.x || 0, z: c.z || 0 }, 5);
+    for (const n of world.harvestNodes || []) if (!n.done) push(n.label || '采集点', n.pos, 2.2);
     for (const npc of world.npcs || []) {
       const ud = npc.mesh.userData || {};
       push(ud.name || 'NPC', npc.mesh.position, 2.2);

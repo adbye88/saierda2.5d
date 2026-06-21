@@ -233,6 +233,9 @@ class ItemStack {
     const multiplier = durable ? Math.max(1, Number(options.durabilityMultiplier || 1)) : 1;
     this.source = options.source || 'world';
     this.modifier = resolveItemModifier(options.modifier) || null;
+    this.bonusAtk = Math.max(0, Number(options.bonusAtk || 0));
+    this.bonusCritChance = Math.max(0, Number(options.bonusCritChance || 0));
+    this.bonusCritMultiplier = Math.max(0, Number(options.bonusCritMultiplier || 0));
     this.maxDurability = durable ? Math.round(baseDurability * multiplier) : baseDurability;
     this.durability = options.durability !== undefined
       ? options.durability

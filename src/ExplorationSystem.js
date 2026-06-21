@@ -109,8 +109,11 @@ const ExplorationSystem = {
   addCamp(world, def) {
     if (!world || !def) return null;
     if (!world.camps) world.camps = [];
-    const camp = Object.assign({ radius: 16, alarmRadius: 9, alerted: false, hornTimer: 0 }, def);
+    if (!world._campDefs) world._campDefs = [];
+    if (def.id && !world._campDefs.some(x => x.id === def.id)) world._campDefs.push(Object.assign({}, def));
+    const camp = Object.assign({ radius: 16, alarmRadius: 9, alerted: false, hornTimer: 0, tier: 'small' }, def);
     camp.id = camp.id || `${world.name || 'world'}_camp_${Math.round(camp.x || 0)}_${Math.round(camp.z || 0)}`;
+    camp.tier = camp.tier || 'small';
     world.camps.push(camp);
     const flag = this._createCampFlag(camp);
     flag.position.set(camp.x || 0, 0, camp.z || 0);
@@ -121,7 +124,10 @@ const ExplorationSystem = {
   },
 
   addHarvestNode(world, def) {
-    if (!world || !def || !def.id || this._hasProgress('harvestedNodes', def.id)) return null;
+    if (!world || !def || !def.id) return null;
+    if (!world._harvestNodeDefs) world._harvestNodeDefs = [];
+    if (!world._harvestNodeDefs.some(x => x.id === def.id)) world._harvestNodeDefs.push(Object.assign({}, def));
+    if (this._hasProgress('harvestedNodes', def.id)) return null;
     if (!world.harvestNodes) world.harvestNodes = [];
     const node = Object.assign({
       radius: 2.2,
@@ -381,7 +387,7 @@ const ExplorationSystem = {
     if (!enemies.length || enemies.some(e => !e.dead)) return false;
     camp.cleared = true;
     this._markProgress('clearedCamps', camp.id);
-    const reward = camp.reward || [['rupee', 35], ['arrow', 8]];
+    const reward = camp.reward || this._campReward(camp);
     this._grantReward(game, reward);
     if (camp.marker && camp.marker.parent) {
       const flag = camp.marker;
@@ -391,6 +397,72 @@ const ExplorationSystem = {
     HUD.setQuest(`营地清剿：${camp.name || '怪物营地'} 已安全`, 0xffd86a);
     if (typeof Effects !== 'undefined') Effects.shrineRunePulse(new THREE.Vector3(camp.x || 0, 0.8, camp.z || 0));
     return true;
+  },
+
+  _campReward(camp) {
+    const tier = camp && camp.tier || 'small';
+    if (tier === 'elite') return [['rupee', 95], ['arrow', 16], ['amber', 2]];
+    if (tier === 'medium') return [['rupee', 60], ['arrow', 12]];
+    return [['rupee', 35], ['arrow', 8]];
+  },
+
+  respawnHarvestNodes(world) {
+    if (!world || !Array.isArray(world._harvestNodeDefs)) return 0;
+    let n = 0;
+    world.harvestNodes = (world.harvestNodes || []).filter(node => {
+      if (node && node.marker && node.marker.parent) node.marker.parent.remove(node.marker);
+      return false;
+    });
+    for (const def of world._harvestNodeDefs) {
+      if (this.addHarvestNode(world, def)) n++;
+    }
+    return n;
+  },
+
+  respawnCamp(world, camp, game = window.game) {
+    if (!world || !camp) return false;
+    camp.cleared = false;
+    camp.alerted = false;
+    camp.hornTimer = 0;
+    camp._rolesAssigned = false;
+    if (camp.marker) {
+      camp.marker.visible = true;
+      camp.marker.scale.setScalar(1);
+    }
+    const spawns = this._campSpawnDefs(world, camp);
+    for (const row of spawns) {
+      const living = (world.enemies || []).some(e => e && !e.dead && e.typeId === row.typeId && e.mesh && e.mesh.position.distanceTo(new THREE.Vector3(row.x, 0, row.z)) < 3);
+      if (living || typeof Enemy === 'undefined') continue;
+      const pos = world.findSafeGroundPosition ? world.findSafeGroundPosition(row.x, row.z, 0.65, { avoidWater: true }) : new THREE.Vector3(row.x, 0, row.z);
+      const enemy = new Enemy(row.typeId, pos.x, pos.z);
+      world.enemies.push(enemy);
+      world.scene.add(enemy.mesh);
+      if (typeof CharacterArtSystem !== 'undefined') CharacterArtSystem.applyEnemy(enemy);
+    }
+    this._assignCampRoles(world, camp);
+    return true;
+  },
+
+  _campSpawnDefs(world, camp) {
+    if (camp._spawnDefs && camp._spawnDefs.length) return camp._spawnDefs;
+    const center = new THREE.Vector3(camp.x || 0, 0, camp.z || 0);
+    const nearby = (world.enemies || [])
+      .filter(e => e && e.mesh && e.mesh.position.distanceTo(center) < (camp.radius || 16) + 5)
+      .slice(0, 6)
+      .map(e => ({ typeId: e.typeId, x: e.mesh.position.x, z: e.mesh.position.z }));
+    if (nearby.length) {
+      camp._spawnDefs = nearby;
+      return nearby;
+    }
+    const tier = camp.tier || 'small';
+    const count = tier === 'elite' ? 5 : tier === 'medium' ? 4 : 3;
+    const type = tier === 'elite' ? 'blackBokoblin' : tier === 'medium' ? 'blueBokoblin' : 'redBokoblin';
+    camp._spawnDefs = Array.from({ length: count }, (_, i) => {
+      const a = (i / count) * Math.PI * 2;
+      const r = Math.min(8, Math.max(4, (camp.radius || 16) * 0.32));
+      return { typeId: type, x: (camp.x || 0) + Math.cos(a) * r, z: (camp.z || 0) + Math.sin(a) * r };
+    });
+    return camp._spawnDefs;
   },
 
   scanNearby(world, game = window.game) {
@@ -550,6 +622,9 @@ const ExplorationSystem = {
       .filter(e => e && !e.boss && !e.dead && e.mesh && e.mesh.position.distanceTo(center) < camp.radius + 5)
       .sort((a, b) => a.mesh.position.distanceTo(center) - b.mesh.position.distanceTo(center));
     camp.enemies = nearby;
+    if (!camp._spawnDefs || !camp._spawnDefs.length) {
+      camp._spawnDefs = nearby.map(e => ({ typeId: e.typeId, x: e.mesh.position.x, z: e.mesh.position.z }));
+    }
     nearby.forEach((e, i) => {
       e.camp = camp;
       e.baseSight = e.baseSight || e.sight;

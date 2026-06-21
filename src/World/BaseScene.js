@@ -378,6 +378,16 @@ class BaseScene {
 
   addLootChest(id, x, z, items, label = '补给宝箱', options = {}) {
     if (!id || !Array.isArray(items) || items.length === 0 || typeof AssetFactory === 'undefined') return null;
+    if (!this._supplyChestDefs) this._supplyChestDefs = [];
+    if (!this._supplyChestDefs.some(c => c.id === id)) {
+      this._supplyChestDefs.push(Object.assign({}, options, { id, x, z, items, label }));
+    }
+    if (options.bloodMoon) {
+      if (!this._bloodMoonChestDefs) this._bloodMoonChestDefs = [];
+      if (!this._bloodMoonChestDefs.some(c => c.id === id)) {
+        this._bloodMoonChestDefs.push(Object.assign({}, options, { id, x, z, items, label }));
+      }
+    }
     if (typeof SaveSystem !== 'undefined' && SaveSystem.isChestOpened && SaveSystem.isChestOpened(id)) return null;
     const chest = AssetFactory.createChest();
     chest.position.set(x || 0, options.y || 0, z || 0);
@@ -521,6 +531,19 @@ class BaseScene {
     ];
   }
 
+  _defaultBlacksmith(worldName) {
+    const offsets = {
+      grassland: { x: 26, z: -12, name: '台地铁匠' },
+      forest: { x: 14, z: 56, name: '森林铁匠' },
+      highland: { x: 14, z: -78, name: '高地铁匠' },
+      snowland: { x: 18, z: 22, name: '雪原铁匠' },
+      volcano: { x: 18, z: 22, name: '鼓隆铁匠' },
+      desert: { x: 18, z: 26, name: '格鲁德铁匠' },
+      castle: { x: -18, z: 32, name: '王城遗民铁匠' }
+    };
+    return offsets[worldName] || { x: 10, z: -10, name: '流浪铁匠' };
+  }
+
   _setupExplorationDefaults() {
     if (this._explorationBuilt || typeof ExplorationSystem === 'undefined') return;
     this._explorationBuilt = true;
@@ -534,7 +557,7 @@ class BaseScene {
         supplyChests: [
           { id: 'grassland_path_supply', label: '路边补给宝箱', x: 24, z: -18, items: [['travelerSword', 1], ['arrow', 8]] },
           { id: 'grassland_bridge_bow', label: '桥头弓箭宝箱', x: -25, z: 28, items: [['travelerBow', 1], ['arrow', 12]] },
-          { id: 'grassland_camp_cache', label: '营地武器宝箱', x: -69, z: -42, items: [['bokoClub', 1], ['bokoShield', 1]] },
+          { id: 'grassland_camp_cache', label: '营地武器宝箱', x: -69, z: -42, items: [['bokoClub', 1], ['bokoShield', 1]], bloodMoon: true },
           { id: 'grassland_hill_spear', label: '山坡长枪宝箱', x: 68, z: 35, items: [['soldierSpear', 1], ['arrow', 6]] },
           { id: 'grassland_ruin_bow', label: '遗迹弓箭宝箱', x: 136, z: -118, items: [['soldierBow', 1], ['arrow', 14]] },
           { id: 'grassland_north_supply', label: '北原补给宝箱', x: -92, z: 82, items: [['travelerClaymore', 1], ['arrow', 10]] },
@@ -552,8 +575,8 @@ class BaseScene {
           { x: -35, z: -122, radius: 7, height: 2.6, label: '瀑布湿岩' }
         ],
         camps: [
-          { name: '桥北波克布林营地', x: -42, z: -44, radius: 20, alarmRadius: 8 },
-          { name: '东南废墟营地', x: 152, z: -132, radius: 22, alarmRadius: 9 }
+          { name: '桥北波克布林营地', tier: 'small', x: -42, z: -44, radius: 20, alarmRadius: 8 },
+          { name: '东南废墟营地', tier: 'medium', x: 152, z: -132, radius: 22, alarmRadius: 9 }
         ],
         harvestNodes: [
           { id: 'grassland_ore_01', kind: 'ore', label: '山脚矿石', x: 72, z: -64, items: [['amber', 1], ['flint', 2]], clue: '山脚石块泛着矿光。' },
@@ -576,7 +599,7 @@ class BaseScene {
           { id: 'forest_satori_cache', label: '萨托利林地宝箱', x: -148, y: 0, z: 34, items: [['courserBeeHoney', 2], ['rupee', 40]], clue: '林地圆环中央很安静，像在等人靠近。' }
         ],
         supplyChests: [
-          { id: 'forest_mist_bow', label: '迷雾弓箭宝箱', x: -22, z: -20, items: [['travelerBow', 1], ['arrow', 14]] },
+          { id: 'forest_mist_bow', label: '迷雾弓箭宝箱', x: -22, z: -20, items: [['travelerBow', 1], ['arrow', 14]], bloodMoon: true },
           { id: 'forest_root_blade', label: '树根武器宝箱', x: 58, z: 28, items: [['forestDwellerSword', 1], ['arrow', 6]] },
           { id: 'forest_ruin_shield', label: '古树遗迹宝箱', x: 118, z: -96, items: [['soldierShield', 1], ['arrow', 10]] },
           { id: 'forest_satori_supply', label: '萨托利补给宝箱', x: -132, z: 34, items: [['travelerSword', 1], ['travelerBow', 1]] },
@@ -592,8 +615,8 @@ class BaseScene {
           { x: 104, z: -76, radius: 8, height: 3.6, label: '林中断崖' }
         ],
         camps: [
-          { name: '迷雾波克布林营地', x: 0, z: -15, radius: 24, alarmRadius: 10 },
-          { name: '古树根遗迹营地', x: 114, z: -112, radius: 24, alarmRadius: 10 }
+          { name: '迷雾波克布林营地', tier: 'small', x: 0, z: -15, radius: 24, alarmRadius: 10 },
+          { name: '古树根遗迹营地', tier: 'medium', x: 114, z: -112, radius: 24, alarmRadius: 10 }
         ]
       },
       highland: {
@@ -602,7 +625,7 @@ class BaseScene {
           { id: 'highland_lake_cache', label: '湖畔沉石宝箱', x: -152, y: 0, z: -118, items: [['zoraShield', 1], ['hyruleBass', 3]], clue: '湖畔几块石头指向水边。' }
         ],
         supplyChests: [
-          { id: 'highland_ridge_spear', label: '山脊长枪宝箱', x: -88, z: 14, items: [['soldierSpear', 1], ['arrow', 10]] },
+          { id: 'highland_ridge_spear', label: '山脊长枪宝箱', x: -88, z: 14, items: [['soldierSpear', 1], ['arrow', 10]], bloodMoon: true },
           { id: 'highland_lake_bow', label: '湖畔弓箭宝箱', x: 46, z: 88, items: [['soldierBow', 1], ['arrow', 16]] },
           { id: 'highland_falls_blade', label: '瀑布武器宝箱', x: 124, z: -132, items: [['soldierClaymore', 1], ['arrow', 8]] },
           { id: 'highland_west_shield', label: '西崖补给宝箱', x: -144, z: -104, items: [['soldierShield', 1], ['arrow', 12]] },
@@ -618,7 +641,7 @@ class BaseScene {
           { x: 148, z: -142, radius: 8, height: 3.5, label: '费罗尼瀑布岩壁' }
         ],
         camps: [
-          { name: '双河蜥蜴战士营地', x: -112, z: 18, radius: 24, alarmRadius: 10 }
+          { name: '双河蜥蜴战士营地', tier: 'medium', x: -112, z: 18, radius: 24, alarmRadius: 10 }
         ]
       },
       snowland: {
@@ -627,7 +650,7 @@ class BaseScene {
           { id: 'snow_cave_cache', label: '冰洞宝箱', x: 92, y: 0, z: 64, items: [['iceBow', 1], ['whiteChuchuJelly', 3]], clue: '冰洞口的冷风吹出宝箱的金属声。' }
         ],
         supplyChests: [
-          { id: 'snow_trail_bow', label: '雪道弓箭宝箱', x: -28, z: -58, items: [['soldierBow', 1], ['arrow', 18]] },
+          { id: 'snow_trail_bow', label: '雪道弓箭宝箱', x: -28, z: -58, items: [['soldierBow', 1], ['arrow', 18]], bloodMoon: true },
           { id: 'snow_cave_spear', label: '冰洞长枪宝箱', x: 84, z: 62, items: [['soldierSpear', 1], ['spicyPepper', 3]] },
           { id: 'snow_peak_blade', label: '雪峰武器宝箱', x: -118, z: -82, items: [['travelerSword', 1], ['arrow', 12]] },
           { id: 'snow_cliff_shield', label: '断崖补给宝箱', x: 132, z: -30, items: [['soldierShield', 1], ['arrow', 10]] },
@@ -645,7 +668,7 @@ class BaseScene {
           { type: 'cold', x: 0, z: -70, radius: 190, damage: 0.5, color: 0x66ddff, message: '严寒正在消耗生命：穿防寒装备或吃暖暖料理。', safeMessage: '防寒效果抵住了雪原严寒。' }
         ],
         camps: [
-          { name: '雪原莱尼尔警戒区', x: 112, z: 106, radius: 28, alarmRadius: 12 }
+          { name: '雪原莱尼尔警戒区', tier: 'elite', x: 112, z: 106, radius: 28, alarmRadius: 12 }
         ]
       },
       volcano: {
@@ -655,7 +678,7 @@ class BaseScene {
         ],
         supplyChests: [
           { id: 'volcano_ember_claymore', label: '余烬武器宝箱', x: 22, z: -46, items: [['soldierClaymore', 1], ['arrow', 8]] },
-          { id: 'volcano_mine_spear', label: '废矿长枪宝箱', x: 104, z: 58, items: [['soldierSpear', 1], ['arrow', 10]] },
+          { id: 'volcano_mine_spear', label: '废矿长枪宝箱', x: 104, z: 58, items: [['soldierSpear', 1], ['arrow', 10]], bloodMoon: true },
           { id: 'volcano_ash_bow', label: '灰烬弓箭宝箱', x: -138, z: 114, items: [['soldierBow', 1], ['arrow', 16]] },
           { id: 'volcano_cliff_shield', label: '火山断崖宝箱', x: 150, z: -34, items: [['soldierShield', 1], ['flameproofDish', 1]] },
           { id: 'volcano_basalt_bridge_bow', label: '玄武桥弓箭宝箱', x: -48, z: 32, items: [['travelerBow', 1], ['arrow', 14]] },
@@ -672,7 +695,7 @@ class BaseScene {
           { type: 'fire', x: 0, z: -40, radius: 185, damage: 0.75, color: 0xff5522, message: '灼热空气正在烧伤你：需要耐火装备或防火料理。', safeMessage: '耐火效果抵住了火山灼烧。' }
         ],
         camps: [
-          { name: '废矿火蜥蜴营地', x: 104, z: 58, radius: 24, alarmRadius: 10 }
+          { name: '废矿火蜥蜴营地', tier: 'medium', x: 104, z: 58, radius: 24, alarmRadius: 10 }
         ]
       },
       desert: {
@@ -681,7 +704,7 @@ class BaseScene {
           { id: 'desert_bone_cache', label: '龙骨宝箱', x: 28, y: 0, z: -154, items: [['topaz', 1], ['shockBow', 1]], clue: '龙骨阴影下闪过黄色电光。' }
         ],
         supplyChests: [
-          { id: 'desert_oasis_blade', label: '绿洲武器宝箱', x: -92, z: 36, items: [['travelerSword', 1], ['arrow', 12]] },
+          { id: 'desert_oasis_blade', label: '绿洲武器宝箱', x: -92, z: 36, items: [['travelerSword', 1], ['arrow', 12]], bloodMoon: true },
           { id: 'desert_bone_bow', label: '龙骨弓箭宝箱', x: 32, z: -142, items: [['soldierBow', 1], ['arrow', 18]] },
           { id: 'desert_ruin_spear', label: '沙丘长枪宝箱', x: 118, z: 96, items: [['soldierSpear', 1], ['arrow', 10]] },
           { id: 'desert_cactus_shield', label: '仙人掌补给宝箱', x: -150, z: 104, items: [['soldierShield', 1], ['arrow', 10]] },
@@ -699,7 +722,7 @@ class BaseScene {
           { type: 'heat', x: 0, z: 0, radius: 190, damage: 0.45, color: 0xffcc66, message: '酷热正在消耗生命：穿防暑装备或吃沁凉料理。', safeMessage: '防暑效果抵住了沙漠酷热。' }
         ],
         camps: [
-          { name: '绿洲蜥蜴战士营地', x: -108, z: 42, radius: 24, alarmRadius: 10 }
+          { name: '绿洲蜥蜴战士营地', tier: 'medium', x: -108, z: 42, radius: 24, alarmRadius: 10 }
         ]
       },
       castle: {
@@ -708,7 +731,7 @@ class BaseScene {
           { id: 'castle_watch_cache', label: '瞭望塔宝箱', x: -72, y: 2.8, z: 52, requireHeight: 1.8, items: [['royalBow', 1], ['arrow', 20]], clue: '瞭望塔上方有近卫留下的补给。' }
         ],
         supplyChests: [
-          { id: 'castle_gate_blade', label: '王城门楼宝箱', x: -42, z: 24, items: [['knightSword', 1], ['arrow', 12]] },
+          { id: 'castle_gate_blade', label: '王城门楼宝箱', x: -42, z: 24, items: [['knightSword', 1], ['arrow', 12]], bloodMoon: true },
           { id: 'castle_watch_bow', label: '王城瞭望补给', x: 28, z: 88, items: [['knightBow', 1], ['arrow', 20]] },
           { id: 'castle_ruin_supply', label: '王城废墟宝箱', x: 82, z: -62, items: [['soldierShield', 1], ['soldierSpear', 1]] },
           { id: 'castle_barricade_bow', label: '王城路障弓箭宝箱', x: -68, z: -18, items: [['soldierBow', 1], ['arrow', 18]] },
@@ -722,7 +745,7 @@ class BaseScene {
           { x: 118, z: 112, radius: 8, height: 3.6, label: '中央广场残墙' }
         ],
         camps: [
-          { name: '王城守护者警戒区', x: 0, z: 128, radius: 32, alarmRadius: 14 }
+          { name: '王城守护者警戒区', tier: 'elite', x: 0, z: 128, radius: 32, alarmRadius: 14 }
         ]
       }
     };
@@ -740,6 +763,7 @@ class BaseScene {
     for (const n of harvestNodes) ExplorationSystem.addHarvestNode(this, n);
     for (const r of rumors) ExplorationSystem.addRumor(this, r);
     if (typeof BountySystem !== 'undefined') BountySystem.registerWorld(this.name, bounties);
+    if (typeof BlacksmithSystem !== 'undefined') BlacksmithSystem.spawnInWorld(this, this._defaultBlacksmith(this.name));
   }
 
   _pointInRectZone(x, z, zone) {

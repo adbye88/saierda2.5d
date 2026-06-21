@@ -67,6 +67,7 @@ class Inventory {
       baseChance +
       ((stack && stack.def && stack.def.critChance) || 0) +
       (mod.bonusCritChance || 0) +
+      ((stack && stack.bonusCritChance) || 0) +
       (set.critChance || 0) +
       (type === 'bow' ? (set.bowCritChance || 0) : (set.meleeCritChance || 0)) +
       (upgrade.critChance || 0)
@@ -76,6 +77,7 @@ class Inventory {
         2 +
         ((stack && stack.def && stack.def.critMultiplierBonus) || 0) +
         (mod.bonusCritMultiplier || 0) +
+        ((stack && stack.bonusCritMultiplier) || 0) +
         (set.critMultiplierBonus || 0) +
         (upgrade.critMultiplierBonus || 0)
       )
@@ -90,7 +92,7 @@ class Inventory {
 
   getStackAttack(stack) {
     if (!stack || !stack.def) return 0;
-    return (stack.def.atk || 0) + ((stack.modifier && stack.modifier.bonusAtk) || 0);
+    return (stack.def.atk || 0) + ((stack.modifier && stack.modifier.bonusAtk) || 0) + (stack.bonusAtk || 0);
   }
 
   getStackDefense(stack) {
@@ -346,7 +348,7 @@ class Inventory {
 
   // ---------- 序列化（存档用） ----------
   serialize() {
-    const serStack = (s) => s ? ({ id: s.itemId, c: s.count, d: s.durability, md: s.maxDurability, src: s.source, mod: s.modifier ? s.modifier.id : null }) : null;
+    const serStack = (s) => s ? ({ id: s.itemId, c: s.count, d: s.durability, md: s.maxDurability, src: s.source, mod: s.modifier ? s.modifier.id : null, ba: s.bonusAtk || 0, bc: s.bonusCritChance || 0, bm: s.bonusCritMultiplier || 0 }) : null;
     const ser = (list) => list.map(serStack);
     return {
       rupees: this.rupees, arrows: this.arrows,
@@ -383,7 +385,7 @@ class Inventory {
     this.rupees = data.rupees || 0;
     this.arrows = data.arrows || 0;
     const restoreStack = (s) => {
-      const stack = new ItemStack(s.id, s.c, { source: s.src || 'world', durability: s.d, modifier: s.mod });
+      const stack = new ItemStack(s.id, s.c, { source: s.src || 'world', durability: s.d, modifier: s.mod, bonusAtk: s.ba, bonusCritChance: s.bc, bonusCritMultiplier: s.bm });
       if (s.md !== undefined) stack.maxDurability = s.md;
       if (s.d !== undefined) stack.durability = s.d;
       return stack;

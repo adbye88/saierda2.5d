@@ -286,7 +286,7 @@ class Game {
       VisualQualitySystem.cycle();
     }
     // 任一全屏菜单打开时暂停游戏
-    if (InventoryUI.isOpen || CookingUI.isOpen || MapMenu.isOpen || ShopUI.isOpen || ShrineUI.isOpen || StatueUI.isOpen || (typeof QuestUI !== 'undefined' && QuestUI.isOpen) || (typeof CompendiumUI !== 'undefined' && CompendiumUI.isOpen)) {
+    if (InventoryUI.isOpen || CookingUI.isOpen || MapMenu.isOpen || ShopUI.isOpen || (typeof BlacksmithUI !== 'undefined' && BlacksmithUI.isOpen) || ShrineUI.isOpen || StatueUI.isOpen || (typeof QuestUI !== 'undefined' && QuestUI.isOpen) || (typeof CompendiumUI !== 'undefined' && CompendiumUI.isOpen)) {
       // 神庙答题挑战需要继续检测（即使"暂停"也要让答题逻辑跑）
       if (ShrineUI.isOpen) { try { ShrineUI.update(this); } catch(e){ console.error(e); } }
       Input.endFrame();
@@ -310,6 +310,7 @@ class Game {
     }
     this._runSubsystem('story', () => { if (typeof StorySystem !== 'undefined') StorySystem.updateWorld(this.currentWorld, this, dt); });
     this._runSubsystem('bounty', () => { if (typeof BountySystem !== 'undefined') BountySystem.update(this); });
+    this._runSubsystem('bloodMoon', () => { if (typeof BloodMoonSystem !== 'undefined') BloodMoonSystem.update(this, dt); });
     this._runSubsystem('effects', () => Effects.update(dt));
     if (this.lockedEnemy && (this.lockedEnemy.dead || this.lockedEnemy.hp <= 0)) {
       this.lockedEnemy = null;
