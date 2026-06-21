@@ -3869,6 +3869,282 @@ html.desktop-mode #extra-buttons {
   .quality-footer button { min-width: 94px; min-height: 34px; padding: 6px 12px; font-size: 11px; }
 }
 
+/* ============================================================
+   Low-chrome gameplay HUD
+   - 正常游玩只保留边缘关键信息
+   - 长内容仍在背包/地图/任务/图鉴/设置抽屉中
+   - 手机横屏保护中心和下中战斗视野
+   ============================================================ */
+#hud-left,
+#rupee,
+#weapon-info,
+#arrow-type-btn,
+#quest-tip {
+  background-color: rgba(10, 18, 28, .34);
+  backdrop-filter: blur(7px);
+}
+
+#hud-left {
+  max-width: min(280px, 38vw);
+}
+
+#hud-right {
+  max-width: min(250px, 32vw);
+}
+
+#weapon-info {
+  max-width: 210px;
+  overflow: hidden;
+}
+
+#quest-tip {
+  top: max(8px, env(safe-area-inset-top));
+  max-width: min(460px, 42vw);
+  min-height: 24px;
+  line-height: 1.25;
+}
+
+@media (max-width: 980px) and (orientation: landscape) {
+  #hud-left {
+    top: max(8px, env(safe-area-inset-top));
+    left: max(10px, env(safe-area-inset-left));
+    padding: 6px 9px;
+    border-radius: 12px;
+    max-width: 190px;
+  }
+  #hearts {
+    max-width: 168px;
+    gap: 1px;
+  }
+  .heart {
+    width: 18px;
+    height: 18px;
+  }
+  #stamina-wrap {
+    width: 96px;
+    height: 6px;
+    margin-top: 5px;
+  }
+  .stamina-label {
+    display: none;
+  }
+
+  #hud-right {
+    top: max(8px, env(safe-area-inset-top));
+    right: max(10px, env(safe-area-inset-right));
+    gap: 5px;
+    max-width: 178px;
+  }
+  #rupee {
+    padding: 4px 9px;
+    font-size: 13px;
+    border-radius: 999px;
+  }
+  #weapon-info {
+    max-width: 176px;
+    max-height: 42px;
+    padding: 4px 8px;
+    font-size: 10px;
+    line-height: 1.25;
+    border-radius: 10px;
+    opacity: .86;
+  }
+  #weapon-info .hud-item-icon {
+    width: 16px;
+    height: 16px;
+    margin-right: 2px;
+  }
+  #arrow-type-btn {
+    min-width: 88px;
+    padding: 4px 8px;
+    font-size: 10px;
+    border-radius: 999px;
+  }
+  #minimap {
+    width: 86px;
+    height: 86px;
+    border-radius: 50%;
+    border-width: 1.5px;
+    opacity: .82;
+  }
+  #quest-tip {
+    top: max(8px, env(safe-area-inset-top));
+    max-width: 34vw;
+    padding: 3px 10px;
+    font-size: 10px;
+    opacity: .62;
+    border-radius: 999px;
+  }
+  #boss-hp {
+    top: 42px;
+    width: min(420px, 58vw);
+  }
+  #boss-name {
+    font-size: 13px;
+    margin-bottom: 2px;
+  }
+  #boss-hp-bar {
+    height: 10px;
+    border-width: 1px;
+  }
+
+  #buff-bar {
+    right: max(8px, env(safe-area-inset-right));
+    top: auto;
+    bottom: calc(max(10px, env(safe-area-inset-bottom)) + 150px);
+    transform: none;
+    gap: 5px;
+  }
+  #champion-bar {
+    left: max(10px, env(safe-area-inset-left));
+    top: 74px;
+    max-width: 150px;
+    gap: 4px;
+  }
+  .buff-icon,
+  .champion-icon {
+    padding: 4px 7px;
+    font-size: 10px;
+    border-radius: 999px;
+  }
+
+  #extra-buttons {
+    left: max(8px, env(safe-area-inset-left));
+    top: 92px;
+    bottom: auto;
+    display: grid;
+    grid-template-columns: repeat(2, 38px);
+    grid-auto-rows: 38px;
+    gap: 6px;
+    opacity: .72;
+  }
+  .extra-btn {
+    width: 38px;
+    height: 38px;
+    border-width: 1.5px;
+    font-size: 17px;
+    box-shadow: 0 2px 8px rgba(0,0,0,.32);
+  }
+  .extra-btn span:not(.text-icon) {
+    display: none;
+  }
+  .extra-btn .text-icon {
+    font-size: 17px;
+  }
+  #btn-quality,
+  #btn-fullscreen,
+  #btn-compendium {
+    opacity: .48;
+  }
+  #btn-interact.show {
+    display: flex;
+    opacity: 1;
+  }
+
+  #interact-hint {
+    bottom: calc(max(10px, env(safe-area-inset-bottom)) + 86px);
+    padding: 6px 13px;
+    font-size: 11px;
+    border-width: 1.5px;
+  }
+}
+
+@media (max-width: 760px) and (orientation: landscape) {
+  #hud-left {
+    max-width: 158px;
+    padding: 5px 7px;
+  }
+  #hearts {
+    max-width: 138px;
+  }
+  .heart {
+    width: 15px;
+    height: 15px;
+  }
+  #stamina-wrap {
+    width: 78px;
+  }
+  #hud-right {
+    max-width: 146px;
+    gap: 4px;
+  }
+  #weapon-info {
+    max-width: 146px;
+    max-height: 34px;
+    font-size: 9px;
+    padding: 3px 6px;
+  }
+  #minimap {
+    width: 72px;
+    height: 72px;
+  }
+  #quest-tip {
+    max-width: 30vw;
+    font-size: 9px;
+  }
+  #joystick-fixed {
+    left: max(12px, env(safe-area-inset-left));
+    bottom: max(10px, env(safe-area-inset-bottom));
+    width: 118px;
+    height: 118px;
+  }
+  .joy-knob {
+    width: 50px;
+    height: 50px;
+    margin-left: -25px;
+    margin-top: -25px;
+  }
+  #extra-buttons {
+    top: 78px;
+    grid-template-columns: repeat(2, 34px);
+    grid-auto-rows: 34px;
+    gap: 5px;
+  }
+  .extra-btn {
+    width: 34px;
+    height: 34px;
+  }
+  #action-pad {
+    width: 202px;
+    height: 176px;
+    right: max(10px, env(safe-area-inset-right));
+    bottom: max(8px, env(safe-area-inset-bottom));
+  }
+  #btn-attack {
+    width: 78px;
+    height: 78px;
+  }
+  #btn-jump {
+    width: 58px;
+    height: 58px;
+    right: 14px;
+  }
+  #btn-shield {
+    left: 52px;
+    width: 56px;
+    height: 56px;
+  }
+  #btn-parry {
+    right: 68px;
+    bottom: 67px;
+    width: 60px;
+    height: 60px;
+  }
+  #btn-lock {
+    left: 18px;
+    top: 16px;
+    width: 48px;
+    height: 48px;
+  }
+  #btn-weapon-cycle,
+  #btn-bow-cycle {
+    width: 42px;
+    height: 42px;
+  }
+  #btn-weapon-cycle { left: 0; top: 74px; }
+  #btn-bow-cycle { left: 0; top: 120px; }
+}
+
 /* ====== Commercial Visual Grade Layer ====== */
 :root {
   --visual-canvas-filter: saturate(1.14) contrast(1.08) brightness(1.02);
