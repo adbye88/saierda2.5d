@@ -177,6 +177,13 @@ const CharacterArtSystem = {
     const world = game && game.currentWorld;
     if (!world || !world.enemies) return;
     for (const enemy of world.enemies) {
+      if (!enemy || !enemy.mesh) continue;
+      if (enemy._streamTier === 'dormant' || enemy.mesh.visible === false) continue;
+      if (enemy._streamTier === 'passive' && !enemy.boss && !enemy.miniBoss && enemy.hurtTimer <= 0) {
+        enemy._characterArtPassiveTimer = (enemy._characterArtPassiveTimer || 0) - dt;
+        if (enemy._characterArtPassiveTimer > 0) continue;
+        enemy._characterArtPassiveTimer = 0.16;
+      }
       this.applyEnemy(enemy);
       this._updateCharacterArt(enemy.mesh && enemy.mesh.userData.characterArt, dt, {
         speed: enemy.velocity ? Math.hypot(enemy.velocity.x || 0, enemy.velocity.z || 0) : 0,

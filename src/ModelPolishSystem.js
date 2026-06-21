@@ -55,15 +55,24 @@ const ModelPolishSystem = {
     if (Array.isArray(world.enemies)) {
       for (const enemy of world.enemies) {
         if (!enemy || !enemy.mesh) continue;
+        if (enemy._streamTier === 'dormant' || enemy.mesh.visible === false) {
+          this._removeContactShadow(enemy);
+          this._setOwnerOutlineVisible(enemy, false);
+          continue;
+        }
         if (enemy.dead || enemy.hp <= 0) {
           this._removeContactShadow(enemy);
           continue;
         }
         this._polishOwnerOnce(enemy);
-        if (updateOwners) this._updateContactShadow(enemy, world.scene, enemy.boss ? 2.2 : 1.0, lowCost ? 0.18 : (enemy.boss ? 0.36 : 0.24));
-        if (!lowCost) {
+        const fullVisual = enemy._streamTier === 'active' || enemy.boss || enemy.miniBoss || enemy.hurtTimer > 0;
+        if (updateOwners && fullVisual) this._updateContactShadow(enemy, world.scene, enemy.boss ? 2.2 : 1.0, lowCost ? 0.18 : (enemy.boss ? 0.36 : 0.24));
+        else if (!fullVisual) this._removeContactShadow(enemy);
+        if (!lowCost && fullVisual) {
           this._ensureOwnerOutline(enemy, enemy.boss ? 0x2b1020 : 0x11140f, enemy.boss ? 0.2 : 0.14);
           this._setOwnerOutlineVisible(enemy, this._outlineEnabled());
+        } else {
+          this._setOwnerOutlineVisible(enemy, false);
         }
       }
     }

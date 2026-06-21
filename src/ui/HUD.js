@@ -71,7 +71,8 @@ const HUD = {
     if (!this.world) return;
     const visible = new Set();
     for (const e of this.world.enemies) {
-      if (e.dead) continue;
+      if (!e || !e.mesh || e.dead) continue;
+      if ((e._streamTier === 'dormant' || e.mesh.visible === false) && game.lockedEnemy !== e && e.hurtTimer <= 0 && !e.boss) continue;
       // 只显示视野内的、或正在战斗的、或锁定的
       const dist = e.mesh.position.distanceTo(game.player.position);
       const inCombat = e.state === 'chase' || e.state === 'attack' || e.hurtTimer > 0;

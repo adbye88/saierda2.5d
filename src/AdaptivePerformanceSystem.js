@@ -51,6 +51,9 @@ const AdaptivePerformanceSystem = {
       fps: this.averageFps(),
       quality,
       samples: this._samples.length,
+      streaming: typeof WorldStreamingSystem !== 'undefined' && WorldStreamingSystem.snapshot
+        ? WorldStreamingSystem.snapshot()
+        : null,
       autoQuality: typeof VisualQualitySystem === 'undefined' || !VisualQualitySystem.getSettings
         ? true
         : VisualQualitySystem.getSettings().autoQuality !== false

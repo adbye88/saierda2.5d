@@ -14,6 +14,8 @@ const CameraPolishSystem = {
   _smoothedForward: null,
   _smoothedLookAt: null,
   _smoothedCamTarget: null,
+  _cachedSafeCamPos: null,
+  _collisionTimer: 0,
   _lastWorld: null,
   _lastMode: '',
 
@@ -33,6 +35,8 @@ const CameraPolishSystem = {
       this._smoothedForward = null;
       this._smoothedLookAt = null;
       this._smoothedCamTarget = null;
+      this._cachedSafeCamPos = null;
+      this._collisionTimer = 0;
       this._lastWorld = game.currentWorld;
       this._lastMode = mode;
     }
@@ -110,7 +114,7 @@ const CameraPolishSystem = {
       : smoothForward.clone().multiplyScalar(attacking ? 1.25 : 2.35);
     const desiredLookAt = target.clone().add(lookAhead).setY(target.y + lookHeight);
     const lookAt = this._smoothLookAt(desiredLookAt, dt, mode);
-    const safeCamPos = this._avoidCameraCollision(game, lookAt, camPos);
+    const safeCamPos = this._smoothAvoidCameraCollision(game, lookAt, camPos, dt);
     camPos = this._smoothCamTarget(safeCamPos, dt, mode);
     const fov = this._inspectMode ? 44 : gliding ? 64 : bow ? 52 : locked ? 56 : attacking ? 55 : 58;
     this._desiredFov += (fov - this._desiredFov) * this._alpha(dt, 6);
@@ -128,7 +132,8 @@ const CameraPolishSystem = {
     );
     camPos.add(shakeOffset);
 
-    camera.position.lerp(camPos, this._alpha(dt, locked || bow ? 7.5 : 6.2));
+    const modeChanged = this._lastMode && this._lastMode !== mode;
+    camera.position.lerp(camPos, this._alpha(dt, modeChanged ? 4.4 : (locked || bow ? 7.5 : 6.2)));
     camera.lookAt(lookAt.x, lookAt.y, lookAt.z);
     this._lastMode = mode;
     this._fadeTimer -= dt;
@@ -174,11 +179,14 @@ const CameraPolishSystem = {
     const target = desired && desired.lengthSq && desired.lengthSq() > 0.001
       ? desired.clone().setY(0).normalize()
       : new THREE.Vector3(0, 0, 1);
-    if (!this._smoothedForward || this._lastMode !== mode && (mode === 'locked' || mode === 'inspect')) {
+    if (!this._smoothedForward) {
       this._smoothedForward = target.clone();
       return target;
     }
-    const speed = mode === 'locked' || mode === 'bow' ? 9.5 : mode === 'attack' ? 8 : 5.2;
+    const modeChanged = this._lastMode && this._lastMode !== mode;
+    const speed = modeChanged
+      ? (mode === 'locked' || mode === 'inspect' ? 4.6 : 4.2)
+      : (mode === 'locked' || mode === 'bow' ? 9.5 : mode === 'attack' ? 8 : 5.2);
     this._smoothedForward.lerp(target, this._alpha(dt, speed));
     if (this._smoothedForward.lengthSq() < 0.001) this._smoothedForward.copy(target);
     this._smoothedForward.normalize();
@@ -205,6 +213,21 @@ const CameraPolishSystem = {
     const speed = modeChanged ? 5.2 : (mode === 'locked' || mode === 'bow' ? 8 : 6.8);
     this._smoothedCamTarget.lerp(desired, this._alpha(dt, speed));
     return this._smoothedCamTarget.clone();
+  },
+
+  _smoothAvoidCameraCollision(game, lookAt, desired, dt) {
+    const quality = (typeof VisualQualitySystem !== 'undefined' && VisualQualitySystem.level) || 'medium';
+    const touch = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
+    const interval = touch || quality === 'low' ? 0.12 : quality === 'medium' ? 0.07 : 0.045;
+    this._collisionTimer -= dt;
+    if (!this._cachedSafeCamPos) this._cachedSafeCamPos = desired.clone();
+    if (this._collisionTimer <= 0) {
+      this._collisionTimer = interval;
+      this._cachedSafeCamPos.copy(this._avoidCameraCollision(game, lookAt, desired));
+    } else {
+      this._cachedSafeCamPos.lerp(desired, this._alpha(dt, 2.5));
+    }
+    return this._cachedSafeCamPos.clone();
   },
 
   _avoidCameraCollision(game, lookAt, desired) {

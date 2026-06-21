@@ -283,6 +283,11 @@ const VisualQualitySystem = {
   },
 
   _updateDistanceCulling(dt, game) {
+    if (typeof WorldStreamingSystem !== 'undefined'
+      && WorldStreamingSystem.ownsDistanceCulling
+      && WorldStreamingSystem.ownsDistanceCulling()) {
+      return;
+    }
     const world = game && game.currentWorld;
     const player = game && game.player;
     if (!world || !player || !Array.isArray(world._visualCullables)) return;

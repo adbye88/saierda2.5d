@@ -120,6 +120,7 @@ class Game {
     HUD.setMinimapWorld(newWorld);
     if (typeof AudioSystem !== 'undefined') AudioSystem.setWorld(name);
     if (typeof VisualQualitySystem !== 'undefined') VisualQualitySystem.applyWorld(newWorld);
+    if (typeof WorldStreamingSystem !== 'undefined') WorldStreamingSystem.applyWorld(newWorld, this);
     if (typeof ArtDirectionSystem !== 'undefined') ArtDirectionSystem.applyWorld(newWorld, this);
     if (typeof ModelPolishSystem !== 'undefined') ModelPolishSystem.polishWorld(newWorld);
     if (typeof CharacterArtSystem !== 'undefined') CharacterArtSystem.applyWorld(newWorld, this);
@@ -304,6 +305,7 @@ class Game {
     }
     if (this.currentWorld) {
       const worldDt = this.linkTimeTimer > 0 ? dt * 0.035 : dt;
+      this._runSubsystem('world-streaming', () => { if (typeof WorldStreamingSystem !== 'undefined') WorldStreamingSystem.update(dt, this); });
       this._runSubsystem('world', () => this.currentWorld.update(worldDt, this));
     }
     this._runSubsystem('story', () => { if (typeof StorySystem !== 'undefined') StorySystem.updateWorld(this.currentWorld, this, dt); });

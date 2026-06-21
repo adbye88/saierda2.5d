@@ -346,7 +346,7 @@ window.__loadState = {
   ready: false,
   startTime: Date.now()
 };
-window.__APP_VERSION = '20260620-story-design-1';
+window.__APP_VERSION = '20260621-world-streaming-1';
 var __assetParams = new URLSearchParams(location.search);
 window.__assetPass = __assetParams.get('artpass') || __assetParams.get('v') || __assetParams.get('cache') || window.__APP_VERSION;
 
@@ -639,6 +639,7 @@ window.__GAMEPLAY_SCRIPTS = [
   'src/Effects.js',
   'src/AudioSystem.js',
   'src/VisualQualitySystem.js',
+  'src/WorldStreamingSystem.js',
   'src/ArtDirectionSystem.js',
   'src/ModelPolishSystem.js',
   'src/CharacterArtSystem.js',
