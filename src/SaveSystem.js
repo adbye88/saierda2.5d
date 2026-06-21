@@ -159,7 +159,7 @@ const SaveSystem = {
     if (p) {
       game.player.position.set(p.x || 0, p.y || 0, p.z || 0);
       game.player.facing = p.facing || 0;
-      game.player.hp = p.hp || game.player.maxHp * 4;
+      game.player.hp = this._clampLoadedPlayerHp(p.hp, game.player);
       game.player.stamina = p.stamina || game.player.maxStamina;
       game.player.mesh.rotation.y = game.player.facing;
     }
@@ -246,5 +246,12 @@ const SaveSystem = {
   },
   _savePlayTime(sec) {
     this._runtimePlayTime = Number(sec) || 0;
+  },
+
+  _clampLoadedPlayerHp(value, player) {
+    const max = Math.max(1, ((player && player.maxHp) || 1) * 4);
+    const n = Number(value);
+    if (!Number.isFinite(n)) return max;
+    return Math.max(1, Math.min(max, n));
   }
 };

@@ -80,7 +80,8 @@ const MapMenu = {
     const progress = SaveSystem.getProgress();
     const unlocked = progress.towers || [];
     const currentWorld = window.game && window.game.currentWorld ? window.game.currentWorld.name : '';
-    let html = '<div class="world-map">';
+    let html = this._renderCurrentWorldMonsterMap(currentWorld);
+    html += '<div class="world-map">';
     for (const [id, info] of Object.entries(this.WORLD_INFO)) {
       const isUnlocked = unlocked.includes(id);
       const isCurrent = id === currentWorld;
@@ -103,6 +104,83 @@ const MapMenu = {
     html += this._renderMapMarkers(currentWorld);
     html += this._renderAutoPathTargets();
     return html;
+  },
+
+  _renderCurrentWorldMonsterMap(worldName) {
+    const world = window.game && window.game.currentWorld && window.game.currentWorld.name === worldName ? window.game.currentWorld : null;
+    if (!world) return '';
+    const bounds = world.bounds || { minX: -180, maxX: 180, minZ: -180, maxZ: 180 };
+    const spanX = Math.max(1, bounds.maxX - bounds.minX);
+    const spanZ = Math.max(1, bounds.maxZ - bounds.minZ);
+    const monsters = (world.enemies || [])
+      .filter(e => e && !e.dead && e.hp > 0 && e.mesh)
+      .map((e, i) => ({
+        index: i,
+        name: (e.def && e.def.name) || e.typeId || '怪物',
+        typeId: e.typeId || '',
+        boss: !!(e.boss || (e.def && e.def.boss)),
+        x: e.mesh.position.x,
+        z: e.mesh.position.z,
+        hp: e.hp,
+        maxHp: e.maxHp
+      }));
+    if (world.boss && !world.boss.dead && world.boss.position && !monsters.some(m => m.typeId === world.boss.typeId)) {
+      monsters.push({
+        index: monsters.length,
+        name: (world.boss.def && world.boss.def.name) || world.boss.typeId || 'Boss',
+        typeId: world.boss.typeId || 'boss',
+        boss: true,
+        x: world.boss.position.x,
+        z: world.boss.position.z,
+        hp: world.boss.hp,
+        maxHp: world.boss.maxHp
+      });
+    }
+    this._monsterTargets = monsters;
+    const clampPct = (n) => Math.max(3, Math.min(97, n));
+    const player = window.game && window.game.player ? window.game.player.position : null;
+    const playerMarker = player ? `
+      <button class="monster-pin player-pin" title="你的位置" style="position:absolute;transform:translate(-50%,-50%);width:30px;height:30px;border-radius:999px;border:2px solid rgba(255,255,255,.9);color:#06212a;font-size:11px;font-weight:900;left:${clampPct((player.x - bounds.minX) / spanX * 100)}%;top:${clampPct((player.z - bounds.minZ) / spanZ * 100)}%;background:#66ddff;box-shadow:0 0 12px #66ddff;">你</button>` : '';
+    const pins = monsters.map((m, i) => `
+      <button class="monster-pin" onclick="MapMenu.startEnemyPath(${i})"
+        title="${this._esc(m.name)} ${Math.round(m.x)}, ${Math.round(m.z)}"
+        style="position:absolute;transform:translate(-50%,-50%);min-width:24px;height:24px;border-radius:999px;border:1px solid rgba(255,255,255,.75);color:#1b1008;font-size:10px;font-weight:900;left:${clampPct((m.x - bounds.minX) / spanX * 100)}%;top:${clampPct((m.z - bounds.minZ) / spanZ * 100)}%;background:${this._enemyMarkerColor(m)};box-shadow:0 0 10px rgba(255,190,90,.45);">
+        ${m.boss ? '王' : i + 1}
+      </button>`).join('');
+    const counts = {};
+    for (const m of monsters) counts[m.name] = (counts[m.name] || 0) + 1;
+    const summary = Object.entries(counts)
+      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+      .map(([name, count]) => `<span>${this._esc(name)} ×${count}</span>`)
+      .join('　');
+    const rows = monsters.map((m, i) => `
+      <button class="path-target" onclick="MapMenu.startEnemyPath(${i})">
+        <span>${m.boss ? '💀' : '👹'} ${i + 1}. ${this._esc(m.name)}</span>
+        <small>${Math.round(m.x)}, ${Math.round(m.z)} · HP ${Math.ceil(m.hp || 0)}/${Math.ceil(m.maxHp || 0)}</small>
+      </button>`).join('');
+    return `
+      <div class="path-panel monster-map-panel">
+        <div class="path-title">当前地图大图 · 怪物分布</div>
+        <div class="local-monster-map" style="position:relative;height:260px;border:1px solid rgba(255,255,255,.18);border-radius:14px;overflow:hidden;background:radial-gradient(circle at 50% 45%,rgba(120,170,95,.24),rgba(20,35,30,.88));box-shadow:inset 0 0 26px rgba(0,0,0,.32);">
+          <div style="position:absolute;inset:10px;border:1px dashed rgba(255,255,255,.16);border-radius:10px;pointer-events:none;"></div>
+          ${playerMarker}
+          ${pins || '<div class="memory-empty" style="margin:18px;">当前区域暂未发现怪物。</div>'}
+        </div>
+        <div class="map-legend">${summary || '当前区域暂未发现怪物。'}</div>
+        <div class="path-grid">${rows || ''}</div>
+      </div>`;
+  },
+
+  _enemyMarkerColor(enemy) {
+    if (!enemy) return '#ff9966';
+    if (enemy.boss) return '#d642ff';
+    const id = enemy.typeId || '';
+    if (id.includes('guardian')) return '#ff3344';
+    if (id.includes('Lynel') || id.includes('lynel')) return '#ff8844';
+    if (id.includes('ice') || id.includes('frost')) return '#88ddff';
+    if (id.includes('fire') || id.includes('flame') || id.includes('igno')) return '#ff6633';
+    if (id.includes('shock') || id.includes('thunder')) return '#ffdd55';
+    return '#ffb15c';
   },
 
   getRegionExploration(worldName) {
@@ -206,6 +284,23 @@ const MapMenu = {
     if (!marker) return;
     window.game.autoPath = { active: true, target: { x: marker.x, z: marker.z }, label: marker.label || '地图标记', radius: 2.8 };
     Dialogue.show(`开始自动寻路：${marker.label || '地图标记'}`);
+    this.close();
+  },
+
+  startEnemyPath(index) {
+    if (!window.game || !window.game.currentWorld) return;
+    const monsters = this._monsterTargets || (window.game.currentWorld.enemies || []).filter(e => e && !e.dead && e.hp > 0 && e.mesh);
+    const enemy = monsters[index];
+    if (!enemy) return;
+    const name = (enemy.def && enemy.def.name) || enemy.typeId || '怪物';
+    const pos = enemy.mesh ? enemy.mesh.position : enemy;
+    window.game.autoPath = {
+      active: true,
+      target: { x: pos.x, z: pos.z },
+      label: name,
+      radius: Math.max(3.2, (enemy.radius || 0.8) + 2.4)
+    };
+    Dialogue.show(`开始自动寻路：${name}`);
     this.close();
   },
 

@@ -67,6 +67,7 @@ const CRAFT_OVERRIDES = {
 const CraftingSystem = {
   _recipes: null,
   CRAFTED_DURABILITY_MULTIPLIER: 10,
+  MATERIAL_COST_MULTIPLIER: 2,
 
   allRecipes() {
     if (this._recipes) return this._recipes;
@@ -91,7 +92,7 @@ const CraftingSystem = {
       name: def.name,
       type: def.type,
       set: def.set || null,
-      materials: this._cleanMaterials(materials),
+      materials: this._cleanMaterials(this._scaleMaterials(materials)),
       desc: this._recipeDesc(def)
     };
   },
@@ -148,6 +149,15 @@ const CraftingSystem = {
       if (!ITEMS[id]) continue;
       const n = Math.max(0, Math.round(materials[id]));
       if (n > 0) out[id] = n;
+    }
+    return out;
+  },
+
+  _scaleMaterials(materials) {
+    const out = {};
+    const mul = Math.max(1, Number(this.MATERIAL_COST_MULTIPLIER) || 1);
+    for (const id in (materials || {})) {
+      out[id] = materials[id] * mul;
     }
     return out;
   },

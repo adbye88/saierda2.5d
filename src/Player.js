@@ -170,7 +170,12 @@ class Player {
       this._burnTimer -= dt;
       // 灼烧：每 0.5 秒掉 0.25 血
       this._burnTick = (this._burnTick || 0) + dt;
-      if (this._burnTick >= 0.5) { this._burnTick = 0; this.hp -= 0.25; }
+      if (this._burnTick >= 0.5) {
+        this._burnTick = 0;
+        this.hp -= 0.25;
+        this._clampHp();
+        if (this.hp <= 0) this._handleFatalDamage();
+      }
       if (this._burnTimer <= 0 && this.mesh) {
         this.mesh.traverse(c => { if (c.isMesh && c.material && c.material.emissive) c.material.emissiveIntensity = 0; });
       }
@@ -1258,6 +1263,37 @@ class Player {
   }
 
   // ---------- 受伤 ----------
+  _maxHpValue() {
+    return Math.max(1, (this.maxHp || 1) * 4);
+  }
+
+  _clampHp() {
+    this.hp = Math.max(0, Math.min(this._maxHpValue(), Number(this.hp) || 0));
+    return this.hp;
+  }
+
+  _handleFatalDamage() {
+    if (this.hp > 0) return false;
+    if (typeof ChampionSystem !== 'undefined' && ChampionSystem.revive(this)) {
+      this._clampHp();
+      return true;
+    }
+    if (window.game && window.game.respawnPlayer) {
+      window.game.respawnPlayer();
+      this._clampHp();
+      return true;
+    }
+    this.hp = 1;
+    return true;
+  }
+
+  _shieldDurabilityCost(amount, shieldDef = 1) {
+    const incoming = Math.max(1, Number(amount) || 1);
+    const guard = Math.max(1, Number(shieldDef) || 1);
+    // 弱怪轻敲只掉 1；攻击越高、盾防越低，盾越快坏。
+    return Math.max(1, Math.ceil(incoming / Math.max(4, guard * 1.6)));
+  }
+
   takeDamage(amount, fromDir, element = null) {
     if (this.invuln > 0) return 'ignored';
     const set = this.inventory && this.inventory.getSetEffects ? this.inventory.getSetEffects() : {};
@@ -1318,13 +1354,18 @@ class Player {
       if (incomingDir && facing.dot(incomingDir.clone().negate()) > 0.45) {
         const shieldDef = this.inventory.getStackDefense ? this.inventory.getStackDefense(shield) : shield.def.def;
         const reduced = Math.max(0, amount - shieldDef);
+        const shieldWear = this._shieldDurabilityCost(amount, shieldDef);
         this.hp -= reduced;
-        this.inventory.damageShield(1);
+        this._clampHp();
+        this.inventory.damageShield(shieldWear);
         this._shieldCounterWindow = 0.42;
         this._shieldCounterDir = incomingDir.clone().negate();
-        Dialogue.show(`格挡！继续按住“盾反”，看准下一击松开可反击`);
+        Dialogue.show(reduced > 0
+          ? `格挡削弱伤害：盾抵消 ${Math.round(shieldDef)}，承受 ${Math.ceil(reduced)}`
+          : `格挡成功：盾抵消 ${Math.round(shieldDef)} 伤害`);
         this.invuln = 0.4;
         HUD.flashDamage();
+        if (this.hp <= 0) this._handleFatalDamage();
         return reduced > 0 ? 'blocked-damaged' : 'blocked';
       }
     }
@@ -1343,26 +1384,19 @@ class Player {
       return 'dodged';
     }
     this.hp -= amount;
+    this._clampHp();
     if (typeof AudioSystem !== 'undefined') AudioSystem.play('hit');
     if (typeof CameraPolishSystem !== 'undefined') CameraPolishSystem.bump(Math.min(0.85, 0.25 + amount * 0.025));
     this.invuln = 0.8;
     if (incomingDir) this.knockback.copy(incomingDir).multiplyScalar(6);
     HUD.flashDamage();   // 受击红屏 + 屏震
-    if (this.hp <= 0) {
-      if (typeof ChampionSystem !== 'undefined' && ChampionSystem.revive(this)) {
-        return 'hit';
-      }
-      if (window.game && window.game.respawnPlayer) {
-        window.game.respawnPlayer();
-        return 'hit';
-      }
-      this.hp = 1;
-    }
+    if (this.hp <= 0) this._handleFatalDamage();
     return 'hit';
   }
 
   heal(amount) {
     this.hp = Math.min(this.maxHp * 4, this.hp + amount);
+    this._clampHp();
   }
 
   // ---------- 相机跟随 ----------
