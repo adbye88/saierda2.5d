@@ -11,7 +11,7 @@
 <!-- iOS 全屏：添加到主屏幕后可全屏 PWA 模式 -->
 <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🗡️</text></svg>">
 <title>旷野之息 · 迷你版</title>
-<link rel="stylesheet" href="css/style.css?v=20260621-low-chrome-hud-1">
+<link rel="stylesheet" href="css/style.css?v=20260621-load-phases-1">
 </head>
 <body>
 
@@ -22,6 +22,8 @@
     <div class="loading-sub">迷你版 · Wild Breath Mini</div>
     <div class="loading-bar"><div id="loading-fill"></div></div>
     <div id="loading-text">正在唤醒林克…</div>
+    <div id="loading-phase">准备菜单资源</div>
+    <div id="loading-tip">地图数据会完整保留，近景美术细节会按视野逐步激活。</div>
   </div>
 </div>
 
@@ -344,9 +346,11 @@ window.__loadState = {
   total: 0, loaded: 0, failed: [],
   scriptsLoaded: false,
   ready: false,
+  range: { from: 0, to: 100, label: '资源加载', completeLabel: '脚本加载完成，正在初始化游戏…' },
+  phase: 'loading',
   startTime: Date.now()
 };
-window.__APP_VERSION = '20260621-low-chrome-hud-1';
+window.__APP_VERSION = '20260621-load-phases-1';
 var __assetParams = new URLSearchParams(location.search);
 window.__assetPass = __assetParams.get('artpass') || __assetParams.get('v') || __assetParams.get('cache') || window.__APP_VERSION;
 
@@ -368,7 +372,12 @@ window.__assetPass = __assetParams.get('artpass') || __assetParams.get('v') || _
     if (dt > worst) worst = dt;
     if (now - last >= 500) {
       fps = Math.round(frames * 1000 / (now - last));
-      stage = (window.game && window.game.state === 'playing') ? 'game'
+      var explicitStage = window.__gameplayStage || '';
+      stage = explicitStage === 'game' ? 'game'
+        : explicitStage === 'loading-game' ? 'loading-game'
+        : explicitStage === 'menu' ? 'menu'
+        : (document.body && document.body.classList.contains('game-playing')) ? 'game'
+        : (window.game && window.game.state === 'playing') ? 'game'
         : (window.__gameplayState && window.__gameplayState.loading) ? 'loading-game'
         : (window.__loadState && window.__loadState.ready) ? 'menu'
         : 'loading';
@@ -404,6 +413,14 @@ window.__assetPass = __assetParams.get('artpass') || __assetParams.get('v') || _
   }
   requestAnimationFrame(tick);
 })();
+
+window.__setPerfStage = function(stage) {
+  window.__gameplayStage = stage || window.__gameplayStage || 'loading';
+  var el = document.getElementById('perf-meter');
+  if (el && /^FPS --/.test(el.textContent || '')) {
+    el.textContent = 'FPS -- · 长帧 --ms · ' + window.__gameplayStage;
+  }
+};
 
 // ★★★ 全局按钮处理函数（内联事件调用，最早定义，不依赖任何脚本加载）★★★
 window.__btnState = { attack:false, jump:false, shield:false, parry:false };
@@ -492,6 +509,33 @@ window.__setStatus = function(msg) {
   console.log('[STATUS]', msg);
 };
 
+window.__setLoadRange = function(from, to, label, completeLabel) {
+  window.__loadState.range = {
+    from: Math.max(0, Math.min(100, Number(from) || 0)),
+    to: Math.max(0, Math.min(100, Number(to) || 100)),
+    label: label || '资源加载',
+    completeLabel: completeLabel || '资源加载完成'
+  };
+};
+
+window.__setLoadPhase = function(label, progress, detail) {
+  var s = window.__loadState;
+  s.phase = label || s.phase || 'loading';
+  var fill = document.getElementById('loading-fill');
+  var text = document.getElementById('loading-text');
+  var phase = document.getElementById('loading-phase');
+  var tip = document.getElementById('loading-tip');
+  if (typeof progress === 'number' && fill) {
+    fill.style.width = Math.max(0, Math.min(100, Math.round(progress))) + '%';
+  }
+  if (text && label) text.textContent = label;
+  if (phase && detail) phase.textContent = detail;
+  if (tip) tip.textContent = '世界数据完整加载；远景低成本保留，近景美术和动画随视野激活。';
+  if (label && /菜单|账号|存档/.test(label)) window.__setPerfStage('menu');
+  else if (label) window.__setPerfStage('loading-game');
+  if (label) window.__setStatus(label);
+};
+
 window.__onScriptLoad = function(url, ok) {
   window.__loadState.loaded++;
   if (!ok) window.__loadState.failed.push(url);
@@ -500,20 +544,24 @@ window.__onScriptLoad = function(url, ok) {
 
 window.__updateLoadProgress = function() {
   const s = window.__loadState;
-  const pct = s.total > 0 ? Math.round((s.loaded / s.total) * 100) : 0;
+  const rawPct = s.total > 0 ? Math.round((s.loaded / s.total) * 100) : 0;
+  const range = s.range || { from: 0, to: 100, label: '资源加载', completeLabel: '资源加载完成' };
+  const pct = Math.round(range.from + (range.to - range.from) * (rawPct / 100));
   const fill = document.getElementById('loading-fill');
   const text = document.getElementById('loading-text');
+  const phase = document.getElementById('loading-phase');
   if (fill) fill.style.width = pct + '%';
   if (text) {
     if (s.loaded >= s.total && s.failed.length === 0) {
       s.scriptsLoaded = true;
-      text.textContent = '脚本加载完成，正在初始化游戏…';
+      text.textContent = range.completeLabel || '脚本加载完成，正在初始化游戏…';
     } else if (s.failed.length > 0) {
       text.innerHTML = '⚠️ 部分资源加载失败，请检查网络后刷新页面。<br><button class="loading-retry" onclick="window.__retryFailed()">重新加载</button>';
     } else {
-      text.textContent = '加载资源中… ' + pct + '% (' + s.loaded + '/' + s.total + ')';
+      text.textContent = (range.label || '加载资源中') + '… ' + pct + '%';
     }
   }
+  if (phase && s.total > 0) phase.textContent = s.loaded + '/' + s.total + ' · ' + (range.label || '资源加载');
 };
 
 // 动态加载单个脚本（带失败重试）
@@ -692,14 +740,17 @@ window.__loadGameplayScripts = function() {
   if (window.__gameplayState.loaded) return Promise.resolve(true);
   if (window.__gameplayState.promise) return window.__gameplayState.promise;
   window.__gameplayState.loading = true;
+  window.__setPerfStage('loading-game');
   var loading = document.getElementById('loading');
   var menu = document.getElementById('menu');
   var fill = document.getElementById('loading-fill');
   var text = document.getElementById('loading-text');
   if (loading) loading.classList.remove('hidden');
   if (menu) menu.classList.add('hidden');
-  if (fill) fill.style.width = '0%';
-  if (text) text.textContent = '正在加载游戏资源…';
+  window.__setLoadRange(8, 44, '加载游戏脚本', '游戏脚本完成，正在创建引擎…');
+  if (fill) fill.style.width = '8%';
+  if (text) text.textContent = '正在加载游戏脚本…';
+  window.__setLoadPhase('正在加载游戏脚本…', 8, '脚本 · 引擎 · UI · 地图 · 角色 · 可玩');
   window.__loadState.total = window.__GAMEPLAY_SCRIPTS.length;
   window.__loadState.loaded = 0;
   window.__loadState.failed = [];
@@ -707,10 +758,11 @@ window.__loadGameplayScripts = function() {
   window.__gameplayState.promise = window.__loadScripts(window.__GAMEPLAY_SCRIPTS, '游戏资源').then(function() {
     window.__gameplayState.loaded = true;
     window.__gameplayState.loading = false;
-    if (text) text.textContent = '游戏资源加载完成，正在进入世界…';
+    window.__setLoadPhase('游戏脚本完成，正在进入世界…', 46, '脚本完成，开始创建 WebGL 与世界数据');
     return true;
   }).catch(function(err) {
     window.__gameplayState.loading = false;
+    window.__setPerfStage('menu');
     if (text) text.textContent = err.message || '游戏资源加载失败';
     throw err;
   });
@@ -720,6 +772,9 @@ window.__loadGameplayScripts = function() {
 window.__startLoading = function() {
   var scripts = window.__INITIAL_SCRIPTS;
   window.__loadState.total = scripts.length;
+  window.__setPerfStage('loading');
+  window.__setLoadRange(0, 100, '加载菜单资源', '菜单资源完成，正在初始化账号与存档…');
+  window.__setLoadPhase('正在加载菜单资源…', 0, '菜单 · 账号 · 云存档入口');
 
   // 第一阶段只加载菜单/账号/存档；重 3D 游戏脚本在点击开始时再加载
   var chain = window.__loadScripts(scripts, '菜单资源');

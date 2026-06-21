@@ -12,6 +12,19 @@
   let playerReady = false;
   let gameOverTimer = 0;
 
+  function setLoadPhase(label, progress, detail) {
+    if (typeof window.__setLoadPhase === 'function') {
+      window.__setLoadPhase(label, progress, detail);
+    } else if (window.__setStatus) {
+      window.__setStatus(label);
+    }
+  }
+
+  function setPerfStage(stage) {
+    if (typeof window.__setPerfStage === 'function') window.__setPerfStage(stage);
+    else window.__gameplayStage = stage;
+  }
+
   function whenReady(cb) {
     function check() {
       if (window.__loadState && window.__loadState.scriptsLoaded) cb();
@@ -24,6 +37,8 @@
     if (booted) return;
     booted = true;
     try {
+      setPerfStage('menu');
+      document.body.classList.remove('game-playing');
       window.__setStatus && window.__setStatus('menu: 初始化账号与存档...');
 
       const isTouchDevice = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
@@ -126,7 +141,9 @@
   async function ensureRuntimeReady() {
     if (runtimeReady && game) return true;
 
-    window.__setStatus && window.__setStatus('正在加载游戏脚本...');
+    setPerfStage('loading-game');
+    document.body.classList.remove('game-playing');
+    setLoadPhase('准备进入世界…', 6, '检查游戏脚本与云存档状态');
     if (typeof window.__loadGameplayScripts === 'function') {
       await window.__loadGameplayScripts();
     }
@@ -134,12 +151,12 @@
     if (typeof THREE === 'undefined') throw new Error('THREE 未加载');
     if (typeof Game === 'undefined') throw new Error('Game 类未加载');
 
-    window.__setStatus && window.__setStatus('正在创建游戏引擎...');
+    setLoadPhase('正在创建游戏引擎…', 50, '初始化 WebGL、相机、灯光和输入');
     game = new Game();
     window.game = game;
     game.init();
 
-    window.__setStatus && window.__setStatus('正在初始化游戏 UI...');
+    setLoadPhase('正在初始化游戏 UI…', 58, 'HUD、背包、地图、图鉴和云存档面板');
     if (typeof Debug !== 'undefined') Debug.init();
     if (typeof HUD !== 'undefined') HUD.init();
     if (typeof Joystick !== 'undefined') Joystick.init();
@@ -174,6 +191,7 @@
     if (typeof TouchControls !== 'undefined') TouchControls.init();
 
     registerWorlds();
+    setLoadPhase('游戏系统准备完成…', 68, '等待生成当前地图');
     runtimeReady = true;
     if (!gameOverTimer) {
       gameOverTimer = setInterval(() => {
@@ -186,7 +204,7 @@
 
   function registerWorlds() {
     if (!game || worldsRegistered) return;
-    window.__setStatus && window.__setStatus('正在注册世界索引...');
+    setLoadPhase('正在注册世界索引…', 64, '草原、森林、雪山、火山、沙漠和城堡');
     game.registerWorld('grassland', new Grassland());
     game.registerWorld('forest', new Forest());
     game.registerWorld('highland', new Highland());
@@ -203,19 +221,24 @@
     if (!game) return false;
     registerWorlds();
     if (!game.currentWorld || game.currentWorld.name !== worldName) {
-      window.__setStatus && window.__setStatus('正在生成地图：' + worldName);
+      setLoadPhase('正在生成地图：' + worldName, 74, '完整地图数据加载，近景资源分层激活');
       game.loadWorld(worldName);
     }
     if (!game.player) {
-      window.__setStatus && window.__setStatus('正在创建角色...');
+      setLoadPhase('正在创建角色…', 86, '装备、背包、镜头和初始位置');
       game.createPlayer();
       if (game.player && game.player.inventory && typeof InventoryUI !== 'undefined') {
         game.player.inventory.onChange(() => InventoryUI.refreshIfOpen());
       }
     }
+    setLoadPhase('正在准备初始装备…', 91, '旅人剑、木盾、弓箭和苏醒套装');
     setupStarterPlayer();
     playerReady = !!(game.player && game.currentWorld);
-    if (game.renderer && game.scene && game.camera) game.renderer.render(game.scene, game.camera);
+    if (game.renderer && game.scene && game.camera) {
+      setLoadPhase('正在绘制第一帧…', 96, '确认场景可显示后再进入游戏');
+      game.renderer.render(game.scene, game.camera);
+    }
+    if (playerReady) setLoadPhase('世界已就绪，正在开始冒险…', 100, '远景保持低成本，近景美术随视野补完');
     const bs = document.getElementById('boot-status');
     if (bs) bs.style.display = 'none';
     return playerReady;
@@ -258,6 +281,9 @@
 
   async function startGame() {
     console.log('开始游戏！');
+    setPerfStage('loading-game');
+    document.body.classList.remove('game-playing');
+    setLoadPhase('正在读取开始状态…', 4, '检查云档与目标地图');
     const pendingPreview = SaveSystem.peekPendingCloudCurrent && SaveSystem.peekPendingCloudCurrent();
     const targetWorld = pendingPreview && pendingPreview.worldName || 'grassland';
     if (!await ensureGameReady(targetWorld)) return;
@@ -271,9 +297,14 @@
     if (menu) menu.classList.add('hidden');
     if (typeof HUD !== 'undefined') HUD.show();
     window.gameStartTime = Date.now();
+    setPerfStage('game');
+    document.body.classList.add('game-playing');
     game.state = 'playing';
     game.start();
     if (typeof QuestSystem !== 'undefined') QuestSystem.refreshHint();
+    if (typeof Dialogue !== 'undefined') {
+      Dialogue.show('世界已就绪：远景保持低成本，近景细节会随视野补完。', 2200);
+    }
   }
 
   function showGameOver() {
@@ -283,6 +314,8 @@
     if (title) title.textContent = '林克倒下了…';
     if (startBtn) startBtn.textContent = '重新开始';
     if (menu) menu.classList.remove('hidden');
+    setPerfStage('menu');
+    document.body.classList.remove('game-playing');
     if (typeof HUD !== 'undefined') HUD.hide();
   }
 

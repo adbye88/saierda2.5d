@@ -137,7 +137,21 @@ html, body {
   box-shadow: 0 0 12px #ffb300;
   transition: width .3s;
 }
-#loading-text { margin-top: 16px; font-size: 14px; opacity: .85; letter-spacing: 2px; }
+#loading-text { margin-top: 16px; font-size: 14px; opacity: .9; letter-spacing: 2px; }
+#loading-phase {
+  margin-top: 8px;
+  color: rgba(255,255,255,.78);
+  font: 700 12px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  letter-spacing: .5px;
+}
+#loading-tip {
+  width: min(560px, 78vw);
+  margin: 14px auto 0;
+  color: rgba(255,248,218,.78);
+  font-size: 12px;
+  line-height: 1.7;
+  letter-spacing: .8px;
+}
 .loading-retry {
   margin-top: 10px;
   border: 1px solid rgba(255,213,106,.75);
