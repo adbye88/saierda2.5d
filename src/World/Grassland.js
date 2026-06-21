@@ -14,9 +14,9 @@ class Grassland extends BaseScene {
     this._setupGround(0x6a9a4a, 'grass');
 
     // 散布基础自然物；第五阶段后改为“少量随机底噪 + 路线节点簇状布置”，避免测试地图式平均撒点
-    this.scatter(() => AssetFactory.createTree(), 76);
-    this.scatter(() => AssetFactory.createBigTree(), 28);
-    this.scatter(() => AssetFactory.createPine(), 24);
+    this.scatter(() => AssetFactory.createTree(), 84);
+    this.scatter(() => AssetFactory.createBigTree(), 30);
+    this.scatter(() => AssetFactory.createPine(), 28);
     // 石头
     this.scatter(() => AssetFactory.createRock(0.6 + Math.random() * 0.8), 46);
     // 灌木
@@ -153,7 +153,12 @@ class Grassland extends BaseScene {
       [-20, -74, 'stal'], [0, -82, 'blackBokoblin'], [24, -72, 'stonePebblit'],
       // 支线与远景威胁保留少量，不再平均撒满首屏
       [62, 30, 'blueBokoblin'], [-70, 58, 'redBokoblin'], [74, 70, 'archerBokoblin'],
-      [92, 5, 'blueBokoblin'], [-82, -70, 'stonePebblit']
+      [92, 5, 'blueBokoblin'], [-82, -70, 'stonePebblit'],
+      // 新增巡逻/伏击：围绕补给箱、河岸和老橡树形成更密的探索遭遇
+      [-42, 96, 'archerBokoblin'], [-58, 100, 'redBokoblin'],
+      [78, -12, 'chuchu'], [98, -2, 'redBokoblin'],
+      [-108, 104, 'blueBokoblin'], [-124, 96, 'archerBokoblin'],
+      [104, -88, 'stonePebblit'], [-104, -24, 'chuchu']
     ];
     for (const [x, z, type] of enemySpots) {
       this.enemies.push(new Enemy(type, x, z));
@@ -459,7 +464,13 @@ class Grassland extends BaseScene {
       { x: 22, z: -24, trees: 2, rocks: 5, grass: 14 },
       { x: -35, z: 15, trees: 1, rocks: 7, grass: 16 },
       { x: -67, z: -38, trees: 3, rocks: 5, grass: 18 },
-      { x: -4, z: -88, trees: 1, rocks: 8, grass: 12 }
+      { x: -4, z: -88, trees: 1, rocks: 8, grass: 12 },
+      { x: -88, z: 82, trees: 4, rocks: 4, grass: 16 },
+      { x: -118, z: 112, trees: 5, rocks: 3, grass: 18 },
+      { x: 78, z: -8, trees: 2, rocks: 4, grass: 14 },
+      { x: 96, z: 2, trees: 3, rocks: 3, grass: 13 },
+      { x: -52, z: 104, trees: 2, rocks: 5, grass: 15 },
+      { x: 42, z: 44, trees: 3, rocks: 4, grass: 14 }
     ];
     for (const c of clusters) {
       for (let i = 0; i < Math.max(0, Math.round(c.trees * detail)); i++) this._placeClusterProp(AssetFactory.createTree(), c, 7, true);

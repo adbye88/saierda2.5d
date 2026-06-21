@@ -473,7 +473,10 @@ class BaseScene {
           { id: 'grassland_camp_cache', label: '营地武器宝箱', x: -69, z: -42, items: [['bokoClub', 1], ['bokoShield', 1]] },
           { id: 'grassland_hill_spear', label: '山坡长枪宝箱', x: 68, z: 35, items: [['soldierSpear', 1], ['arrow', 6]] },
           { id: 'grassland_ruin_bow', label: '遗迹弓箭宝箱', x: 136, z: -118, items: [['soldierBow', 1], ['arrow', 14]] },
-          { id: 'grassland_north_supply', label: '北原补给宝箱', x: -92, z: 82, items: [['travelerClaymore', 1], ['arrow', 10]] }
+          { id: 'grassland_north_supply', label: '北原补给宝箱', x: -92, z: 82, items: [['travelerClaymore', 1], ['arrow', 10]] },
+          { id: 'grassland_old_oak_cache', label: '老橡树补给宝箱', x: -118, z: 112, items: [['travelerSword', 1], ['apple', 3]] },
+          { id: 'grassland_river_shield', label: '河岸盾牌宝箱', x: -48, z: 104, items: [['bokoShield', 1], ['arrow', 8]] },
+          { id: 'grassland_south_field_bow', label: '南野弓箭宝箱', x: 86, z: -8, items: [['travelerBow', 1], ['arrow', 14]] }
         ],
         koroks: [
           { id: 'grassland_tree_korok', x: -150, z: 142, clue: '老树根旁的落叶堆很奇怪。' },
@@ -498,7 +501,9 @@ class BaseScene {
           { id: 'forest_mist_bow', label: '迷雾弓箭宝箱', x: -22, z: -20, items: [['travelerBow', 1], ['arrow', 14]] },
           { id: 'forest_root_blade', label: '树根武器宝箱', x: 58, z: 28, items: [['forestDwellerSword', 1], ['arrow', 6]] },
           { id: 'forest_ruin_shield', label: '古树遗迹宝箱', x: 118, z: -96, items: [['soldierShield', 1], ['arrow', 10]] },
-          { id: 'forest_satori_supply', label: '萨托利补给宝箱', x: -132, z: 34, items: [['travelerSword', 1], ['travelerBow', 1]] }
+          { id: 'forest_satori_supply', label: '萨托利补给宝箱', x: -132, z: 34, items: [['travelerSword', 1], ['travelerBow', 1]] },
+          { id: 'forest_mushroom_blade', label: '蘑菇圈武器宝箱', x: -66, z: 74, items: [['travelerSword', 1], ['mushroom', 3]] },
+          { id: 'forest_watch_bow', label: '林间哨位宝箱', x: 96, z: 104, items: [['soldierBow', 1], ['arrow', 16]] }
         ],
         koroks: [
           { id: 'forest_leaf_korok', x: -62, z: 72, clue: '树叶旋成了一个小圈。' },
@@ -522,7 +527,9 @@ class BaseScene {
           { id: 'highland_ridge_spear', label: '山脊长枪宝箱', x: -88, z: 14, items: [['soldierSpear', 1], ['arrow', 10]] },
           { id: 'highland_lake_bow', label: '湖畔弓箭宝箱', x: 46, z: 88, items: [['soldierBow', 1], ['arrow', 16]] },
           { id: 'highland_falls_blade', label: '瀑布武器宝箱', x: 124, z: -132, items: [['soldierClaymore', 1], ['arrow', 8]] },
-          { id: 'highland_west_shield', label: '西崖补给宝箱', x: -144, z: -104, items: [['soldierShield', 1], ['arrow', 12]] }
+          { id: 'highland_west_shield', label: '西崖补给宝箱', x: -144, z: -104, items: [['soldierShield', 1], ['arrow', 12]] },
+          { id: 'highland_twin_bridge_cache', label: '双桥补给宝箱', x: -46, z: 52, items: [['travelerBow', 1], ['arrow', 12]] },
+          { id: 'highland_riverbank_blade', label: '河岸武器宝箱', x: 62, z: -64, items: [['soldierSword', 1], ['arrow', 8]] }
         ],
         koroks: [
           { id: 'highland_two_tree_korok', x: 0, z: 18, clue: '两棵歪树之间有风铃声。' },
@@ -545,7 +552,9 @@ class BaseScene {
           { id: 'snow_trail_bow', label: '雪道弓箭宝箱', x: -28, z: -58, items: [['soldierBow', 1], ['arrow', 18]] },
           { id: 'snow_cave_spear', label: '冰洞长枪宝箱', x: 84, z: 62, items: [['soldierSpear', 1], ['spicyPepper', 3]] },
           { id: 'snow_peak_blade', label: '雪峰武器宝箱', x: -118, z: -82, items: [['travelerSword', 1], ['arrow', 12]] },
-          { id: 'snow_cliff_shield', label: '断崖补给宝箱', x: 132, z: -30, items: [['soldierShield', 1], ['arrow', 10]] }
+          { id: 'snow_cliff_shield', label: '断崖补给宝箱', x: 132, z: -30, items: [['soldierShield', 1], ['arrow', 10]] },
+          { id: 'snow_frozen_pine_bow', label: '雪松弓箭宝箱', x: -72, z: 44, items: [['travelerBow', 1], ['arrow', 14]] },
+          { id: 'snow_icebank_shield', label: '冰岸盾牌宝箱', x: 42, z: 98, items: [['bokoShield', 1], ['spicyPepper', 4]] }
         ],
         koroks: [
           { id: 'snow_snowball_korok', x: 112, z: -118, clue: '冻湖边的小雪球摆得太整齐。' }
@@ -570,7 +579,9 @@ class BaseScene {
           { id: 'volcano_ember_claymore', label: '余烬武器宝箱', x: 22, z: -46, items: [['soldierClaymore', 1], ['arrow', 8]] },
           { id: 'volcano_mine_spear', label: '废矿长枪宝箱', x: 104, z: 58, items: [['soldierSpear', 1], ['arrow', 10]] },
           { id: 'volcano_ash_bow', label: '灰烬弓箭宝箱', x: -138, z: 114, items: [['soldierBow', 1], ['arrow', 16]] },
-          { id: 'volcano_cliff_shield', label: '火山断崖宝箱', x: 150, z: -34, items: [['soldierShield', 1], ['flameproofDish', 1]] }
+          { id: 'volcano_cliff_shield', label: '火山断崖宝箱', x: 150, z: -34, items: [['soldierShield', 1], ['flameproofDish', 1]] },
+          { id: 'volcano_basalt_bridge_bow', label: '玄武桥弓箭宝箱', x: -48, z: 32, items: [['travelerBow', 1], ['arrow', 14]] },
+          { id: 'volcano_mine_shield', label: '矿道盾牌宝箱', x: 82, z: 86, items: [['bokoShield', 1], ['flint', 4]] }
         ],
         koroks: [
           { id: 'volcano_ember_korok', x: -148, z: 128, clue: '余烬绕着一圈石头旋转。' }
@@ -595,7 +606,9 @@ class BaseScene {
           { id: 'desert_oasis_blade', label: '绿洲武器宝箱', x: -92, z: 36, items: [['travelerSword', 1], ['arrow', 12]] },
           { id: 'desert_bone_bow', label: '龙骨弓箭宝箱', x: 32, z: -142, items: [['soldierBow', 1], ['arrow', 18]] },
           { id: 'desert_ruin_spear', label: '沙丘长枪宝箱', x: 118, z: 96, items: [['soldierSpear', 1], ['arrow', 10]] },
-          { id: 'desert_cactus_shield', label: '仙人掌补给宝箱', x: -150, z: 104, items: [['soldierShield', 1], ['arrow', 10]] }
+          { id: 'desert_cactus_shield', label: '仙人掌补给宝箱', x: -150, z: 104, items: [['soldierShield', 1], ['arrow', 10]] },
+          { id: 'desert_waystone_bow', label: '路标弓箭宝箱', x: -42, z: 74, items: [['travelerBow', 1], ['arrow', 16]] },
+          { id: 'desert_sandcamp_blade', label: '沙营武器宝箱', x: 74, z: -58, items: [['soldierSword', 1], ['voltfruit', 3]] }
         ],
         koroks: [
           { id: 'desert_cactus_korok', x: -152, z: 106, clue: '三棵仙人掌的高度似乎少了一个节奏。' }
@@ -619,7 +632,9 @@ class BaseScene {
         supplyChests: [
           { id: 'castle_gate_blade', label: '王城门楼宝箱', x: -42, z: 24, items: [['knightSword', 1], ['arrow', 12]] },
           { id: 'castle_watch_bow', label: '王城瞭望补给', x: 28, z: 88, items: [['knightBow', 1], ['arrow', 20]] },
-          { id: 'castle_ruin_supply', label: '王城废墟宝箱', x: 82, z: -62, items: [['soldierShield', 1], ['soldierSpear', 1]] }
+          { id: 'castle_ruin_supply', label: '王城废墟宝箱', x: 82, z: -62, items: [['soldierShield', 1], ['soldierSpear', 1]] },
+          { id: 'castle_barricade_bow', label: '王城路障弓箭宝箱', x: -68, z: -18, items: [['soldierBow', 1], ['arrow', 18]] },
+          { id: 'castle_courtyard_shield', label: '王城庭院盾牌宝箱', x: 58, z: 42, items: [['soldierShield', 1], ['arrow', 12]] }
         ],
         koroks: [
           { id: 'castle_malice_korok', x: 100, z: 94, clue: '魔气中有一片不合时宜的绿叶。' }
