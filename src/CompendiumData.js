@@ -296,7 +296,7 @@ const CompendiumData = {
   },
 
   guideEntries() {
-    return COMPENDIUM_GUIDE_ENTRIES.map(row => ({
+    const base = COMPENDIUM_GUIDE_ENTRIES.map(row => ({
       id: row.id,
       kind: 'guide',
       group: row.group,
@@ -311,6 +311,41 @@ const CompendiumData = {
       story: row.story || [],
       search: `${row.name} ${row.subtitle} ${row.desc} ${(row.locations || []).join(' ')} ${(row.guide || []).join(' ')} ${(row.story || []).join(' ')}`
     }));
+    base.push(this.recipeBookEntry());
+    return base;
+  },
+
+  recipeBookEntry() {
+    const discoveredRecipes = (typeof SaveSystem !== 'undefined' && SaveSystem.getProgress)
+      ? (SaveSystem.getProgress().discoveredRecipes || [])
+      : [];
+    const known = new Set(discoveredRecipes.map(x => String(x).split(':')[0]));
+    const rows = [];
+    if (typeof COOKING_RECIPES !== 'undefined') {
+      for (const row of Object.values(COOKING_RECIPES)) {
+        if (!row || !row.result) continue;
+        const item = typeof ITEMS !== 'undefined' ? ITEMS[row.result] : null;
+        const found = known.has(row.result);
+        rows.push(`${found ? '✓' : '？'} ${item ? item.name : row.result}：${found ? row.desc : '尚未发现，尝试组合对应食材'}`);
+      }
+    }
+    const discoveredCount = known.size;
+    const total = rows.length || 0;
+    return {
+      id: 'cookingRecipeBook',
+      kind: 'guide',
+      group: 'guide',
+      name: '料理配方书',
+      icon: '📖',
+      subtitle: `首次发现 ${discoveredCount}/${total}`,
+      stats: [['类型', '攻略'], ['已发现', `${discoveredCount}/${total}`]],
+      desc: '记录你首次烹饪成功的料理组合。第一次发现新配方会获得卢比奖励，并写入云存档进度。',
+      sources: ['烹饪锅：选择 1~5 个食材开始烹饪'],
+      locations: ['所有营地/村落烹饪锅'],
+      guide: rows.length ? rows : ['靠近烹饪锅，放入食材后开始烹饪。'],
+      story: ['料理配方是探索准备的一部分：雪原要防寒，火山要耐火，沙漠要防暑，Boss 战前准备攻击/防御料理。'],
+      search: `料理 配方书 烹饪 首次发现 discoveredRecipes ${discoveredRecipes.join(' ')}`
+    };
   },
 
   allEntries() {

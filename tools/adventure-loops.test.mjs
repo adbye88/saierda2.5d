@@ -8,6 +8,7 @@ const exploration = await read('src/ExplorationSystem.js');
 const item = await read('src/Item.js');
 const inventory = await read('src/Inventory.js');
 const cooking = await read('src/CookingSystem.js');
+const compendium = await read('src/CompendiumData.js');
 const baseScene = await read('src/World/BaseScene.js');
 const questUi = await read('src/ui/QuestUI.js');
 const html = await read('index.html');
@@ -53,6 +54,8 @@ assert.ok(inventory.includes('bonusCritChance'), 'Inventory critical stats shoul
 
 assert.ok(cooking.includes('recordRecipe'), 'CookingSystem should record discovered recipes');
 assert.ok(cooking.includes('discoveredRecipes'), 'CookingSystem should persist discovered recipes');
+assert.ok(compendium.includes('recipeBookEntry'), 'CompendiumData should expose a cooking recipe book entry');
+assert.ok(compendium.includes('discoveredRecipes'), 'recipe book should read discovered recipe progress');
 
 for (const api of ['registerWorld', 'update', 'claim', 'rowsForWorld']) {
   assert.ok(bounty.includes(api), `BountySystem should expose ${api}`);
