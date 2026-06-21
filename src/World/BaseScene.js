@@ -682,7 +682,7 @@ class BaseScene {
     } catch (e) { this._stageErr('sun', e); }
     // 阶段2：敌人
     try {
-      for (const e of this.enemies) e.update(dt, game);
+      this._updateEnemiesBudgeted(dt, game);
       this.enemies = this.enemies.filter(e => !(e.dead && e.deathTimer > 1.3));
     } catch (e) { this._stageErr('enemies', e); }
     // 阶段3：掉落物
@@ -1089,5 +1089,40 @@ class BaseScene {
     if (level === 'medium') return 0.42;
     if (level === 'ultra') return 1;
     return 0.68;
+  }
+
+  _updateEnemiesBudgeted(dt, game) {
+    if (!Array.isArray(this.enemies) || this.enemies.length === 0) return;
+    const budget = (typeof VisualQualitySystem !== 'undefined' && VisualQualitySystem.getBudget)
+      ? VisualQualitySystem.getBudget()
+      : null;
+    const passiveInterval = Math.max(0.08, Number(budget && budget.passiveEnemyInterval) || 0.22);
+    let activeUpdates = 0;
+    let passiveUpdates = 0;
+    let dormantSkipped = 0;
+
+    for (const e of this.enemies) {
+      if (!e || typeof e.update !== 'function') continue;
+      const force = e.dead || e.boss || e.miniBoss || e.hurtTimer > 0 || e.attackPhase || e._stunTimer > 0 || e.state === 'attack' || e.state === 'chase';
+      if (force || e._streamTier === 'active' || e._streamActive !== false) {
+        e._passiveUpdateAccum = 0;
+        e.update(dt, game);
+        activeUpdates++;
+        continue;
+      }
+      if (e._streamTier === 'dormant') {
+        dormantSkipped++;
+        continue;
+      }
+      e._passiveUpdateAccum = (e._passiveUpdateAccum || 0) + dt;
+      if (e._passiveUpdateAccum >= passiveInterval) {
+        const stepDt = Math.min(e._passiveUpdateAccum, passiveInterval * 2);
+        e._passiveUpdateAccum = 0;
+        e.update(stepDt, game);
+        passiveUpdates++;
+      }
+    }
+
+    this._enemyBudgetStats = { activeUpdates, passiveUpdates, dormantSkipped, passiveInterval };
   }
 }
