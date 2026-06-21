@@ -23,6 +23,8 @@ const WorldStreamingSystem = {
     hiddenProps: 0,
     visibleDetailCells: 0,
     hiddenDetailCells: 0,
+    visibleProxies: 0,
+    hiddenProxies: 0,
     activeCells: 0,
     passiveCells: 0,
     totalCells: 0,
@@ -57,6 +59,8 @@ const WorldStreamingSystem = {
       hiddenProps: 0,
       visibleDetailCells: 0,
       hiddenDetailCells: 0,
+      visibleProxies: 0,
+      hiddenProxies: 0,
       activeCells: 0,
       passiveCells: 0,
       totalCells: world._streamCells ? world._streamCells.size : 0,
@@ -105,10 +109,11 @@ const WorldStreamingSystem = {
   _cacheStreamProps(world) {
     if (!world || !world.scene) return;
     const list = [];
+    const importantProps = [];
     world.scene.traverse(obj => {
       if (!obj || !obj.userData) return;
       const kind = obj.userData.kind;
-      const important = kind === 'shrine' || kind === 'sheikahTower' || kind === 'campfire' || kind === 'chest';
+      const important = this._isImportantLandmarkKind(kind);
       if (obj.userData.perfCull !== true && !important) return;
       let p = obj.parent;
       while (p && p !== world.scene) {
@@ -116,8 +121,10 @@ const WorldStreamingSystem = {
         p = p.parent;
       }
       if (obj.userData.streamBaseVisible == null) obj.userData.streamBaseVisible = obj.visible !== false;
+      if (important) importantProps.push(obj);
       list.push(obj);
     });
+    for (const obj of importantProps) this._ensureStreamProxy(world, obj);
     world._streamProps = list;
   },
 
@@ -155,7 +162,7 @@ const WorldStreamingSystem = {
       if (obj.userData.detailLayer) {
         cell.details = cell.details || [];
         cell.details.push(obj);
-      } else if (kind === 'shrine' || kind === 'sheikahTower' || kind === 'campfire' || kind === 'chest') {
+      } else if (this._isImportantLandmarkKind(kind)) {
         cell.landmarks.push(obj);
       } else {
         cell.props.push(obj);
@@ -251,13 +258,16 @@ const WorldStreamingSystem = {
     const budget = this._budget();
     const px = player.position.x;
     const pz = player.position.z;
-    const cells = this._cellsInRadius(world, px, pz, budget.landmarkRadius);
+    const scanRadius = Math.max(budget.landmarkRadius || 0, budget.silhouetteRadius || 0);
+    const cells = this._cellsInRadius(world, px, pz, scanRadius);
     const previous = world._streamVisibleProps || new Set();
     const nextVisible = new Set();
     let visible = 0;
     let hidden = 0;
     let visibleDetails = 0;
     let hiddenDetails = 0;
+    let visibleProxies = 0;
+    let hiddenProxies = 0;
 
     for (const cell of cells) {
       for (const obj of cell.props) this._updatePropVisibility(obj, px, pz, budget, false, nextVisible);
@@ -277,6 +287,9 @@ const WorldStreamingSystem = {
       if (obj && obj.userData && obj.userData.detailLayer) {
         if (obj.visible) visibleDetails++;
         else hiddenDetails++;
+      } else if (obj && obj.userData && obj.userData.streamProxy) {
+        if (obj.userData.streamProxy.visible) visibleProxies++;
+        else hiddenProxies++;
       } else if (obj && obj.visible) visible++;
       else hidden++;
     }
@@ -285,6 +298,8 @@ const WorldStreamingSystem = {
     this._stats.hiddenProps = hidden;
     this._stats.visibleDetailCells = visibleDetails;
     this._stats.hiddenDetailCells = hiddenDetails;
+    this._stats.visibleProxies = visibleProxies;
+    this._stats.hiddenProxies = hiddenProxies;
     this._stats.totalCells = world._streamCells ? world._streamCells.size : 0;
     world._streamingStats = this._stats;
   },
@@ -301,6 +316,23 @@ const WorldStreamingSystem = {
       : distSq <= showRadius * showRadius;
     obj.visible = obj.userData.streamBaseVisible !== false && shouldShow;
     if (obj.visible) nextVisible.add(obj);
+    if (important) this._updateLandmarkProxy(obj, distSq, shouldShow, budget, nextVisible);
+  },
+
+  _updateLandmarkProxy(obj, distSq, fullDetailVisible, budget, nextVisible) {
+    const proxy = obj && obj.userData && obj.userData.streamProxy;
+    if (!proxy) return;
+    const silhouetteRadius = budget.silhouetteRadius || budget.landmarkRadius || 0;
+    const hideRadius = silhouetteRadius * 1.18;
+    const wasVisible = proxy.visible !== false;
+    const withinSilhouette = wasVisible
+      ? distSq <= hideRadius * hideRadius
+      : distSq <= silhouetteRadius * silhouetteRadius;
+    proxy.visible = obj.userData.streamBaseVisible !== false && !fullDetailVisible && withinSilhouette;
+    if (proxy.visible) {
+      proxy.position.copy(obj.position);
+      nextVisible.add(proxy);
+    }
   },
 
   _updateDetailVisibility(obj, px, pz, budget, nextVisible) {
@@ -378,6 +410,7 @@ const WorldStreamingSystem = {
       propRadius: this._isTouchDevice() ? 34 : 54,
       detailRadius: this._isTouchDevice() ? 42 : 58,
       landmarkRadius: this._isTouchDevice() ? 64 : 92,
+      silhouetteRadius: this._isTouchDevice() ? 180 : 240,
       frontBoost: this._isTouchDevice() ? 22 : 30,
       enemyInterval: this._isTouchDevice() ? 0.22 : 0.16,
       propInterval: this._isTouchDevice() ? 0.38 : 0.32
@@ -396,6 +429,53 @@ const WorldStreamingSystem = {
 
   _quality() {
     return (typeof VisualQualitySystem !== 'undefined' && VisualQualitySystem.level) || 'medium';
+  },
+
+  _isImportantLandmarkKind(kind) {
+    return kind === 'shrine' || kind === 'sheikahTower' || kind === 'campfire' || kind === 'chest';
+  },
+
+  _ensureStreamProxy(world, obj) {
+    if (!world || !world.scene || !obj || !obj.userData || obj.userData.streamProxy) return;
+    if (typeof THREE === 'undefined' || !THREE.Mesh || !THREE.MeshBasicMaterial) return;
+    const kind = obj.userData.kind;
+    const color = kind === 'sheikahTower' || kind === 'shrine' ? 0x66e4ff
+      : kind === 'campfire' ? 0xffb04a
+      : 0xffd56a;
+    const material = new THREE.MeshBasicMaterial({
+      color,
+      transparent: true,
+      opacity: kind === 'chest' ? 0.24 : 0.32,
+      depthWrite: false,
+      side: THREE.DoubleSide,
+      blending: THREE.AdditiveBlending
+    });
+    const geometry = this._proxyGeometry(kind);
+    if (!geometry) return;
+    const proxy = new THREE.Mesh(geometry, material);
+    proxy.name = 'stream-proxy-' + kind;
+    proxy.userData.kind = 'streamProxy';
+    proxy.userData.streamProxy = true;
+    proxy.userData.streamProxyFor = kind;
+    proxy.userData.perfCull = false;
+    proxy.visible = false;
+    proxy.renderOrder = 1;
+    proxy.position.copy(obj.position);
+    if (kind === 'sheikahTower') proxy.position.y += 1.6;
+    else if (kind === 'shrine') proxy.position.y += 0.75;
+    else if (kind === 'campfire') proxy.position.y += 0.35;
+    else proxy.position.y += 0.3;
+    obj.userData.streamProxy = proxy;
+    world.scene.add(proxy);
+  },
+
+  _proxyGeometry(kind) {
+    if (kind === 'sheikahTower' && THREE.CylinderGeometry) return new THREE.CylinderGeometry(0.42, 0.66, 3.2, 6);
+    if (kind === 'shrine' && THREE.BoxGeometry) return new THREE.BoxGeometry(1.8, 1.25, 1.8);
+    if (kind === 'campfire' && THREE.ConeGeometry) return new THREE.ConeGeometry(0.55, 0.9, 6);
+    if (kind === 'chest' && THREE.BoxGeometry) return new THREE.BoxGeometry(1.05, 0.62, 0.72);
+    if (THREE.SphereGeometry) return new THREE.SphereGeometry(0.65, 6, 4);
+    return null;
   },
 
   _isTouchDevice() {
