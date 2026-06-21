@@ -88,9 +88,8 @@ const BillboardPolishSystem = {
     if (world !== this._activeWorld) this.applyWorld(world);
     const layer = world._billboardPolishLayer;
     if (!layer) return;
-    const quality = (typeof VisualQualitySystem !== 'undefined' && VisualQualitySystem.level) || 'high';
-    const qualityMul = quality === 'low' ? 0.32 : quality === 'medium' ? 0.58 : quality === 'ultra' ? 1.15 : 1;
-    const activeCount = Math.max(8, Math.floor(layer.items.length * qualityMul));
+    const activeCount = this._activeCount(layer);
+    const radius = this._detailRadius();
     const player = game.player.position;
     const camera = game.camera;
     const t = performance.now() * 0.001;
@@ -101,7 +100,7 @@ const BillboardPolishSystem = {
       if (!mesh.visible) continue;
       const dx = mesh.position.x - player.x;
       const dz = mesh.position.z - player.z;
-      if (Math.hypot(dx, dz) > this.radius * 1.22) {
+      if (Math.hypot(dx, dz) > radius * 1.18) {
         this._placeItem(world, item, player.x, player.z);
       }
       if (camera) mesh.quaternion.copy(camera.quaternion);
@@ -171,16 +170,46 @@ const BillboardPolishSystem = {
     return mesh;
   },
 
+  _activeCount(layer) {
+    const items = layer && Array.isArray(layer.items) ? layer.items : [];
+    if (!items.length) return 0;
+    const density = this._detailDensity();
+    return Math.min(items.length, Math.max(8, Math.floor(items.length * density)));
+  },
+
+  _detailDensity() {
+    const budget = this._budget();
+    if (budget && Number.isFinite(Number(budget.detailDensity))) {
+      return Math.max(0.12, Math.min(1.15, Number(budget.detailDensity)));
+    }
+    const quality = (typeof VisualQualitySystem !== 'undefined' && VisualQualitySystem.level) || 'high';
+    return quality === 'low' ? 0.32 : quality === 'medium' ? 0.58 : quality === 'ultra' ? 1.15 : 1;
+  },
+
+  _detailRadius() {
+    const budget = this._budget();
+    const radius = budget && Number(budget.detailRadius);
+    return Number.isFinite(radius) && radius > 0 ? radius : this.radius;
+  },
+
+  _budget() {
+    if (typeof VisualQualitySystem !== 'undefined' && VisualQualitySystem && typeof VisualQualitySystem.getBudget === 'function') {
+      return VisualQualitySystem.getBudget() || {};
+    }
+    return {};
+  },
+
   _placeItem(world, item, cx, cz) {
-    const r = Math.sqrt(Math.random()) * this.radius;
+    const radius = this._detailRadius();
+    const r = Math.sqrt(Math.random()) * radius;
     const a = Math.random() * Math.PI * 2;
     let x = cx + Math.cos(a) * r;
     let z = cz + Math.sin(a) * r;
     for (let tries = 0; tries < 8; tries++) {
       const terrain = world.getTerrainAt ? world.getTerrainAt(x, z) : null;
       if (!terrain || !terrain.inWater || item.spec.name === 'reed-cluster') break;
-      x = cx + Math.cos(Math.random() * Math.PI * 2) * Math.sqrt(Math.random()) * this.radius;
-      z = cz + Math.sin(Math.random() * Math.PI * 2) * Math.sqrt(Math.random()) * this.radius;
+      x = cx + Math.cos(Math.random() * Math.PI * 2) * Math.sqrt(Math.random()) * radius;
+      z = cz + Math.sin(Math.random() * Math.PI * 2) * Math.sqrt(Math.random()) * radius;
     }
     const terrain = world.getTerrainAt ? world.getTerrainAt(x, z) : null;
     const groundY = terrain && terrain.slope ? terrain.slope.height : 0;
