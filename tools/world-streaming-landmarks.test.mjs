@@ -102,6 +102,7 @@ const context = {
         detailRadius: 42,
         landmarkRadius: 64,
         silhouetteRadius: 180,
+        treeProxyRadius: 150,
         frontBoost: 22,
         enemyInterval: 0.22,
         propInterval: 0.38
@@ -120,17 +121,26 @@ shrine.userData.perfCull = true;
 shrine.position.set(120, 0, 0);
 scene.add(shrine);
 
+const tree = new Mesh();
+tree.userData.kind = 'tree';
+tree.userData.perfCull = true;
+tree.position.set(90, 0, 0);
+scene.add(tree);
+
 const world = { scene, enemies: [] };
 const player = { position: new Vec3(0, 0, 0) };
 const streaming = context.window.WorldStreamingSystem;
 streaming.applyWorld(world, { currentWorld: world, player });
 
 assert.ok(shrine.userData.streamProxy, 'important landmarks should receive a lightweight stream proxy');
+assert.ok(tree.userData.streamProxy, 'tree props should receive a lightweight stream proxy');
 
 streaming._updateProps(world, player);
 
 assert.equal(shrine.visible, false, 'far full-detail shrine should be hidden outside landmark radius');
 assert.equal(shrine.userData.streamProxy.visible, true, 'far shrine proxy should remain visible inside silhouette radius');
-assert.equal(streaming.snapshot().visibleProxies, 1, 'visible proxy should be counted for diagnostics');
+assert.equal(tree.visible, false, 'far full-detail tree should be hidden outside prop radius');
+assert.equal(tree.userData.streamProxy.visible, true, 'far tree proxy should remain visible inside tree proxy radius');
+assert.equal(streaming.snapshot().visibleProxies, 2, 'visible proxies should be counted for diagnostics');
 
 console.log('world streaming landmark proxy ok');

@@ -109,11 +109,12 @@ const WorldStreamingSystem = {
   _cacheStreamProps(world) {
     if (!world || !world.scene) return;
     const list = [];
-    const importantProps = [];
+    const proxyProps = [];
     world.scene.traverse(obj => {
       if (!obj || !obj.userData) return;
       const kind = obj.userData.kind;
       const important = this._isImportantLandmarkKind(kind);
+      const proxyEligible = important || this._isTreeLikeKind(kind);
       if (obj.userData.perfCull !== true && !important) return;
       let p = obj.parent;
       while (p && p !== world.scene) {
@@ -121,10 +122,10 @@ const WorldStreamingSystem = {
         p = p.parent;
       }
       if (obj.userData.streamBaseVisible == null) obj.userData.streamBaseVisible = obj.visible !== false;
-      if (important) importantProps.push(obj);
+      if (proxyEligible) proxyProps.push(obj);
       list.push(obj);
     });
-    for (const obj of importantProps) this._ensureStreamProxy(world, obj);
+    for (const obj of proxyProps) this._ensureStreamProxy(world, obj);
     world._streamProps = list;
   },
 
@@ -258,7 +259,7 @@ const WorldStreamingSystem = {
     const budget = this._budget();
     const px = player.position.x;
     const pz = player.position.z;
-    const scanRadius = Math.max(budget.landmarkRadius || 0, budget.silhouetteRadius || 0);
+    const scanRadius = Math.max(budget.landmarkRadius || 0, budget.silhouetteRadius || 0, budget.treeProxyRadius || 0);
     const cells = this._cellsInRadius(world, px, pz, scanRadius);
     const previous = world._streamVisibleProps || new Set();
     const nextVisible = new Set();
@@ -317,6 +318,7 @@ const WorldStreamingSystem = {
     obj.visible = obj.userData.streamBaseVisible !== false && shouldShow;
     if (obj.visible) nextVisible.add(obj);
     if (important) this._updateLandmarkProxy(obj, distSq, shouldShow, budget, nextVisible);
+    else if (this._isTreeLikeKind(obj.userData.kind)) this._updateTreeProxy(obj, distSq, shouldShow, budget, nextVisible);
   },
 
   _updateLandmarkProxy(obj, distSq, fullDetailVisible, budget, nextVisible) {
@@ -329,6 +331,22 @@ const WorldStreamingSystem = {
       ? distSq <= hideRadius * hideRadius
       : distSq <= silhouetteRadius * silhouetteRadius;
     proxy.visible = obj.userData.streamBaseVisible !== false && !fullDetailVisible && withinSilhouette;
+    if (proxy.visible) {
+      proxy.position.copy(obj.position);
+      nextVisible.add(proxy);
+    }
+  },
+
+  _updateTreeProxy(obj, distSq, fullDetailVisible, budget, nextVisible) {
+    const proxy = obj && obj.userData && obj.userData.streamProxy;
+    if (!proxy) return;
+    const radius = budget.treeProxyRadius || budget.propRadius || 0;
+    const hideRadius = radius * 1.18;
+    const wasVisible = proxy.visible !== false;
+    const withinProxyRange = wasVisible
+      ? distSq <= hideRadius * hideRadius
+      : distSq <= radius * radius;
+    proxy.visible = obj.userData.streamBaseVisible !== false && !fullDetailVisible && withinProxyRange;
     if (proxy.visible) {
       proxy.position.copy(obj.position);
       nextVisible.add(proxy);
@@ -411,6 +429,7 @@ const WorldStreamingSystem = {
       detailRadius: this._isTouchDevice() ? 42 : 58,
       landmarkRadius: this._isTouchDevice() ? 64 : 92,
       silhouetteRadius: this._isTouchDevice() ? 180 : 240,
+      treeProxyRadius: this._isTouchDevice() ? 150 : 210,
       frontBoost: this._isTouchDevice() ? 22 : 30,
       enemyInterval: this._isTouchDevice() ? 0.22 : 0.16,
       propInterval: this._isTouchDevice() ? 0.38 : 0.32
@@ -435,17 +454,23 @@ const WorldStreamingSystem = {
     return kind === 'shrine' || kind === 'sheikahTower' || kind === 'campfire' || kind === 'chest';
   },
 
+  _isTreeLikeKind(kind) {
+    const k = String(kind || '').toLowerCase();
+    return k === 'tree' || k === 'palm' || k.includes('tree');
+  },
+
   _ensureStreamProxy(world, obj) {
     if (!world || !world.scene || !obj || !obj.userData || obj.userData.streamProxy) return;
     if (typeof THREE === 'undefined' || !THREE.Mesh || !THREE.MeshBasicMaterial) return;
     const kind = obj.userData.kind;
     const color = kind === 'sheikahTower' || kind === 'shrine' ? 0x66e4ff
       : kind === 'campfire' ? 0xffb04a
+      : this._isTreeLikeKind(kind) ? 0x8fd06a
       : 0xffd56a;
     const material = new THREE.MeshBasicMaterial({
       color,
       transparent: true,
-      opacity: kind === 'chest' ? 0.24 : 0.32,
+      opacity: this._isTreeLikeKind(kind) ? 0.2 : kind === 'chest' ? 0.24 : 0.32,
       depthWrite: false,
       side: THREE.DoubleSide,
       blending: THREE.AdditiveBlending
@@ -464,6 +489,7 @@ const WorldStreamingSystem = {
     if (kind === 'sheikahTower') proxy.position.y += 1.6;
     else if (kind === 'shrine') proxy.position.y += 0.75;
     else if (kind === 'campfire') proxy.position.y += 0.35;
+    else if (this._isTreeLikeKind(kind)) proxy.position.y += 1.25;
     else proxy.position.y += 0.3;
     obj.userData.streamProxy = proxy;
     world.scene.add(proxy);
@@ -473,6 +499,7 @@ const WorldStreamingSystem = {
     if (kind === 'sheikahTower' && THREE.CylinderGeometry) return new THREE.CylinderGeometry(0.42, 0.66, 3.2, 6);
     if (kind === 'shrine' && THREE.BoxGeometry) return new THREE.BoxGeometry(1.8, 1.25, 1.8);
     if (kind === 'campfire' && THREE.ConeGeometry) return new THREE.ConeGeometry(0.55, 0.9, 6);
+    if (this._isTreeLikeKind(kind) && THREE.ConeGeometry) return new THREE.ConeGeometry(0.92, 2.4, 5);
     if (kind === 'chest' && THREE.BoxGeometry) return new THREE.BoxGeometry(1.05, 0.62, 0.72);
     if (THREE.SphereGeometry) return new THREE.SphereGeometry(0.65, 6, 4);
     return null;
