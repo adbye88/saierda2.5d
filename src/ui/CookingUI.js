@@ -115,7 +115,9 @@ const CookingUI = {
     }
     // 产出
     const result = CookingSystem.cook(this.selected);
+    const cookedIngredients = this.selected.slice();
     inv.add(result, 1);
+    if (CookingSystem.recordRecipe) CookingSystem.recordRecipe(result, cookedIngredients, window.game);
     const rd = ITEMS[result];
     Dialogue.show(`🍲 烹饪成功！获得 ${rd.icon} ${rd.name}`);
     Effects.pickupFlash(this.currentPot.position);

@@ -80,6 +80,21 @@ const CookingSystem = {
     return parts.join('；');
   },
 
+  recordRecipe(resultId, ingredientIds = [], game = window.game) {
+    if (!resultId || typeof SaveSystem === 'undefined') return false;
+    const p = SaveSystem.getProgress();
+    if (!Array.isArray(p.discoveredRecipes)) p.discoveredRecipes = [];
+    const key = `${resultId}:${ingredientIds.slice().sort().join('+')}`;
+    const first = !p.discoveredRecipes.includes(key);
+    if (!first) return false;
+    p.discoveredRecipes.push(key);
+    SaveSystem.setProgress(p);
+    const d = typeof ITEMS !== 'undefined' ? ITEMS[resultId] : null;
+    if (game && game.player && game.player.inventory) game.player.inventory.add('rupee', 8);
+    if (typeof Dialogue !== 'undefined') Dialogue.show(`📖 首次发现配方：${d ? d.name : resultId}，奖励 8 卢比`);
+    return true;
+  },
+
   buffName(type) {
     return {
       coldRes: '防寒',

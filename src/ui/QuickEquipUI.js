@@ -40,8 +40,8 @@ const QuickEquipUI = {
     const candidates = inv.slots[type]
       .filter(stack => stack && stack.def && (!stack.def.durability || stack.durability > 0))
       .sort((a, b) => {
-        const atkA = a.def.atk || a.def.def || 0;
-        const atkB = b.def.atk || b.def.def || 0;
+        const atkA = a.def.type === 'shield' && inv.getStackDefense ? inv.getStackDefense(a) : (inv.getStackAttack ? inv.getStackAttack(a) : (a.def.atk || a.def.def || 0));
+        const atkB = b.def.type === 'shield' && inv.getStackDefense ? inv.getStackDefense(b) : (inv.getStackAttack ? inv.getStackAttack(b) : (b.def.atk || b.def.def || 0));
         return atkB - atkA || (b.durability || 0) - (a.durability || 0);
       })
       .slice(0, 6);
@@ -51,7 +51,10 @@ const QuickEquipUI = {
     }
     this.listEl.innerHTML = candidates.map((stack, i) => {
       const d = stack.def;
-      const stat = d.type === 'weapon' || d.type === 'bow' ? `攻${d.atk}` : d.type === 'shield' ? `防${d.def}` : '';
+      const name = inv.getStackDisplayName ? inv.getStackDisplayName(stack) : d.name;
+      const stat = d.type === 'weapon' || d.type === 'bow'
+        ? `攻${inv.getStackAttack ? inv.getStackAttack(stack) : d.atk}`
+        : d.type === 'shield' ? `防${inv.getStackDefense ? inv.getStackDefense(stack) : d.def}` : '';
       const maxDurability = stack.maxDurability || d.durability;
       const dur = d.durability ? `${stack.durability}/${maxDurability}` : '';
       const crit = (d.type === 'weapon' || d.type === 'bow') && inv.getCriticalStats
@@ -59,7 +62,7 @@ const QuickEquipUI = {
         : '';
       return `<button class="quick-equip-item" data-i="${i}">
         ${ArtAssets.itemIconHtml(stack.itemId, 'quick-equip-icon')}
-        <span class="quick-equip-name">${d.name}</span>
+        <span class="quick-equip-name">${name}</span>
         <span class="quick-equip-stat">${[stat, dur, crit].filter(Boolean).join(' · ')}</span>
       </button>`;
     }).join('');

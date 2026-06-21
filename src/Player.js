@@ -975,7 +975,9 @@ class Player {
     this.stamina -= 18;
     this.inventory.damageShield(2);
     const weapon = this.inventory.equipped.weapon;
-    const base = weapon ? Math.max(1, weapon.def.atk || 1) : Math.max(4, shield.def.def || 1);
+    const base = weapon
+      ? Math.max(1, this.inventory.getStackAttack ? this.inventory.getStackAttack(weapon) : (weapon.def.atk || 1))
+      : Math.max(4, this.inventory.getStackDefense ? this.inventory.getStackDefense(shield) : (shield.def.def || 1));
     const set = this.inventory && this.inventory.getSetEffects ? this.inventory.getSetEffects() : {};
     const dmg = base * 3 * (set.counterAtkMul || 1);
     const dir = this._shieldCounterDir && this._shieldCounterDir.lengthSq() > 0.001
@@ -1065,7 +1067,8 @@ class Player {
     const weapon = this.inventory.equipped.weapon;
     const profile = this._attackProfile || this._weaponProfile(weapon);
     const set = this.inventory && this.inventory.getSetEffects ? this.inventory.getSetEffects() : {};
-    let dmg = Math.max(1, Math.round((weapon ? weapon.def.atk : 1) * profile.damageMul));
+    const baseAtk = weapon && this.inventory.getStackAttack ? this.inventory.getStackAttack(weapon) : (weapon ? weapon.def.atk : 1);
+    let dmg = Math.max(1, Math.round(baseAtk * profile.damageMul));
     if (this._flurryTimer > 0) dmg = Math.round(dmg * 1.8);
     if (set.meleeAtkMul) dmg = Math.round(dmg * set.meleeAtkMul);
     if (weapon && weapon.itemId && weapon.itemId.startsWith('ancient') && set.ancientAtkMul) {
@@ -1229,7 +1232,8 @@ class Player {
     const dmgMul = arrowType === 'ancient' ? 1.5 : arrowType === 'piercing' ? 1.3 : 1.0;
     arrow.userData.velocity = dir.multiplyScalar(speed);
     const set = this.inventory && this.inventory.getSetEffects ? this.inventory.getSetEffects() : {};
-    let arrowDmg = Math.round(bow.def.atk * dmgMul * (set.bowAtkMul || 1));
+    const bowAtk = this.inventory.getStackAttack ? this.inventory.getStackAttack(bow) : bow.def.atk;
+    let arrowDmg = Math.round(bowAtk * dmgMul * (set.bowAtkMul || 1));
     if (bow.itemId === 'ancientBow' && set.ancientAtkMul) arrowDmg = Math.round(arrowDmg * set.ancientAtkMul);
     const crit = this._rollCritical('bow');
     if (crit.critical) arrowDmg = Math.round(arrowDmg * crit.multiplier);
@@ -1312,7 +1316,8 @@ class Player {
       const shield = this.inventory.equipped.shield;
       const facing = shieldDir;
       if (incomingDir && facing.dot(incomingDir.clone().negate()) > 0.45) {
-        const reduced = Math.max(0, amount - shield.def.def);
+        const shieldDef = this.inventory.getStackDefense ? this.inventory.getStackDefense(shield) : shield.def.def;
+        const reduced = Math.max(0, amount - shieldDef);
         this.hp -= reduced;
         this.inventory.damageShield(1);
         this._shieldCounterWindow = 0.42;

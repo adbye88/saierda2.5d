@@ -176,7 +176,9 @@ const HUD = {
       const d = ITEMS[w.itemId];
       const crit = p.inventory.getCriticalStats ? p.inventory.getCriticalStats('weapon') : { chance: 0.01 };
       const maxDurability = w.maxDurability || d.durability;
-      parts.push(`${ArtAssets.itemIconHtml(w.itemId, 'hud-item-icon')} ${d.name} <span style="opacity:.6;font-size:11px">攻${d.atk} |${w.durability}/${maxDurability} | ✦${(crit.chance * 100).toFixed(1)}%</span>`);
+      const name = p.inventory.getStackDisplayName ? p.inventory.getStackDisplayName(w) : d.name;
+      const atk = p.inventory.getStackAttack ? p.inventory.getStackAttack(w) : d.atk;
+      parts.push(`${ArtAssets.itemIconHtml(w.itemId, 'hud-item-icon')} ${name} <span style="opacity:.6;font-size:11px">攻${atk} |${w.durability}/${maxDurability} | ✦${(crit.chance * 100).toFixed(1)}%</span>`);
     }
     if (s) {
       const d = ITEMS[s.itemId];

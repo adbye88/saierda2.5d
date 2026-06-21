@@ -1319,9 +1319,14 @@ class Enemy {
       drops.push([this.heldShieldId, 1]);
     }
     for (const [item, count] of drops) {
+      const def = typeof ITEMS !== 'undefined' ? ITEMS[item] : null;
+      const itemOptions = def && ['weapon', 'shield', 'bow'].includes(def.type)
+        ? { rollModifier: true, modifierChance: this.boss || this.miniBoss ? 0.55 : 0.28, source: 'drop' }
+        : {};
       const drop = new DropItem(item, count,
         this.position.x + (Math.random() - 0.5) * 1.5,
-        this.position.z + (Math.random() - 0.5) * 1.5);
+        this.position.z + (Math.random() - 0.5) * 1.5,
+        itemOptions);
       if (window.game && window.game.currentWorld) {
         window.game.currentWorld.drops.push(drop);
         window.game.currentWorld.scene.add(drop.mesh);
@@ -1338,9 +1343,10 @@ class Enemy {
 // DropItem — 地面拾取物
 // ========================================================
 class DropItem {
-  constructor(itemId, count, x, z) {
+  constructor(itemId, count, x, z, options = {}) {
     this.itemId = itemId;
     this.count = count;
+    this.options = options || {};
     this.pickedUp = false;
     const def = ITEMS[itemId];
     const color = def.type === 'weapon' ? 0xff8844 :

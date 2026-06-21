@@ -39,6 +39,7 @@ const CompendiumUI = {
         </div>
         <div class="compendium-tools">
           <div id="compendium-tabs" class="compendium-tabs"></div>
+          <button id="compendium-scan" class="comp-path-btn">扫描附近</button>
           <input id="compendium-search" type="search" placeholder="搜索名称、来源、位置..." autocomplete="off">
         </div>
         <div class="compendium-body">
@@ -49,6 +50,7 @@ const CompendiumUI = {
     `;
     document.body.appendChild(this.el);
     document.getElementById('compendium-close').addEventListener('click', () => this.close());
+    document.getElementById('compendium-scan').addEventListener('click', () => this.scanNearby());
     document.getElementById('compendium-search').addEventListener('input', (e) => {
       this.query = e.target.value.trim().toLowerCase();
       this.selectedId = null;
@@ -210,6 +212,21 @@ const CompendiumUI = {
     };
     Dialogue.show(`开始自动寻路：${label}`);
     this.close();
+  },
+
+  scanNearby() {
+    if (typeof ExplorationSystem === 'undefined' || !window.game || !window.game.currentWorld) {
+      Dialogue.show('当前无法扫描。');
+      return;
+    }
+    const result = ExplorationSystem.scanNearby(window.game.currentWorld, window.game);
+    if (result) {
+      this.query = result.label ? String(result.label).toLowerCase() : '';
+      const input = document.getElementById('compendium-search');
+      if (input) input.value = this.query;
+      this.refresh();
+      this.render();
+    }
   },
 
   _entryIcon(entry, large = false) {

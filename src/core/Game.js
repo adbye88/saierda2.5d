@@ -309,6 +309,7 @@ class Game {
       this._runSubsystem('world', () => this.currentWorld.update(worldDt, this));
     }
     this._runSubsystem('story', () => { if (typeof StorySystem !== 'undefined') StorySystem.updateWorld(this.currentWorld, this, dt); });
+    this._runSubsystem('bounty', () => { if (typeof BountySystem !== 'undefined') BountySystem.update(this); });
     this._runSubsystem('effects', () => Effects.update(dt));
     if (this.lockedEnemy && (this.lockedEnemy.dead || this.lockedEnemy.hp <= 0)) {
       this.lockedEnemy = null;

@@ -11,6 +11,13 @@ const ExplorationSystem = {
     const p = SaveSystem.getProgress ? SaveSystem.getProgress() : {};
     if (!p.discoveryRewards) p.discoveryRewards = [];
     if (!p.koroks) p.koroks = [];
+    if (!p.clearedCamps) p.clearedCamps = [];
+    if (!p.harvestedNodes) p.harvestedNodes = [];
+    if (!p.discoveredRecipes) p.discoveredRecipes = [];
+    if (!p.scannedCompendium) p.scannedCompendium = [];
+    if (!p.rumorsHeard) p.rumorsHeard = [];
+    if (!p.bounties) p.bounties = { claimed: [] };
+    if (!Array.isArray(p.bounties.claimed)) p.bounties.claimed = [];
     SaveSystem.setProgress && SaveSystem.setProgress(p);
   },
 
@@ -25,6 +32,26 @@ const ExplorationSystem = {
     if (!p[key]) p[key] = [];
     if (!p[key].includes(id)) p[key].push(id);
     SaveSystem.setProgress && SaveSystem.setProgress(p);
+  },
+
+  _progressList(key) {
+    const p = SaveSystem.getProgress ? SaveSystem.getProgress() : {};
+    if (!Array.isArray(p[key])) p[key] = [];
+    return { p, list: p[key] };
+  },
+
+  _hasProgress(key, id) {
+    const p = SaveSystem.getProgress ? SaveSystem.getProgress() : {};
+    return Array.isArray(p[key]) && p[key].includes(id);
+  },
+
+  _markProgress(key, id) {
+    if (!id) return false;
+    const { p, list } = this._progressList(key);
+    if (list.includes(id)) return false;
+    list.push(id);
+    SaveSystem.setProgress && SaveSystem.setProgress(p);
+    return true;
   },
 
   materialProps() {
@@ -83,6 +110,7 @@ const ExplorationSystem = {
     if (!world || !def) return null;
     if (!world.camps) world.camps = [];
     const camp = Object.assign({ radius: 16, alarmRadius: 9, alerted: false, hornTimer: 0 }, def);
+    camp.id = camp.id || `${world.name || 'world'}_camp_${Math.round(camp.x || 0)}_${Math.round(camp.z || 0)}`;
     world.camps.push(camp);
     const flag = this._createCampFlag(camp);
     flag.position.set(camp.x || 0, 0, camp.z || 0);
@@ -90,6 +118,38 @@ const ExplorationSystem = {
     camp.marker = flag;
     this._createCampExplosive(world, camp);
     return camp;
+  },
+
+  addHarvestNode(world, def) {
+    if (!world || !def || !def.id || this._hasProgress('harvestedNodes', def.id)) return null;
+    if (!world.harvestNodes) world.harvestNodes = [];
+    const node = Object.assign({
+      radius: 2.2,
+      clueRadius: 7,
+      label: '采集点',
+      items: [['apple', 1]],
+      kind: 'herb'
+    }, def);
+    node.pos = new THREE.Vector3(node.x || 0, node.y || 0, node.z || 0);
+    node.marker = this._createHarvestMarker(node);
+    node.marker.position.copy(node.pos);
+    node.marker.userData.harvestNode = node;
+    world.scene.add(node.marker);
+    world.harvestNodes.push(node);
+    return node.marker;
+  },
+
+  addRumor(world, def) {
+    if (!world || !def || !def.id) return null;
+    if (!world.rumors) world.rumors = [];
+    const rumor = Object.assign({ radius: 2.5, clueRadius: 8, label: '传闻线索' }, def);
+    rumor.pos = new THREE.Vector3(rumor.x || 0, rumor.y || 0, rumor.z || 0);
+    rumor.marker = this._createRumorMarker(rumor);
+    rumor.marker.position.copy(rumor.pos);
+    rumor.marker.userData.rumor = rumor;
+    world.scene.add(rumor.marker);
+    world.rumors.push(rumor);
+    return rumor.marker;
   },
 
   updateWorld(world, game, dt) {
@@ -100,6 +160,8 @@ const ExplorationSystem = {
     this._updateClimbSpots(world, game, dt);
     this._updateHazards(world, game, dt);
     this._updateCamps(world, game, dt);
+    this._updateHarvestNodes(world, game, dt);
+    this._updateRumors(world, game, dt);
   },
 
   applyElementToWorld(world, pos, element, source) {
@@ -195,6 +257,49 @@ const ExplorationSystem = {
     }
   },
 
+  _updateHarvestNodes(world, game, dt) {
+    const player = game.player;
+    const wantsInspect = Input.justInteract || Input.state.interact || Input._interactBuffer > 0;
+    for (const node of (world.harvestNodes || [])) {
+      if (!node || node.done || this._hasProgress('harvestedNodes', node.id)) continue;
+      const dist = player.position.distanceTo(node.pos);
+      if (node.marker) {
+        node.marker.rotation.y += dt * 0.65;
+        const glow = node.marker.getObjectByName && node.marker.getObjectByName('harvestGlow');
+        if (glow) glow.scale.setScalar(0.9 + Math.sin(performance.now() * 0.004) * 0.08);
+      }
+      if (dist < (node.radius || 2.2) && wantsInspect) {
+        node.done = true;
+        this._markProgress('harvestedNodes', node.id);
+        this._grantReward(game, node.items || [['apple', 1]]);
+        if (node.marker && node.marker.parent) node.marker.parent.remove(node.marker);
+        Dialogue.show(`采集：${node.label}，获得了 ${this._itemsText(node.items)}`);
+        if (typeof Effects !== 'undefined') Effects.pickupFlash(node.pos.clone().setY(0.8));
+      } else if (dist < (node.clueRadius || 7)) {
+        this._showClue(node.clue || `附近有${node.label}，按 E / 对话采集。`);
+      }
+    }
+  },
+
+  _updateRumors(world, game, dt) {
+    const player = game.player;
+    const wantsInspect = Input.justInteract || Input.state.interact || Input._interactBuffer > 0;
+    for (const rumor of (world.rumors || [])) {
+      if (!rumor) continue;
+      const dist = player.position.distanceTo(rumor.pos);
+      if (rumor.marker) rumor.marker.rotation.y += dt * 0.35;
+      if (dist < (rumor.radius || 2.5) && wantsInspect) {
+        const first = this._markProgress('rumorsHeard', rumor.id);
+        Dialogue.show(rumor.text || rumor.clue || '听到了一条新的冒险传闻。', 4200);
+        HUD.setQuest(`传闻：${rumor.label || '新的线索'}`, 0x9fd3ff);
+        if (first && rumor.items) this._grantReward(game, rumor.items);
+        if (typeof CompendiumUI !== 'undefined' && CompendiumUI.isOpen) CompendiumUI.refresh();
+      } else if (dist < (rumor.clueRadius || 8)) {
+        this._showClue(rumor.clue || `调查${rumor.label || '路牌'}可获得线索。`);
+      }
+    }
+  },
+
   _updateClimbSpots(world, game, dt) {
     const player = game.player;
     let near = null;
@@ -242,6 +347,7 @@ const ExplorationSystem = {
       const center = new THREE.Vector3(c.x || 0, 0, c.z || 0);
       const d = player.position.distanceTo(center);
       this._updateCampEnemies(world, c, player, dt);
+      this._checkCampClear(world, game, c);
       if (d > c.radius) {
         c.hornTimer = Math.max(0, (c.hornTimer || 0) - dt * 0.65);
         continue;
@@ -264,6 +370,59 @@ const ExplorationSystem = {
       }
       if (c.marker) c.marker.rotation.y += dt * (c.alerted ? 2.5 : 0.7);
     }
+  },
+
+  _checkCampClear(world, game, camp) {
+    if (!camp || camp.cleared || this._hasProgress('clearedCamps', camp.id)) {
+      if (camp) camp.cleared = true;
+      return false;
+    }
+    const enemies = (camp.enemies || []).filter(Boolean);
+    if (!enemies.length || enemies.some(e => !e.dead)) return false;
+    camp.cleared = true;
+    this._markProgress('clearedCamps', camp.id);
+    const reward = camp.reward || [['rupee', 35], ['arrow', 8]];
+    this._grantReward(game, reward);
+    if (camp.marker && camp.marker.parent) {
+      const flag = camp.marker;
+      flag.scale.setScalar(0.85);
+    }
+    Dialogue.show(`✓ 清剿完成：${camp.name || '怪物营地'}！获得 ${this._itemsText(reward)}`);
+    HUD.setQuest(`营地清剿：${camp.name || '怪物营地'} 已安全`, 0xffd86a);
+    if (typeof Effects !== 'undefined') Effects.shrineRunePulse(new THREE.Vector3(camp.x || 0, 0.8, camp.z || 0));
+    return true;
+  },
+
+  scanNearby(world, game = window.game) {
+    if (!world || !game || !game.player) return null;
+    const origin = game.player.position;
+    const candidates = [];
+    for (const e of (world.enemies || [])) {
+      if (e && !e.dead && e.mesh) candidates.push({ id: `${world.name}_enemy_${e.typeId}`, label: e.def ? e.def.name : e.typeId, pos: e.mesh.position, type: '怪物' });
+    }
+    for (const n of (world.harvestNodes || [])) {
+      if (n && !n.done) candidates.push({ id: `${world.name}_harvest_${n.kind || n.id}`, label: n.label, pos: n.pos, type: '采集点' });
+    }
+    for (const r of (world.rumors || [])) {
+      if (r) candidates.push({ id: `${world.name}_rumor_${r.id}`, label: r.label, pos: r.pos, type: '传闻' });
+    }
+    for (const c of (world.camps || [])) {
+      if (c) candidates.push({ id: `${world.name}_camp_${c.id}`, label: c.name || '怪物营地', pos: new THREE.Vector3(c.x || 0, 0, c.z || 0), type: '营地' });
+    }
+    let best = null, bestD = Infinity;
+    for (const row of candidates) {
+      const d = origin.distanceTo(row.pos);
+      if (d < 9 && d < bestD) { best = row; bestD = d; }
+    }
+    if (!best) {
+      Dialogue.show('附近没有可扫描的图鉴目标。');
+      return null;
+    }
+    this._markProgress('scannedCompendium', best.id);
+    Dialogue.show(`图鉴扫描：${best.type} · ${best.label}`);
+    if (typeof Effects !== 'undefined') Effects.shrineRunePulse(best.pos.clone().setY(1.1));
+    if (typeof CompendiumUI !== 'undefined' && CompendiumUI.isOpen) CompendiumUI.refresh();
+    return best;
   },
 
   applyWeaponEcologyOnHit(attacker, target, element) {
@@ -494,7 +653,14 @@ const ExplorationSystem = {
 
   _grantReward(game, items) {
     if (!game || !game.player || !game.player.inventory) return;
-    for (const row of items) game.player.inventory.add(row[0], row[1] || 1);
+    for (const row of items) game.player.inventory.add(row[0], row[1] || 1, row[2] || {});
+  },
+
+  _itemsText(items) {
+    return (items || []).map(([id, count = 1]) => {
+      const d = typeof ITEMS !== 'undefined' ? ITEMS[id] : null;
+      return `${d ? (d.icon || '') + d.name : id}${count > 1 ? '×' + count : ''}`;
+    }).join('、') || '补给';
   },
 
   _showClue(text) {
@@ -516,6 +682,56 @@ const ExplorationSystem = {
     const glow = new THREE.Mesh(new THREE.SphereGeometry(0.28, 8, 6), new THREE.MeshBasicMaterial({ color: def.color || 0xffd66a, transparent: true, opacity: 0.55 }));
     glow.position.y = 1.35;
     g.add(glow);
+    return g;
+  },
+
+  _createHarvestMarker(def) {
+    const g = new THREE.Group();
+    const color = def.kind === 'ore' ? 0x8fd7ff
+      : def.kind === 'fish' ? 0x6ed8ff
+      : def.kind === 'honey' ? 0xffd86a
+      : def.kind === 'nest' ? 0xf0d0a0
+      : 0x9fffb4;
+    const mat = new THREE.MeshStandardMaterial({ color, roughness: 0.72, metalness: def.kind === 'ore' ? 0.18 : 0.02, flatShading: true });
+    const base = def.kind === 'ore'
+      ? new THREE.Mesh(new THREE.DodecahedronGeometry(0.45, 0), mat)
+      : new THREE.Mesh(new THREE.ConeGeometry(0.32, 0.75, 6), mat);
+    base.position.y = 0.38;
+    g.add(base);
+    const glow = new THREE.Mesh(
+      new THREE.SphereGeometry(0.36, 8, 6),
+      new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.24, depthWrite: false })
+    );
+    glow.name = 'harvestGlow';
+    glow.position.y = 0.9;
+    g.add(glow);
+    g.userData.kind = 'harvestNode';
+    g.userData.perfCull = true;
+    return g;
+  },
+
+  _createRumorMarker(def) {
+    const g = new THREE.Group();
+    const post = new THREE.Mesh(
+      new THREE.BoxGeometry(0.14, 1.0, 0.14),
+      new THREE.MeshStandardMaterial({ color: 0x5a3b22, roughness: 0.8, flatShading: true })
+    );
+    post.position.y = 0.5;
+    g.add(post);
+    const board = new THREE.Mesh(
+      new THREE.BoxGeometry(0.95, 0.42, 0.08),
+      new THREE.MeshStandardMaterial({ color: 0xb0844c, roughness: 0.72, flatShading: true })
+    );
+    board.position.y = 1.05;
+    g.add(board);
+    const mark = new THREE.Mesh(
+      new THREE.SphereGeometry(0.09, 8, 6),
+      new THREE.MeshBasicMaterial({ color: 0x9fd3ff, transparent: true, opacity: 0.78 })
+    );
+    mark.position.set(0, 1.36, 0);
+    g.add(mark);
+    g.userData.kind = 'rumorSign';
+    g.userData.perfCull = true;
     return g;
   },
 

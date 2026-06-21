@@ -194,6 +194,34 @@ const COOKING_RECIPES = {
   defenseBuff:    { result: 'toughElixir',    desc: '防御药' }
 };
 
+// ---------- 装备词条 ----------
+// 只改数值和显示，不新增高成本渲染资源，适合浏览器端轻量开放世界循环。
+const ITEM_MODIFIERS = {
+  sturdy: { id: 'sturdy', name: '耐用', color: '#9fd3ff', bonusDurabilityMultiplier: 0.35, desc: '最大耐久提高' },
+  sharp: { id: 'sharp', name: '锋利', color: '#ffd36a', bonusAtk: 3, desc: '攻击提高' },
+  keen: { id: 'keen', name: '会心', color: '#ff9ff3', bonusCritChance: 0.035, desc: '暴击率提高' },
+  brutal: { id: 'brutal', name: '凶猛', color: '#ff8a6a', bonusAtk: 5, bonusCritMultiplier: 0.25, desc: '攻击与暴击倍率提高' },
+  guarded: { id: 'guarded', name: '坚守', color: '#b8f7c6', bonusDef: 2, desc: '盾防御提高' }
+};
+
+function resolveItemModifier(modifier) {
+  if (!modifier) return null;
+  if (typeof modifier === 'string') return ITEM_MODIFIERS[modifier] || null;
+  if (modifier.id && ITEM_MODIFIERS[modifier.id]) return ITEM_MODIFIERS[modifier.id];
+  return modifier;
+}
+
+function rollItemModifier(def, options = {}) {
+  if (!def || !['weapon', 'shield', 'bow'].includes(def.type)) return null;
+  if (options.source === 'crafted') return null;
+  const chance = options.modifierChance !== undefined ? Number(options.modifierChance) : 0.32;
+  if (options.rollModifier !== 'always' && Math.random() > chance) return null;
+  const pool = def.type === 'shield'
+    ? ['sturdy', 'guarded', 'keen']
+    : ['sturdy', 'sharp', 'keen', 'brutal'];
+  return ITEM_MODIFIERS[pool[Math.floor(Math.random() * pool.length)]];
+}
+
 // ---------- 物品堆叠 ----------
 class ItemStack {
   constructor(itemId, count = 1, options = {}) {
@@ -204,21 +232,27 @@ class ItemStack {
     const durable = ['weapon', 'shield', 'bow'].includes(def.type) && baseDurability > 0;
     const multiplier = durable ? Math.max(1, Number(options.durabilityMultiplier || 1)) : 1;
     this.source = options.source || 'world';
+    this.modifier = resolveItemModifier(options.modifier) || null;
     this.maxDurability = durable ? Math.round(baseDurability * multiplier) : baseDurability;
     this.durability = options.durability !== undefined
       ? options.durability
       : this.maxDurability;
   }
   get def() { return ITEMS[this.itemId]; }
-  get name() { return this.def.name; }
+  get name() { return this.modifier ? `${this.modifier.name}·${this.def.name}` : this.def.name; }
 }
 
 function newItemStack(itemId, count = 1, options = {}) {
-  const stack = new ItemStack(itemId, count, options);
   const def = ITEMS[itemId];
+  const modifier = resolveItemModifier(options.modifier) || (options.rollModifier ? rollItemModifier(def, options) : null);
+  const stack = new ItemStack(itemId, count, Object.assign({}, options, { modifier }));
   if ((def.type === 'weapon' || def.type === 'shield' || def.type === 'bow') && def.durability && !options.durabilityMultiplier && options.durability === undefined) {
     stack.maxDurability = def.durability;
     stack.durability = def.durability;
+  }
+  if (stack.modifier && stack.modifier.bonusDurabilityMultiplier && def.durability && options.durability === undefined) {
+    stack.maxDurability = Math.max(stack.maxDurability, Math.round(stack.maxDurability * (1 + stack.modifier.bonusDurabilityMultiplier)));
+    stack.durability = stack.maxDurability;
   }
   return stack;
 }

@@ -113,6 +113,18 @@ const QuestUI = {
         </div>
       `).join('')
       : '';
+    const bountyRows = (typeof BountySystem !== 'undefined' && window.game.currentWorld)
+      ? BountySystem.rowsForWorld(window.game.currentWorld, window.game).map(row => `
+        <div class="quest-row ${row.claimed ? 'done' : row.done ? 'active' : ''}">
+          <span>${row.claimed ? '已领' : row.done ? '可领' : `${row.current}/${row.target}`}</span>
+          <div>
+            <b>${row.name}</b>
+            <small>${row.desc || ''}<br>进度：${row.current}/${row.target} · 奖励：${this._rewardLabel(row.reward)}</small>
+            ${row.done && !row.claimed ? `<button class="quest-path-btn" onclick="QuestUI.claimBounty('${row.id}')">领取奖励</button>` : ''}
+          </div>
+        </div>
+      `).join('')
+      : '';
     const list = Object.values(QUESTS).map(item => {
       const done = item.complete(QuestSystem);
       const active = q && q.id === item.id;
@@ -160,8 +172,25 @@ const QuestUI = {
         <div class="quest-title">英杰守护之力</div>
         ${guardianRows || '<div class="memory-empty">解放神兽后，英杰能力会显示在 HUD 中。</div>'}
       </div>
+      <div class="memory-list">
+        <div class="quest-title">区域悬赏</div>
+        ${bountyRows || '<div class="memory-empty">当前地区暂无悬赏，继续探索营地、采集点与图鉴线索。</div>'}
+      </div>
       <div class="quest-list">${list}</div>
     `;
+  },
+
+  _rewardLabel(reward) {
+    return (reward || []).map(([id, count = 1]) => {
+      const d = typeof ITEMS !== 'undefined' ? ITEMS[id] : null;
+      return `${d ? (d.icon || '') + d.name : id}${count > 1 ? '×' + count : ''}`;
+    }).join('、') || '卢比';
+  },
+
+  claimBounty(id) {
+    if (typeof BountySystem === 'undefined') return;
+    BountySystem.claim(id, window.game);
+    this.render();
   },
 
   _renderStats() {
@@ -180,7 +209,7 @@ const QuestUI = {
     const shrineCount = world && world.shrines ? world.shrines.length : 0;
     const shrineCleared = shrineCount ? world.shrines.filter(s => s.cleared).length : 0;
     const ecosystem = this._enemySummary(world);
-    const fmtDur = (stack) => stack ? `${stack.def.name} ${stack.durability}/${stack.def.durability}` : '未装备';
+    const fmtDur = (stack) => stack ? `${inv.getStackDisplayName ? inv.getStackDisplayName(stack) : stack.def.name} ${stack.durability}/${stack.maxDurability || stack.def.durability}` : '未装备';
     const activeBuffs = Object.keys(inv.buffs);
     const setBonus = inv.getSetBonus ? inv.getSetBonus() : null;
     document.getElementById('quest-stats').innerHTML = `
@@ -188,10 +217,10 @@ const QuestUI = {
       <div class="stat-grid">
         <div><b>${Math.ceil(p.hp)}/${p.maxHp * 4}</b><span>生命</span></div>
         <div><b>${Math.round(p.stamina)}/${p.maxStamina}</b><span>体力</span></div>
-        <div><b>${w ? w.def.atk : 1}</b><span>近战攻击</span></div>
-        <div><b>${b ? b.def.atk : 0}</b><span>弓攻击</span></div>
+        <div><b>${w ? (inv.getStackAttack ? inv.getStackAttack(w) : w.def.atk) : 1}</b><span>近战攻击</span></div>
+        <div><b>${b ? (inv.getStackAttack ? inv.getStackAttack(b) : b.def.atk) : 0}</b><span>弓攻击</span></div>
         <div><b>${armorDef}</b><span>防具防御</span></div>
-        <div><b>${s ? s.def.def : 0}</b><span>盾防御</span></div>
+        <div><b>${s ? (inv.getStackDefense ? inv.getStackDefense(s) : s.def.def) : 0}</b><span>盾防御</span></div>
         <div><b>${inv.rupees}</b><span>卢比</span></div>
         <div><b>${inv.arrows}</b><span>箭矢</span></div>
       </div>

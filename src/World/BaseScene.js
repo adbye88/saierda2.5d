@@ -410,7 +410,10 @@ class BaseScene {
           const def = typeof ITEMS !== 'undefined' ? ITEMS[itemId] : null;
           if (!def) continue;
           if (player && player.inventory && player.inventory.add) {
-            player.inventory.add(itemId, count);
+            const addOptions = def && ['weapon', 'shield', 'bow'].includes(def.type)
+              ? Object.assign({ rollModifier: true, modifierChance: 0.42, source: 'chest' }, options.itemOptions || {})
+              : {};
+            player.inventory.add(itemId, count, addOptions);
           }
           rewardText.push(`${def.icon || ''}${def.name || itemId}${count > 1 ? '×' + count : ''}`);
         }
@@ -457,6 +460,67 @@ class BaseScene {
     return g;
   }
 
+  _defaultHarvestNodes(worldName) {
+    const table = {
+      forest: [
+        { id: 'forest_mushroom_01', kind: 'herb', label: '林地蘑菇圈', x: -58, z: 66, items: [['mushroom', 3], ['stamellaShroom', 1]] },
+        { id: 'forest_honey_01', kind: 'honey', label: '古树蜂巢', x: 120, z: -84, items: [['courserBeeHoney', 2]] },
+        { id: 'forest_nest_01', kind: 'nest', label: '树上鸟窝', x: 32, z: 96, items: [['birdEgg', 2]] }
+      ],
+      highland: [
+        { id: 'highland_ore_01', kind: 'ore', label: '高地矿脉', x: 108, z: 92, items: [['topaz', 1], ['flint', 2]] },
+        { id: 'highland_fish_01', kind: 'fish', label: '湖畔鱼群', x: -128, z: -104, items: [['hyruleBass', 3]] },
+        { id: 'highland_herb_01', kind: 'herb', label: '耐力蘑菇丛', x: -18, z: 42, items: [['stamellaShroom', 3]] }
+      ],
+      snowland: [
+        { id: 'snow_ore_01', kind: 'ore', label: '冰壁蓝矿', x: -96, z: -86, items: [['sapphire', 1], ['flint', 2]] },
+        { id: 'snow_herb_01', kind: 'herb', label: '暖暖草果', x: -34, z: -62, items: [['spicyPepper', 4]] },
+        { id: 'snow_fish_01', kind: 'fish', label: '冰湖鱼群', x: 42, z: 98, items: [['hyruleBass', 2]] }
+      ],
+      volcano: [
+        { id: 'volcano_ore_01', kind: 'ore', label: '熔岩红矿', x: -104, z: -88, items: [['ruby', 1], ['flint', 3]] },
+        { id: 'volcano_spice_01', kind: 'herb', label: '戈隆香料箱', x: 98, z: 56, items: [['goronSpice', 3]] },
+        { id: 'volcano_flint_01', kind: 'ore', label: '黑曜碎石', x: 24, z: -48, items: [['flint', 5]] }
+      ],
+      desert: [
+        { id: 'desert_fruit_01', kind: 'herb', label: '酥麻水果仙人掌', x: -86, z: 34, items: [['voltfruit', 4]] },
+        { id: 'desert_ore_01', kind: 'ore', label: '沙岩黄玉矿', x: 118, z: 96, items: [['topaz', 1], ['flint', 2]] },
+        { id: 'desert_nest_01', kind: 'nest', label: '荒漠鸟窝', x: -150, z: 104, items: [['birdEgg', 2]] }
+      ],
+      castle: [
+        { id: 'castle_ancient_01', kind: 'ore', label: '古代零件堆', x: -84, z: -94, items: [['ancientScrew', 2], ['ancientShaft', 1]] },
+        { id: 'castle_ore_01', kind: 'ore', label: '王城夜光石', x: 84, z: -62, items: [['luminousStone', 2]] },
+        { id: 'castle_supply_01', kind: 'nest', label: '近卫补给残箱', x: -42, z: 24, items: [['arrow', 10]] }
+      ]
+    };
+    return table[worldName] || [];
+  }
+
+  _defaultRumors(worldName) {
+    const label = (typeof MapMenu !== 'undefined' && MapMenu.WORLD_INFO && MapMenu.WORLD_INFO[worldName])
+      ? MapMenu.WORLD_INFO[worldName].name
+      : worldName;
+    return [{
+      id: `${worldName}_regional_rumor`,
+      label: `${label}传闻`,
+      x: (this.spawnPoint && this.spawnPoint.x || 0) + 8,
+      z: (this.spawnPoint && this.spawnPoint.z || 0) - 8,
+      text: `冒险者笔记：${label}的矿石、草药和营地会刷新出适合本地区的装备与料理材料。`,
+      clue: '附近的木牌记录着本地区的探索线索。'
+    }];
+  }
+
+  _defaultBounties(worldName) {
+    const label = (typeof MapMenu !== 'undefined' && MapMenu.WORLD_INFO && MapMenu.WORLD_INFO[worldName])
+      ? MapMenu.WORLD_INFO[worldName].name
+      : worldName;
+    return [
+      { id: `${worldName}_bounty_camps`, type: 'clearCamp', name: `${label}营地清剿`, desc: '清掉本地区 1 个怪物营地。', target: 1, prefix: worldName, reward: [['rupee', 70], ['arrow', 10]] },
+      { id: `${worldName}_bounty_harvest`, type: 'harvest', name: `${label}野外采集`, desc: '采集本地区 2 处材料点。', target: 2, prefix: worldName, reward: [['rupee', 35]] },
+      { id: `${worldName}_bounty_rumor`, type: 'rumor', name: `${label}听取传闻`, desc: '调查本地区 1 条传闻线索。', target: 1, prefix: worldName, reward: [['stamellaShroom', 1], ['rupee', 20]] }
+    ];
+  }
+
   _setupExplorationDefaults() {
     if (this._explorationBuilt || typeof ExplorationSystem === 'undefined') return;
     this._explorationBuilt = true;
@@ -490,6 +554,20 @@ class BaseScene {
         camps: [
           { name: '桥北波克布林营地', x: -42, z: -44, radius: 20, alarmRadius: 8 },
           { name: '东南废墟营地', x: 152, z: -132, radius: 22, alarmRadius: 9 }
+        ],
+        harvestNodes: [
+          { id: 'grassland_ore_01', kind: 'ore', label: '山脚矿石', x: 72, z: -64, items: [['amber', 1], ['flint', 2]], clue: '山脚石块泛着矿光。' },
+          { id: 'grassland_herb_01', kind: 'herb', label: '暖暖草果丛', x: -18, z: -28, items: [['spicyPepper', 3]], clue: '红色草果可以做防寒料理。' },
+          { id: 'grassland_fish_01', kind: 'fish', label: '浅滩鱼群', x: -32, z: 38, items: [['hyruleBass', 2]], clue: '浅水里有鱼影。' },
+          { id: 'grassland_honey_01', kind: 'honey', label: '野蜂蜂巢', x: -116, z: 108, items: [['courserBeeHoney', 1]], clue: '树枝上有蜂巢，靠近可采集。' }
+        ],
+        rumors: [
+          { id: 'grassland_old_road_rumor', label: '旧路牌传闻', x: 18, z: -20, text: '旧路牌写着：清掉怪物营地后，商队会把补给藏回路边宝箱。', clue: '路边木牌上刻着新的线索。' }
+        ],
+        bounties: [
+          { id: 'grassland_bounty_camps', type: 'clearCamp', name: '台地营地清剿', desc: '清掉起始台地任意 1 个怪物营地。', target: 1, prefix: 'grassland', reward: [['rupee', 60], ['arrow', 10]] },
+          { id: 'grassland_bounty_harvest', type: 'harvest', name: '台地采集练习', desc: '采集 3 处矿石、草药、鱼群或蜂巢。', target: 3, prefix: 'grassland', reward: [['stamellaShroom', 2], ['rupee', 30]] },
+          { id: 'grassland_bounty_scan', type: 'scan', name: '希卡图鉴扫描', desc: '扫描附近的怪物、营地或采集点 2 次。', target: 2, prefix: 'grassland', reward: [['ancientScrew', 2]] }
         ]
       },
       forest: {
@@ -656,6 +734,12 @@ class BaseScene {
     for (const c of (cfg.climb || [])) ExplorationSystem.addClimbSpot(this, c);
     for (const h of (cfg.hazards || [])) ExplorationSystem.addHazardZone(this, h);
     for (const camp of (cfg.camps || [])) ExplorationSystem.addCamp(this, camp);
+    const harvestNodes = (cfg.harvestNodes || []).concat(this._defaultHarvestNodes(this.name));
+    const rumors = (cfg.rumors || []).concat(cfg.rumors ? [] : this._defaultRumors(this.name));
+    const bounties = cfg.bounties || this._defaultBounties(this.name);
+    for (const n of harvestNodes) ExplorationSystem.addHarvestNode(this, n);
+    for (const r of rumors) ExplorationSystem.addRumor(this, r);
+    if (typeof BountySystem !== 'undefined') BountySystem.registerWorld(this.name, bounties);
   }
 
   _pointInRectZone(x, z, zone) {
@@ -879,8 +963,11 @@ class BaseScene {
       const dist = game.player.position.distanceTo(d.mesh.position);
       if (dist < 1.4) {
         const def = ITEMS[d.itemId];
-        game.player.inventory.add(d.itemId, d.count);
-        Dialogue.show(`获得 ${def.icon} ${def.name}${d.count > 1 ? ' ×' + d.count : ''}`);
+        game.player.inventory.add(d.itemId, d.count, d.options || {});
+        const stackName = d.options && d.options.modifier && typeof ITEM_MODIFIERS !== 'undefined' && ITEM_MODIFIERS[d.options.modifier]
+          ? `${ITEM_MODIFIERS[d.options.modifier].name}·${def.name}`
+          : def.name;
+        Dialogue.show(`获得 ${def.icon} ${stackName}${d.count > 1 ? ' ×' + d.count : ''}`);
         if (typeof AudioSystem !== 'undefined') AudioSystem.play('pickup');
         Effects.pickupFlash(d.mesh.position);
         d.pickedUp = true;

@@ -61,10 +61,12 @@ class Inventory {
     const set = this.getSetEffects ? this.getSetEffects() : {};
     const progress = (typeof SaveSystem !== 'undefined' && SaveSystem.getProgress) ? SaveSystem.getProgress() : {};
     const upgrade = progress.upgrades || {};
+    const mod = stack && stack.modifier ? stack.modifier : {};
     const baseChance = 0.01;
     const chance = Math.min(0.65,
       baseChance +
       ((stack && stack.def && stack.def.critChance) || 0) +
+      (mod.bonusCritChance || 0) +
       (set.critChance || 0) +
       (type === 'bow' ? (set.bowCritChance || 0) : (set.meleeCritChance || 0)) +
       (upgrade.critChance || 0)
@@ -73,11 +75,27 @@ class Inventory {
       Math.max(1,
         2 +
         ((stack && stack.def && stack.def.critMultiplierBonus) || 0) +
+        (mod.bonusCritMultiplier || 0) +
         (set.critMultiplierBonus || 0) +
         (upgrade.critMultiplierBonus || 0)
       )
     );
     return { chance, multiplier };
+  }
+
+  getStackDisplayName(stack) {
+    if (!stack || !stack.def) return '';
+    return stack.modifier ? `${stack.modifier.name}·${stack.def.name}` : stack.def.name;
+  }
+
+  getStackAttack(stack) {
+    if (!stack || !stack.def) return 0;
+    return (stack.def.atk || 0) + ((stack.modifier && stack.modifier.bonusAtk) || 0);
+  }
+
+  getStackDefense(stack) {
+    if (!stack || !stack.def) return 0;
+    return (stack.def.def || 0) + ((stack.modifier && stack.modifier.bonusDef) || 0);
   }
 
   // ---------- 添加物品 ----------
@@ -328,7 +346,7 @@ class Inventory {
 
   // ---------- 序列化（存档用） ----------
   serialize() {
-    const serStack = (s) => s ? ({ id: s.itemId, c: s.count, d: s.durability, md: s.maxDurability, src: s.source }) : null;
+    const serStack = (s) => s ? ({ id: s.itemId, c: s.count, d: s.durability, md: s.maxDurability, src: s.source, mod: s.modifier ? s.modifier.id : null }) : null;
     const ser = (list) => list.map(serStack);
     return {
       rupees: this.rupees, arrows: this.arrows,
@@ -365,7 +383,7 @@ class Inventory {
     this.rupees = data.rupees || 0;
     this.arrows = data.arrows || 0;
     const restoreStack = (s) => {
-      const stack = new ItemStack(s.id, s.c, { source: s.src || 'world', durability: s.d });
+      const stack = new ItemStack(s.id, s.c, { source: s.src || 'world', durability: s.d, modifier: s.mod });
       if (s.md !== undefined) stack.maxDurability = s.md;
       if (s.d !== undefined) stack.durability = s.d;
       return stack;
