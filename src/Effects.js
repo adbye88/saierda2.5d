@@ -10,6 +10,26 @@ const Effects = {
 
   attach(scene) { this.scene = scene; },
 
+  _budget() {
+    if (typeof VisualQualitySystem !== 'undefined' && VisualQualitySystem && typeof VisualQualitySystem.getBudget === 'function') {
+      return VisualQualitySystem.getBudget() || {};
+    }
+    return {};
+  },
+
+  _particleFactor() {
+    const factor = Number(this._budget().particleFactor);
+    if (!Number.isFinite(factor) || factor <= 0) return 1;
+    return Math.min(1.5, Math.max(0.15, factor));
+  },
+
+  _budgetCount(count, min = 1) {
+    const requested = Math.max(0, Math.floor(Number(count) || 0));
+    if (requested <= 0) return 0;
+    const floor = Math.max(1, Math.floor(Number(min) || 1));
+    return Math.min(requested, Math.max(floor, Math.round(requested * this._particleFactor())));
+  },
+
   _effectSprite(name, pos, size = 1, color = 0xffffff) {
     if (typeof ArtAssets === 'undefined') return null;
     const tex = ArtAssets.effectTexture(name);
@@ -155,6 +175,7 @@ const Effects = {
   // ---------- 命中爆裂粒子 ----------
   hitBurst(originPos, color = 0xffaa44, count = 8) {
     if (!this.scene) return;
+    count = this._budgetCount(count, 2);
     const spriteName = color === 0x66ddff ? 'ice-burst'
                      : color === 0xffee44 ? 'shock-burst'
                      : color === 0xff4422 || color === 0xffaa44 ? 'fire-burst'
@@ -224,7 +245,7 @@ const Effects = {
         }
       });
     }
-    const count = worldName === 'volcano' ? 5 : worldName === 'snowland' ? 6 : 4;
+    const count = this._budgetCount(worldName === 'volcano' ? 5 : worldName === 'snowland' ? 6 : 4, 1);
     const group = new THREE.Group();
     group.position.copy(originPos);
     group.position.y = 0.06;
@@ -324,7 +345,8 @@ const Effects = {
     const group = new THREE.Group();
     group.position.copy(originPos);
     const particles = [];
-    for (let i = 0; i < 20; i++) {
+    const count = this._budgetCount(20, 5);
+    for (let i = 0; i < count; i++) {
       const p = new THREE.Mesh(
         new THREE.BoxGeometry(0.12, 0.12, 0.12),
         new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.9 })
@@ -350,6 +372,7 @@ const Effects = {
 
   lowPolyShatter(originPos, color = 0xd8c0a0, count = 12, scale = 1) {
     if (!this.scene) return;
+    count = this._budgetCount(count, 4);
     const group = new THREE.Group();
     group.position.copy(originPos);
     const shards = [];
@@ -601,13 +624,14 @@ const Effects = {
     });
     // 金色火花碎片向四周飞溅
     const sparks = [];
-    for (let i = 0; i < 14; i++) {
+    const sparkCount = this._budgetCount(14, 6);
+    for (let i = 0; i < sparkCount; i++) {
       const spark = new THREE.Mesh(
         new THREE.TetrahedronGeometry(0.1),
         new THREE.MeshBasicMaterial({ color: 0xffd700 })
       );
       spark.position.copy(pos);
-      const angle = (i / 14) * Math.PI * 2 + Math.random() * 0.5;
+      const angle = (i / sparkCount) * Math.PI * 2 + Math.random() * 0.5;
       spark.userData.vel = new THREE.Vector3(
         Math.cos(angle) * (3 + Math.random() * 3),
         2 + Math.random() * 3,
@@ -654,7 +678,8 @@ const Effects = {
       }
     });
     // 蓝色粒子向上飘
-    for (let i = 0; i < 8; i++) {
+    const count = this._budgetCount(8, 3);
+    for (let i = 0; i < count; i++) {
       const p = new THREE.Mesh(
         new THREE.SphereGeometry(0.08, 4, 3),
         new THREE.MeshBasicMaterial({ color: 0xaaeeff, transparent: true, opacity: 0.8 })
