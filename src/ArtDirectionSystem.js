@@ -554,9 +554,14 @@ const ArtDirectionSystem = {
   },
 
   _tunedPreset(preset) {
+    const budget = typeof VisualQualitySystem !== 'undefined' && VisualQualitySystem.getBudget
+      ? VisualQualitySystem.getBudget()
+      : null;
     const quality = this._quality();
     const touch = this._isTouchDevice();
-    const factor = quality === 'low' || touch ? 0.26 : quality === 'medium' ? 0.55 : quality === 'ultra' ? 1 : 0.78;
+    const factor = budget && Number.isFinite(budget.detailDensity)
+      ? budget.detailDensity
+      : quality === 'low' || touch ? 0.26 : quality === 'medium' ? 0.55 : quality === 'ultra' ? 1 : 0.78;
     return Object.assign({}, preset, {
       grassCount: Math.max(80, Math.floor((preset.grassCount || 0) * factor)),
       flowerCount: Math.max(8, Math.floor((preset.flowerCount || 0) * factor)),

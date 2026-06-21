@@ -88,8 +88,13 @@ const WorldPolishSystem = {
   _updateAmbientFx(dt, world, player) {
     const fx = world._worldPolishFx;
     if (!fx || !fx.positions) return;
+    const budget = typeof VisualQualitySystem !== 'undefined' && VisualQualitySystem.getBudget
+      ? VisualQualitySystem.getBudget()
+      : null;
     const quality = (typeof VisualQualitySystem !== 'undefined' && VisualQualitySystem.level) || 'high';
-    const qualityMul = quality === 'low' ? 0.35 : quality === 'medium' ? 0.65 : 1;
+    const qualityMul = budget && Number.isFinite(budget.particleFactor)
+      ? budget.particleFactor
+      : quality === 'low' ? 0.35 : quality === 'medium' ? 0.65 : 1;
     const activeCount = Math.max(8, Math.floor(fx.preset.count * qualityMul));
     fx.geo.setDrawRange(0, activeCount);
     const p = player && player.position ? player.position : { x: world.spawnPoint.x, z: world.spawnPoint.z };

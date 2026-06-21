@@ -62,6 +62,76 @@ const VisualQualitySystem = {
       filter: 'saturate(1.18) contrast(1.1) brightness(1.025)'
     }
   },
+  budgets: {
+    low: {
+      label: '流畅',
+      activeRadius: 34,
+      passiveRadius: 58,
+      hideRadius: 72,
+      propRadius: 34,
+      detailRadius: 42,
+      landmarkRadius: 64,
+      frontBoost: 22,
+      enemyInterval: 0.22,
+      propInterval: 0.38,
+      detailDensity: 0.26,
+      particleFactor: 0.25,
+      passiveAnimationStep: 4,
+      realtimeShadows: false,
+      localLights: false
+    },
+    medium: {
+      label: '均衡',
+      activeRadius: 46,
+      passiveRadius: 82,
+      hideRadius: 102,
+      propRadius: 54,
+      detailRadius: 58,
+      landmarkRadius: 92,
+      frontBoost: 30,
+      enemyInterval: 0.16,
+      propInterval: 0.32,
+      detailDensity: 0.55,
+      particleFactor: 0.5,
+      passiveAnimationStep: 3,
+      realtimeShadows: false,
+      localLights: false
+    },
+    high: {
+      label: '高级',
+      activeRadius: 62,
+      passiveRadius: 118,
+      hideRadius: 144,
+      propRadius: 82,
+      detailRadius: 78,
+      landmarkRadius: 138,
+      frontBoost: 38,
+      enemyInterval: 0.1,
+      propInterval: 0.24,
+      detailDensity: 0.78,
+      particleFactor: 0.75,
+      passiveAnimationStep: 2,
+      realtimeShadows: true,
+      localLights: true
+    },
+    ultra: {
+      label: '电影',
+      activeRadius: 72,
+      passiveRadius: 138,
+      hideRadius: 168,
+      propRadius: 96,
+      detailRadius: 94,
+      landmarkRadius: 164,
+      frontBoost: 46,
+      enemyInterval: 0.08,
+      propInterval: 0.2,
+      detailDensity: 1,
+      particleFactor: 1,
+      passiveAnimationStep: 1,
+      realtimeShadows: true,
+      localLights: true
+    }
+  },
 
   init(game) {
     this._game = game;
@@ -97,6 +167,18 @@ const VisualQualitySystem = {
 
   getSettings() {
     return Object.assign({}, this.settings || this._settingsFromPreset(this.level, true));
+  },
+
+  getBudget(level) {
+    const requested = this.budgets[level || this.level] ? (level || this.level) : 'high';
+    const effectiveLevel = this._effectiveBudgetLevel(requested);
+    const budget = Object.assign({}, this.budgets[effectiveLevel] || this.budgets.high);
+    budget.requestedLevel = requested;
+    budget.effectiveLevel = effectiveLevel;
+    const settings = this.settings || this._settingsFromPreset(effectiveLevel, true);
+    budget.realtimeShadows = !!budget.realtimeShadows && !!settings.shadows && !this._isTouchDevice();
+    budget.localLights = !!budget.localLights && !!settings.atmosphere && !this._isTouchDevice();
+    return budget;
   },
 
   resetRecommended(silent) {
@@ -388,6 +470,12 @@ const VisualQualitySystem = {
       atmosphere: level !== 'low',
       autoQuality: autoQuality !== false
     };
+  },
+
+  _effectiveBudgetLevel(level) {
+    const requested = this.budgets[level] ? level : 'high';
+    if (!this._isTouchDevice()) return requested;
+    return requested === 'medium' ? 'medium' : 'low';
   },
 
   _readSavedSettings(level) {

@@ -398,6 +398,7 @@ window.__assetPass = __assetParams.get('artpass') || __assetParams.get('v') || _
       }
       if (window.__worldStreamingStats) {
         var st = window.__worldStreamingStats;
+        if (st.budget) detail += ' · B ' + st.budget;
         detail += ' · stream E ' + (st.activeEnemies || 0) + '/' + (st.passiveEnemies || 0) + '/' + (st.dormantEnemies || 0);
         detail += ' · C ' + (st.activeCells || 0) + '/' + (st.totalCells || 0);
         if (st.visibleDetailCells || st.hiddenDetailCells) detail += ' · D ' + (st.visibleDetailCells || 0) + '/' + ((st.visibleDetailCells || 0) + (st.hiddenDetailCells || 0));

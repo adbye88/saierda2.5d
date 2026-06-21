@@ -47,9 +47,13 @@ const AdaptivePerformanceSystem = {
 
   snapshot() {
     const quality = (typeof VisualQualitySystem !== 'undefined' && VisualQualitySystem.level) || 'unknown';
+    const budget = (typeof VisualQualitySystem !== 'undefined' && VisualQualitySystem.getBudget)
+      ? VisualQualitySystem.getBudget()
+      : null;
     return {
       fps: this.averageFps(),
       quality,
+      budget: budget && budget.effectiveLevel || quality,
       samples: this._samples.length,
       streaming: typeof WorldStreamingSystem !== 'undefined' && WorldStreamingSystem.snapshot
         ? WorldStreamingSystem.snapshot()

@@ -26,7 +26,8 @@ const WorldStreamingSystem = {
     activeCells: 0,
     passiveCells: 0,
     totalCells: 0,
-    quality: 'unknown'
+    quality: 'unknown',
+    budget: 'unknown'
   },
 
   init(game) {
@@ -59,7 +60,8 @@ const WorldStreamingSystem = {
       activeCells: 0,
       passiveCells: 0,
       totalCells: world._streamCells ? world._streamCells.size : 0,
-      quality: this._quality()
+      quality: this._quality(),
+      budget: this._budget().effectiveLevel || this._quality()
     };
     world._streamingStats = this._stats;
   },
@@ -241,6 +243,7 @@ const WorldStreamingSystem = {
     this._stats.passiveCells = cells.length - this._stats.activeCells;
     this._stats.totalCells = world._streamCells ? world._streamCells.size : 0;
     this._stats.quality = this._quality();
+    this._stats.budget = budget.effectiveLevel || this._stats.quality;
     world._streamingStats = this._stats;
   },
 
@@ -363,51 +366,32 @@ const WorldStreamingSystem = {
   },
 
   _budget() {
-    const quality = this._quality();
-    const touch = this._isTouchDevice();
-    if (touch || quality === 'low') {
-      return {
-        activeRadius: 34,
-        passiveRadius: 58,
-        hideRadius: 72,
-        propRadius: 34,
-        detailRadius: 42,
-        landmarkRadius: 64,
-        frontBoost: 22
-      };
-    }
-    if (quality === 'medium') {
-      return {
-        activeRadius: 46,
-        passiveRadius: 82,
-        hideRadius: 102,
-        propRadius: 54,
-        detailRadius: 58,
-        landmarkRadius: 92,
-        frontBoost: 30
-      };
+    if (typeof VisualQualitySystem !== 'undefined' && VisualQualitySystem.getBudget) {
+      return VisualQualitySystem.getBudget();
     }
     return {
-      activeRadius: 62,
-      passiveRadius: 118,
-      hideRadius: 144,
-      propRadius: 82,
-      detailRadius: 78,
-      landmarkRadius: 138,
-      frontBoost: 38
+      label: this._isTouchDevice() ? '流畅' : '均衡',
+      effectiveLevel: this._isTouchDevice() ? 'low' : 'medium',
+      activeRadius: this._isTouchDevice() ? 34 : 46,
+      passiveRadius: this._isTouchDevice() ? 58 : 82,
+      hideRadius: this._isTouchDevice() ? 72 : 102,
+      propRadius: this._isTouchDevice() ? 34 : 54,
+      detailRadius: this._isTouchDevice() ? 42 : 58,
+      landmarkRadius: this._isTouchDevice() ? 64 : 92,
+      frontBoost: this._isTouchDevice() ? 22 : 30,
+      enemyInterval: this._isTouchDevice() ? 0.22 : 0.16,
+      propInterval: this._isTouchDevice() ? 0.38 : 0.32
     };
   },
 
   _enemyInterval() {
-    const quality = this._quality();
-    if (this._isTouchDevice() || quality === 'low') return 0.22;
-    return quality === 'medium' ? 0.16 : 0.1;
+    const budget = this._budget();
+    return budget.enemyInterval || 0.16;
   },
 
   _propInterval() {
-    const quality = this._quality();
-    if (this._isTouchDevice() || quality === 'low') return 0.38;
-    return quality === 'medium' ? 0.32 : 0.24;
+    const budget = this._budget();
+    return budget.propInterval || 0.32;
   },
 
   _quality() {
