@@ -494,7 +494,13 @@ class Enemy {
       return;
     }
 
-    if (this.hurtTimer > 0) this.hurtTimer -= dt;
+    if (this.hurtTimer > 0) {
+      this.hurtTimer -= dt;
+      if (this.hurtTimer <= 0 && this.state === 'hurt') {
+        this.hurtTimer = 0;
+        this.state = 'patrol';
+      }
+    }
     this._updateElementStatus(dt);
     if (this._stunTimer > 0) {
       this.velocity.set(0, 0, 0);

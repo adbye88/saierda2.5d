@@ -55,8 +55,17 @@ class Vec3 {
     this.z *= s;
     return this;
   }
+  add(v) {
+    this.x += v.x || 0;
+    this.y += v.y || 0;
+    this.z += v.z || 0;
+    return this;
+  }
   distanceTo(v) {
     return Math.hypot(this.x - v.x, this.y - v.y, this.z - v.z);
+  }
+  dot(v) {
+    return this.x * (v.x || 0) + this.y * (v.y || 0) + this.z * (v.z || 0);
   }
 }
 
@@ -109,6 +118,7 @@ const context = {
   setTimeout() {},
   THREE: {
     Vector3: Vec3,
+    MathUtils: { clamp: (value, min, max) => Math.max(min, Math.min(max, value)) },
     Group: Node3D,
     Mesh,
     MeshBasicMaterial: class {},
@@ -183,6 +193,23 @@ vm.runInContext(streamingSource, context, { filename: 'WorldStreamingSystem.js' 
   enemy._combatWakeTimer = 4;
   const forced = context.window.WorldStreamingSystem._forceEnemyActive(enemy, { lockedEnemy: null });
   assert.equal(forced, true, 'recently hit enemies should stay stream-active long enough to keep fighting');
+}
+
+{
+  const enemy = new context.window.Enemy('redBokoblin', 0, 0);
+  const game = {
+    player: { position: new Vec3(4, 0, 0) },
+    currentWorld: {
+      bounds: { minX: -50, maxX: 50, minZ: -50, maxZ: 50 },
+      colliders: [],
+      getTerrainAt() { return { inWater: false }; }
+    }
+  };
+  enemy.takeDamage(1, new Vec3(-1, 0, 0));
+  assert.equal(enemy.state, 'hurt', 'enemy should visibly enter hurt state immediately after damage');
+  for (let i = 0; i < 12; i++) enemy.update(0.08, game);
+  assert.notEqual(enemy.state, 'hurt', 'enemy should leave hurt state after hit reaction timer ends');
+  assert.ok(enemy.state === 'chase' || enemy.state === 'attack', 'enemy should resume combat after hit reaction');
 }
 
 console.log('enemy combat streaming ok');
