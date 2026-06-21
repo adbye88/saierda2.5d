@@ -731,7 +731,7 @@ class BaseScene {
       if (p.userData.fromEnemy) {
         // 敌方抛射物打玩家
         const d = p.position.distanceTo(game.player.position.clone().setY(1.0));
-        if (d < 1.0) {
+        if (d < this._enemyProjectileHitRadius(p, game.player)) {
           if (p.userData.owner) game.player._lastAttacker = p.userData.owner;
           const hitResult = game.player.takeDamage(p.userData.damage, v.clone().setY(0).normalize(), p.userData.element);
           if (hitResult === 'parried' && p.userData.isLaser) {
@@ -807,6 +807,14 @@ class BaseScene {
       if (p.userData.life <= 0 && p.parent) p.parent.remove(p);
     }
     this.projectiles = this.projectiles.filter(p => p.userData.life > 0 && p.parent);
+  }
+
+  _enemyProjectileHitRadius(projectile, player) {
+    const explicit = projectile && projectile.userData && Number(projectile.userData.hitRadius);
+    if (Number.isFinite(explicit) && explicit > 0) return explicit;
+    const playerRadius = Number(player && player.radius) || 0.82;
+    const projectileRadius = projectile && projectile.userData && projectile.userData.isLaser ? 0.38 : 0.28;
+    return Math.max(1.0, playerRadius + projectileRadius + 0.15);
   }
 
   _reflectGuardianLaser(projectile, game) {
@@ -1103,7 +1111,7 @@ class BaseScene {
 
     for (const e of this.enemies) {
       if (!e || typeof e.update !== 'function') continue;
-      const force = e.dead || e.boss || e.miniBoss || e.hurtTimer > 0 || e.attackPhase || e._stunTimer > 0 || e.state === 'attack' || e.state === 'chase';
+      const force = e.dead || e.boss || e.miniBoss || e.hurtTimer > 0 || e._combatWakeTimer > 0 || e.attackPhase || e._stunTimer > 0 || e.state === 'attack' || e.state === 'chase';
       if (force || e._streamTier === 'active' || e._streamActive !== false) {
         e._passiveUpdateAccum = 0;
         e.update(dt, game);

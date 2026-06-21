@@ -418,14 +418,22 @@ const AssetFactory = {
   // ---------- 宝箱（精致版） ----------
   createChest() {
     const g = new THREE.Group();
-    const woodTex = Textures.wood('#9a6333');
-    const woodMat = new THREE.MeshStandardMaterial({ color: 0xffffff, map: woodTex, roughness: 0.78, flatShading: false, emissive: 0x241204, emissiveIntensity: 0.08 });
-    const metalTex = Textures.metal('#f0bf58');
+    const goldTex = Textures.metal('#f6bd38');
+    const woodMat = new THREE.MeshStandardMaterial({
+      color: 0xffffff,
+      map: goldTex,
+      roughness: 0.32,
+      metalness: 0.58,
+      flatShading: false,
+      emissive: 0x5a3600,
+      emissiveIntensity: 0.22
+    });
+    const metalTex = Textures.metal('#ffe07a');
     // 箱体
     const base = new THREE.Mesh(new THREE.BoxGeometry(1.0, 0.6, 0.7), woodMat);
     base.position.y = 0.3; g.add(base);
     // 金属包边
-    const trimMat = new THREE.MeshStandardMaterial({ color: 0xffffff, map: metalTex, roughness: 0.26, metalness: 0.72, flatShading: false, emissive: 0x6a4300, emissiveIntensity: 0.14 });
+    const trimMat = new THREE.MeshStandardMaterial({ color: 0xffffff, map: metalTex, roughness: 0.2, metalness: 0.86, flatShading: false, emissive: 0x8a5400, emissiveIntensity: 0.26 });
     const trimFront = new THREE.Mesh(new THREE.BoxGeometry(1.04, 0.08, 0.02), trimMat);
     trimFront.position.set(0, 0.3, 0.36); g.add(trimFront);
     const trimBack = trimFront.clone(); trimBack.position.z = -0.36; g.add(trimBack);
@@ -438,12 +446,12 @@ const AssetFactory = {
     const lockMat = new THREE.MeshStandardMaterial({ color: 0xffffff, map: Textures.metal('#ffd54f'), roughness: 0.2, metalness: 0.85, flatShading: false, emissive: 0xffc33a, emissiveIntensity: 0.35 });
     const lock = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.2, 0.05), lockMat);
     lock.position.set(0, 0.5, 0.36); g.add(lock);
-    const glowMat = new THREE.MeshBasicMaterial({ color: 0xffd86a, transparent: true, opacity: 0.22, depthWrite: false, side: THREE.DoubleSide });
+    const glowMat = new THREE.MeshBasicMaterial({ color: 0xffd86a, transparent: true, opacity: 0.32, depthWrite: false, side: THREE.DoubleSide });
     const glow = new THREE.Mesh(new THREE.CylinderGeometry(0.82, 1.08, 0.04, 18, 1, true), glowMat);
     glow.position.y = 0.04;
     glow.name = 'chestGlow';
     g.add(glow);
-    const beam = new THREE.Mesh(new THREE.ConeGeometry(0.42, 1.1, 8, 1, true), new THREE.MeshBasicMaterial({ color: 0xffe08a, transparent: true, opacity: 0.12, depthWrite: false, side: THREE.DoubleSide }));
+    const beam = new THREE.Mesh(new THREE.ConeGeometry(0.42, 1.1, 8, 1, true), new THREE.MeshBasicMaterial({ color: 0xffe08a, transparent: true, opacity: 0.18, depthWrite: false, side: THREE.DoubleSide }));
     beam.position.y = 0.78;
     beam.name = 'chestBeam';
     g.add(beam);

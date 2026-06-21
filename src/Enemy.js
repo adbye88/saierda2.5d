@@ -444,6 +444,7 @@ class Enemy {
     this._burnTick = 0;
     this._slowTimer = 0;
     this._stunTimer = 0;
+    this._combatWakeTimer = 0;
 
     this.velocity = new THREE.Vector3();
     this._walkPhase = Math.random() * 6;
@@ -484,7 +485,9 @@ class Enemy {
       return;
     }
     if (this.boss && this._bossActive === false) return;
-    if (this._streamActive === false) {
+    if (this._combatWakeTimer > 0) this._combatWakeTimer -= dt;
+    const hardDormant = this._streamTier === 'dormant' || (this._streamActive === false && !this._streamTier);
+    if (hardDormant && this._combatWakeTimer <= 0) {
       this.velocity.set(0, 0, 0);
       this.attackPhase = null;
       this.state = this.sleeping ? 'sleep' : 'idle';
@@ -1217,6 +1220,8 @@ class Enemy {
 
   takeDamage(amount, fromDir, weaponElement) {
     if (this.dead) return;
+    this._combatWakeTimer = Math.max(this._combatWakeTimer || 0, this.boss ? 10 : 7);
+    if (this.state !== 'attack') this.state = 'chase';
     if (this.sleeping) {
       amount *= 1.6;
       this.sleeping = false;

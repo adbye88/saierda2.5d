@@ -400,6 +400,7 @@ const WorldStreamingSystem = {
       enemy.boss ||
       enemy.miniBoss ||
       enemy.hurtTimer > 0 ||
+      enemy._combatWakeTimer > 0 ||
       enemy.attackPhase ||
       enemy._stunTimer > 0 ||
       enemy.state === 'attack' ||
