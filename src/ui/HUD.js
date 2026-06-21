@@ -274,15 +274,18 @@ const HUD = {
     ctx.fill();
     ctx.restore();
     // 敌人：近景/战斗敌人实时画；远景休眠敌人低频缓存成小暗点，避免小地图每次扫全量高成本对象。
+    const budget = this._minimapBudget();
     const cachedFarEnemies = this._getMinimapFarEnemies(this.world);
     ctx.fillStyle = 'rgba(255,90,90,0.32)';
     for (const pnt of cachedFarEnemies) {
       ctx.fillRect((pnt.x - b.minX) * sx - 0.75, (pnt.z - b.minZ) * sz - 0.75, 1.5, 1.5);
     }
-    for (const e of this.world.enemies) {
-      if (!e || !e.mesh || e.dead) continue;
-      const realtime = e._streamTier !== 'dormant' || e.boss || e.miniBoss || e.hurtTimer > 0 || e === game.lockedEnemy;
-      if (!realtime) continue;
+    const realtimeEnemies = this._selectMinimapRealtimeEnemies({
+      enemies: this.world.enemies || [],
+      game,
+      budget
+    });
+    for (const e of realtimeEnemies) {
       ctx.fillStyle = e.boss ? '#ff5a3a' : '#ff5a5a';
       ctx.beginPath();
       const r = e.boss ? 5 : (e._streamTier === 'passive' ? 2 : 2.5);
@@ -291,14 +294,14 @@ const HUD = {
     }
     // 传送门
     ctx.fillStyle = '#ffd54f';
-    for (const g of this.world.gates) {
+    for (const g of this._limitByBudget(this.world.gates || [], budget.minimapGates)) {
       ctx.beginPath();
       ctx.arc((g.position.x - b.minX) * sx, (g.position.z - b.minZ) * sz, 3, 0, Math.PI * 2);
       ctx.fill();
     }
     // NPC
     ctx.fillStyle = '#5aff5a';
-    for (const n of this.world.npcs) {
+    for (const n of this._limitByBudget(this.world.npcs || [], budget.minimapNpcs)) {
       ctx.beginPath();
       ctx.arc((n.mesh.position.x - b.minX) * sx, (n.mesh.position.z - b.minZ) * sz, 2.5, 0, Math.PI * 2);
       ctx.fill();
@@ -306,11 +309,51 @@ const HUD = {
     // 拾取物
     ctx.fillStyle = '#fff080';
     const playerPos = game.player && game.player.position;
-    for (const d of this.world.drops) {
+    let drawnDrops = 0;
+    for (const d of this.world.drops || []) {
       if (!d || d.pickedUp || !d.mesh) continue;
       if (playerPos && d.mesh.visible === false && d.mesh.position.distanceTo(playerPos) > 24) continue;
+      if (drawnDrops >= budget.minimapDrops) break;
       ctx.fillRect((d.mesh.position.x - b.minX) * sx - 1, (d.mesh.position.z - b.minZ) * sz - 1, 2, 2);
+      drawnDrops++;
     }
+  },
+
+  _minimapBudget() {
+    const budget = (typeof VisualQualitySystem !== 'undefined' && VisualQualitySystem.getBudget)
+      ? VisualQualitySystem.getBudget()
+      : null;
+    const touch = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
+    const level = (typeof VisualQualitySystem !== 'undefined' && VisualQualitySystem.level) || (touch ? 'low' : 'medium');
+    return {
+      minimapRealtimeEnemies: budget && budget.minimapRealtimeEnemies || (touch || level === 'low' ? 12 : level === 'medium' ? 20 : 32),
+      minimapFarEnemies: budget && budget.minimapFarEnemies || (touch || level === 'low' ? 18 : level === 'medium' ? 35 : 60),
+      minimapDrops: budget && budget.minimapDrops || (touch || level === 'low' ? 10 : level === 'medium' ? 16 : 24),
+      minimapNpcs: budget && budget.minimapNpcs || (touch || level === 'low' ? 8 : level === 'medium' ? 12 : 18),
+      minimapGates: budget && budget.minimapGates || (touch || level === 'low' ? 6 : level === 'medium' ? 10 : 14)
+    };
+  },
+
+  _selectMinimapRealtimeEnemies({ enemies, game, budget }) {
+    const list = Array.isArray(enemies) ? enemies : [];
+    const cap = Math.max(4, Number(budget && budget.minimapRealtimeEnemies) || 20);
+    const always = [];
+    const normal = [];
+    for (const e of list) {
+      if (!e || !e.mesh || e.dead) continue;
+      const critical = e.boss || e.miniBoss || e.hurtTimer > 0 || e === (game && game.lockedEnemy);
+      const realtime = critical || e._streamTier !== 'dormant';
+      if (!realtime) continue;
+      if (critical) always.push(e);
+      else normal.push(e);
+    }
+    return always.concat(normal).slice(0, cap);
+  },
+
+  _limitByBudget(list, cap) {
+    if (!Array.isArray(list)) return [];
+    const max = Math.max(0, Number(cap) || list.length);
+    return list.length <= max ? list : list.slice(0, max);
   },
 
   _getMinimapFarEnemies(world) {
@@ -321,7 +364,8 @@ const HUD = {
     if (this._minimapEnemyCache && this._minimapEnemyCache.world === world && now - this._minimapEnemyCache.at < interval) {
       return this._minimapEnemyCache.far;
     }
-    const maxDots = touch || quality === 'low' ? 35 : quality === 'medium' ? 70 : 120;
+    const budget = this._minimapBudget();
+    const maxDots = budget.minimapFarEnemies || (touch || quality === 'low' ? 35 : quality === 'medium' ? 70 : 120);
     const far = [];
     if (world && Array.isArray(world.enemies)) {
       for (const e of world.enemies) {

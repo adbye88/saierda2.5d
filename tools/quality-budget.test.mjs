@@ -55,6 +55,8 @@ assert.ok(low.treeProxyRadius < medium.treeProxyRadius && medium.treeProxyRadius
 assert.ok(low.detailDensity < medium.detailDensity && medium.detailDensity < high.detailDensity, 'detail density should scale by quality');
 assert.ok(low.enemyInterval > medium.enemyInterval && medium.enemyInterval > high.enemyInterval, 'low quality should update streaming less often');
 assert.ok(low.particleFactor < high.particleFactor, 'effects budget should scale with quality');
+assert.ok(low.minimapRealtimeEnemies < medium.minimapRealtimeEnemies && medium.minimapRealtimeEnemies < high.minimapRealtimeEnemies, 'minimap realtime budget should scale by quality');
+assert.ok(low.minimapFarEnemies < medium.minimapFarEnemies && medium.minimapFarEnemies < high.minimapFarEnemies, 'minimap far-dot budget should scale by quality');
 
 const touchQuality = loadQualitySystem({ touch: true });
 touchQuality.level = 'high';
