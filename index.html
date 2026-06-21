@@ -42,8 +42,8 @@
 <!-- ★ 加载诊断信息（永远可见，帮 iPhone 排查）-->
 <div id="boot-status" style="position:absolute;top:60%;left:50%;transform:translateX(-50%);z-index:101;color:#fff;font-size:12px;background:rgba(0,0,0,.7);padding:6px 14px;border-radius:8px;pointer-events:none;text-align:center;max-width:90vw;"></div>
 
-<!-- ★ 顶部性能监控：菜单/登录/游戏阶段都显示 FPS 和长帧 -->
-<div id="perf-meter">FPS -- · 长帧 --ms · loading</div>
+<!-- ★ 顶部性能监控：只显示 FPS 数值，详细诊断保留给内部调试数据 -->
+<div id="perf-meter">FPS --</div>
 
 <!-- ★ 按钮事件日志（屏幕中央上方，永远可见，显示按钮是否被触发）-->
 <div id="btn-log" style="position:absolute;top:55%;left:50%;transform:translateX(-50%);z-index:99;background:rgba(0,0,0,.8);color:#5aff5a;font-family:monospace;font-size:11px;padding:6px 12px;border-radius:6px;max-width:90vw;max-height:120px;overflow:hidden;pointer-events:none;display:none;"></div>
@@ -354,7 +354,7 @@ window.__APP_VERSION = '20260621-load-phases-1';
 var __assetParams = new URLSearchParams(location.search);
 window.__assetPass = __assetParams.get('artpass') || __assetParams.get('v') || __assetParams.get('cache') || window.__APP_VERSION;
 
-// ★ 顶部 FPS / 长帧监控：不依赖游戏引擎，菜单阶段也能看卡顿
+// ★ 顶部 FPS 监控：不依赖游戏引擎，菜单阶段也能看卡顿；UI 只显示 FPS 数值
 (function startPerfMeter() {
   var el = document.getElementById('perf-meter');
   if (!el || window.__perfMeterStarted) return;
@@ -364,7 +364,6 @@ window.__assetPass = __assetParams.get('artpass') || __assetParams.get('v') || _
   var lastFrame = last;
   var fps = 0;
   var worst = 0;
-  var stage = 'loading';
   function tick(now) {
     frames++;
     var dt = now - lastFrame;
@@ -372,39 +371,7 @@ window.__assetPass = __assetParams.get('artpass') || __assetParams.get('v') || _
     if (dt > worst) worst = dt;
     if (now - last >= 500) {
       fps = Math.round(frames * 1000 / (now - last));
-      var explicitStage = window.__gameplayStage || '';
-      stage = explicitStage === 'game' ? 'game'
-        : explicitStage === 'loading-game' ? 'loading-game'
-        : explicitStage === 'menu' ? 'menu'
-        : (document.body && document.body.classList.contains('game-playing')) ? 'game'
-        : (window.game && window.game.state === 'playing') ? 'game'
-        : (window.__gameplayState && window.__gameplayState.loading) ? 'loading-game'
-        : (window.__loadState && window.__loadState.ready) ? 'menu'
-        : 'loading';
-      var detail = '';
-      if (window.game && window.game.renderer && window.game.renderer.info) {
-        var info = window.game.renderer.info;
-        var calls = info.render ? info.render.calls || 0 : 0;
-        var tris = info.render ? info.render.triangles || 0 : 0;
-        detail += ' · draw ' + calls + ' · tri ' + Math.round(tris / 1000) + 'k';
-      }
-      if (window.__gamePerf) {
-        var top = Object.keys(window.__gamePerf).map(function(k) {
-          return { k: k, v: window.__gamePerf[k] && window.__gamePerf[k].avg || 0 };
-        }).filter(function(x) { return x.v >= 0.15; }).sort(function(a, b) { return b.v - a.v; }).slice(0, 3);
-        if (top.length) {
-          detail += ' · ' + top.map(function(x) { return x.k + ' ' + x.v.toFixed(1) + 'ms'; }).join(' / ');
-        }
-      }
-      if (window.__worldStreamingStats) {
-        var st = window.__worldStreamingStats;
-        if (st.budget) detail += ' · B ' + st.budget;
-        detail += ' · stream E ' + (st.activeEnemies || 0) + '/' + (st.passiveEnemies || 0) + '/' + (st.dormantEnemies || 0);
-        detail += ' · C ' + (st.activeCells || 0) + '/' + (st.totalCells || 0);
-        if (st.visibleDetailCells || st.hiddenDetailCells) detail += ' · D ' + (st.visibleDetailCells || 0) + '/' + ((st.visibleDetailCells || 0) + (st.hiddenDetailCells || 0));
-        if (st.visibleProxies || st.hiddenProxies) detail += ' · P ' + (st.visibleProxies || 0) + '/' + ((st.visibleProxies || 0) + (st.hiddenProxies || 0));
-      }
-      el.textContent = 'FPS ' + fps + ' · 长帧 ' + Math.round(worst) + 'ms · ' + stage + detail;
+      el.textContent = 'FPS ' + fps;
       el.classList.toggle('perf-bad', fps > 0 && fps < 28 || worst > 120);
       el.classList.toggle('perf-warn', !el.classList.contains('perf-bad') && (fps < 45 || worst > 70));
       frames = 0;
@@ -420,7 +387,7 @@ window.__setPerfStage = function(stage) {
   window.__gameplayStage = stage || window.__gameplayStage || 'loading';
   var el = document.getElementById('perf-meter');
   if (el && /^FPS --/.test(el.textContent || '')) {
-    el.textContent = 'FPS -- · 长帧 --ms · ' + window.__gameplayStage;
+    el.textContent = 'FPS --';
   }
 };
 
