@@ -11,14 +11,19 @@ const WorldStreamingSystem = {
   enabled: true,
   _game: null,
   _world: null,
+  _cellSize: 48,
   _enemyTimer: 0,
   _propTimer: 0,
+  _lastCellKey: '',
   _stats: {
     activeEnemies: 0,
     passiveEnemies: 0,
     dormantEnemies: 0,
     visibleProps: 0,
     hiddenProps: 0,
+    activeCells: 0,
+    passiveCells: 0,
+    totalCells: 0,
     quality: 'unknown'
   },
 
@@ -37,14 +42,19 @@ const WorldStreamingSystem = {
     this._world = world;
     this._enemyTimer = 0;
     this._propTimer = 0;
+    this._lastCellKey = '';
     this._cacheStreamProps(world);
     this._primeEnemies(world);
+    this._buildCells(world);
     this._stats = {
       activeEnemies: 0,
       passiveEnemies: 0,
       dormantEnemies: 0,
       visibleProps: 0,
       hiddenProps: 0,
+      activeCells: 0,
+      passiveCells: 0,
+      totalCells: world._streamCells ? world._streamCells.size : 0,
       quality: this._quality()
     };
     world._streamingStats = this._stats;
@@ -105,12 +115,62 @@ const WorldStreamingSystem = {
     world._streamProps = list;
   },
 
+  _buildCells(world) {
+    if (!world) return;
+    const cellSize = this._cellSize;
+    const cells = new Map();
+    const ensure = (x, z) => {
+      const cx = Math.floor((Number(x) || 0) / cellSize);
+      const cz = Math.floor((Number(z) || 0) / cellSize);
+      const key = `${cx},${cz}`;
+      let cell = cells.get(key);
+      if (!cell) {
+        cell = { key, cx, cz, enemies: [], props: [], landmarks: [] };
+        cells.set(key, cell);
+      }
+      return cell;
+    };
+
+    if (Array.isArray(world.enemies)) {
+      for (const enemy of world.enemies) {
+        if (!enemy || !enemy.mesh) continue;
+        const cell = ensure(enemy.mesh.position.x, enemy.mesh.position.z);
+        enemy._streamCellKey = cell.key;
+        cell.enemies.push(enemy);
+      }
+    }
+
+    const props = Array.isArray(world._streamProps) ? world._streamProps : [];
+    for (const obj of props) {
+      if (!obj || !obj.position || !obj.userData) continue;
+      const cell = ensure(obj.position.x, obj.position.z);
+      obj.userData.streamCellKey = cell.key;
+      const kind = obj.userData.kind;
+      if (kind === 'shrine' || kind === 'sheikahTower' || kind === 'campfire' || kind === 'chest') {
+        cell.landmarks.push(obj);
+      } else {
+        cell.props.push(obj);
+      }
+    }
+
+    world._streamCells = cells;
+    world._streamVisibleProps = new Set();
+  },
+
   _updateEnemyTiers(world, game, player) {
     const enemies = Array.isArray(world.enemies) ? world.enemies : [];
     const budget = this._budget();
     const px = player.position.x;
     const pz = player.position.z;
     const move = this._playerForward(player);
+    const cells = this._cellsInRadius(world, px, pz, budget.hideRadius + budget.frontBoost * 1.2);
+    const candidateEnemies = new Set();
+    for (const cell of cells) {
+      for (const enemy of cell.enemies) candidateEnemies.add(enemy);
+    }
+    for (const enemy of enemies) {
+      if (enemy && this._forceEnemyActive(enemy, game)) candidateEnemies.add(enemy);
+    }
     let active = 0;
     let passive = 0;
     let dormant = 0;
@@ -122,6 +182,15 @@ const WorldStreamingSystem = {
         enemy._streamActive = true;
         enemy.mesh.visible = true;
         active++;
+        continue;
+      }
+
+      if (!candidateEnemies.has(enemy)) {
+        enemy._streamTier = 'dormant';
+        enemy._streamActive = false;
+        enemy.mesh.visible = false;
+        if (enemy._contactShadow) enemy._contactShadow.visible = false;
+        dormant++;
         continue;
       }
 
@@ -161,38 +230,86 @@ const WorldStreamingSystem = {
     this._stats.activeEnemies = active;
     this._stats.passiveEnemies = passive;
     this._stats.dormantEnemies = dormant;
+    this._stats.activeCells = cells.filter(cell => this._cellDistanceToPlayer(cell, px, pz) <= budget.activeRadius * budget.activeRadius).length;
+    this._stats.passiveCells = cells.length - this._stats.activeCells;
+    this._stats.totalCells = world._streamCells ? world._streamCells.size : 0;
     this._stats.quality = this._quality();
     world._streamingStats = this._stats;
   },
 
   _updateProps(world, player) {
-    const props = Array.isArray(world._streamProps) ? world._streamProps : [];
     const budget = this._budget();
     const px = player.position.x;
     const pz = player.position.z;
+    const cells = this._cellsInRadius(world, px, pz, budget.landmarkRadius);
+    const previous = world._streamVisibleProps || new Set();
+    const nextVisible = new Set();
     let visible = 0;
     let hidden = 0;
 
+    for (const cell of cells) {
+      for (const obj of cell.props) this._updatePropVisibility(obj, px, pz, budget, false, nextVisible);
+      for (const obj of cell.landmarks) this._updatePropVisibility(obj, px, pz, budget, true, nextVisible);
+    }
+
+    for (const obj of previous) {
+      if (!nextVisible.has(obj) && obj && obj.userData) {
+        obj.visible = false;
+      }
+    }
+    world._streamVisibleProps = nextVisible;
+
+    const props = Array.isArray(world._streamProps) ? world._streamProps : [];
     for (const obj of props) {
-      if (!obj || !obj.position || !obj.userData) continue;
-      const kind = obj.userData.kind;
-      const important = kind === 'shrine' || kind === 'sheikahTower' || kind === 'campfire' || kind === 'chest';
-      const dx = obj.position.x - px;
-      const dz = obj.position.z - pz;
-      const distSq = dx * dx + dz * dz;
-      const showRadius = important ? budget.landmarkRadius : budget.propRadius;
-      const hideRadius = showRadius * 1.22;
-      const shouldShow = obj.visible
-        ? distSq <= hideRadius * hideRadius
-        : distSq <= showRadius * showRadius;
-      obj.visible = obj.userData.streamBaseVisible !== false && shouldShow;
-      if (obj.visible) visible++;
+      if (obj && obj.visible) visible++;
       else hidden++;
     }
 
     this._stats.visibleProps = visible;
     this._stats.hiddenProps = hidden;
+    this._stats.totalCells = world._streamCells ? world._streamCells.size : 0;
     world._streamingStats = this._stats;
+  },
+
+  _updatePropVisibility(obj, px, pz, budget, important, nextVisible) {
+    if (!obj || !obj.position || !obj.userData) return;
+    const dx = obj.position.x - px;
+    const dz = obj.position.z - pz;
+    const distSq = dx * dx + dz * dz;
+    const showRadius = important ? budget.landmarkRadius : budget.propRadius;
+    const hideRadius = showRadius * 1.22;
+    const shouldShow = obj.visible
+      ? distSq <= hideRadius * hideRadius
+      : distSq <= showRadius * showRadius;
+    obj.visible = obj.userData.streamBaseVisible !== false && shouldShow;
+    if (obj.visible) nextVisible.add(obj);
+  },
+
+  _cellsInRadius(world, px, pz, radius) {
+    if (!world || !world._streamCells) return [];
+    const cellSize = this._cellSize;
+    const cx = Math.floor((Number(px) || 0) / cellSize);
+    const cz = Math.floor((Number(pz) || 0) / cellSize);
+    const range = Math.max(1, Math.ceil(radius / cellSize) + 1);
+    const radiusSq = (radius + cellSize * 0.75) * (radius + cellSize * 0.75);
+    const list = [];
+    for (let z = cz - range; z <= cz + range; z++) {
+      for (let x = cx - range; x <= cx + range; x++) {
+        const cell = world._streamCells.get(`${x},${z}`);
+        if (!cell) continue;
+        if (this._cellDistanceToPlayer(cell, px, pz) <= radiusSq) list.push(cell);
+      }
+    }
+    return list;
+  },
+
+  _cellDistanceToPlayer(cell, px, pz) {
+    const size = this._cellSize;
+    const cx = cell.cx * size + size * 0.5;
+    const cz = cell.cz * size + size * 0.5;
+    const dx = cx - px;
+    const dz = cz - pz;
+    return dx * dx + dz * dz;
   },
 
   _forceEnemyActive(enemy, game) {

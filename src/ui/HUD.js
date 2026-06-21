@@ -12,6 +12,7 @@ const HUD = {
   // 怪物血条缓存（DOM 元素）
   _enemyBars: new Map(),
   _cache: {},
+  _minimapEnemyCache: { at: 0, far: [] },
   _timers: { minimap: 0, enemyBars: 0, buffs: 0, champions: 0 },
 
   init() {
@@ -28,6 +29,7 @@ const HUD = {
     this.bossNameEl = document.getElementById('boss-name');
     this.vignetteEl = document.getElementById('damage-vignette');
     this._cache = {};
+    this._minimapEnemyCache = { at: 0, far: [] };
     this._timers = { minimap: 0, enemyBars: 0, buffs: 0, champions: 0 };
   },
 
@@ -271,12 +273,19 @@ const HUD = {
     ctx.moveTo(0, -4); ctx.lineTo(3, 3); ctx.lineTo(-3, 3); ctx.closePath();
     ctx.fill();
     ctx.restore();
-    // 敌人
+    // 敌人：近景/战斗敌人实时画；远景休眠敌人低频缓存成小暗点，避免小地图每次扫全量高成本对象。
+    const cachedFarEnemies = this._getMinimapFarEnemies(this.world);
+    ctx.fillStyle = 'rgba(255,90,90,0.32)';
+    for (const pnt of cachedFarEnemies) {
+      ctx.fillRect((pnt.x - b.minX) * sx - 0.75, (pnt.z - b.minZ) * sz - 0.75, 1.5, 1.5);
+    }
     for (const e of this.world.enemies) {
-      if (e.dead) continue;
+      if (!e || !e.mesh || e.dead) continue;
+      const realtime = e._streamTier !== 'dormant' || e.boss || e.miniBoss || e.hurtTimer > 0 || e === game.lockedEnemy;
+      if (!realtime) continue;
       ctx.fillStyle = e.boss ? '#ff5a3a' : '#ff5a5a';
       ctx.beginPath();
-      const r = e.boss ? 5 : 2.5;
+      const r = e.boss ? 5 : (e._streamTier === 'passive' ? 2 : 2.5);
       ctx.arc((e.mesh.position.x - b.minX) * sx, (e.mesh.position.z - b.minZ) * sz, r, 0, Math.PI * 2);
       ctx.fill();
     }
@@ -296,10 +305,34 @@ const HUD = {
     }
     // 拾取物
     ctx.fillStyle = '#fff080';
+    const playerPos = game.player && game.player.position;
     for (const d of this.world.drops) {
-      if (d.pickedUp) continue;
+      if (!d || d.pickedUp || !d.mesh) continue;
+      if (playerPos && d.mesh.visible === false && d.mesh.position.distanceTo(playerPos) > 24) continue;
       ctx.fillRect((d.mesh.position.x - b.minX) * sx - 1, (d.mesh.position.z - b.minZ) * sz - 1, 2, 2);
     }
+  },
+
+  _getMinimapFarEnemies(world) {
+    const now = Date.now();
+    const quality = (typeof VisualQualitySystem !== 'undefined' && VisualQualitySystem.level) || 'medium';
+    const touch = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
+    const interval = touch || quality === 'low' ? 1400 : 900;
+    if (this._minimapEnemyCache && this._minimapEnemyCache.world === world && now - this._minimapEnemyCache.at < interval) {
+      return this._minimapEnemyCache.far;
+    }
+    const maxDots = touch || quality === 'low' ? 35 : quality === 'medium' ? 70 : 120;
+    const far = [];
+    if (world && Array.isArray(world.enemies)) {
+      for (const e of world.enemies) {
+        if (!e || !e.mesh || e.dead) continue;
+        if (e._streamTier !== 'dormant' || e.boss || e.miniBoss || e.hurtTimer > 0) continue;
+        far.push({ x: e.mesh.position.x, z: e.mesh.position.z });
+        if (far.length >= maxDots) break;
+      }
+    }
+    this._minimapEnemyCache = { world, at: now, far };
+    return far;
   },
 
   // ===== Buff 栏显示 =====
