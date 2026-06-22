@@ -575,8 +575,10 @@ class BaseScene {
           { x: -35, z: -122, radius: 7, height: 2.6, label: '瀑布湿岩' }
         ],
         camps: [
-          { name: '桥北波克布林营地', tier: 'small', x: -42, z: -44, radius: 20, alarmRadius: 8 },
-          { name: '东南废墟营地', tier: 'medium', x: 152, z: -132, radius: 22, alarmRadius: 9 }
+          { id: 'grassland_bridge_boko_camp', name: '桥北波克布林营地', tier: 'small', x: -42, z: -44, radius: 20, alarmRadius: 8, enemyTypes: ['redBokoblin', 'blueBokoblin', 'archerBokoblin'] },
+          { id: 'grassland_southeast_ruin_camp', name: '东南废墟营地', tier: 'medium', x: 152, z: -132, radius: 22, alarmRadius: 9, enemyTypes: ['blueBokoblin', 'blackBokoblin', 'archerBokoblin', 'guardian'] },
+          { id: 'grassland_north_stal_camp', name: '北原骷髅夜营', tier: 'small', x: -104, z: 88, radius: 19, alarmRadius: 8, enemyTypes: ['stal', 'redBokoblin', 'archerBokoblin'] },
+          { id: 'grassland_river_octorok_camp', name: '河岸八爪伏击点', tier: 'small', x: -52, z: 104, radius: 18, alarmRadius: 8, enemyTypes: ['octorok', 'redBokoblin', 'chuchu'] }
         ],
         harvestNodes: [
           { id: 'grassland_ore_01', kind: 'ore', label: '山脚矿石', x: 72, z: -64, items: [['amber', 1], ['flint', 2]], clue: '山脚石块泛着矿光。' },
@@ -615,8 +617,10 @@ class BaseScene {
           { x: 104, z: -76, radius: 8, height: 3.6, label: '林中断崖' }
         ],
         camps: [
-          { name: '迷雾波克布林营地', tier: 'small', x: 0, z: -15, radius: 24, alarmRadius: 10 },
-          { name: '古树根遗迹营地', tier: 'medium', x: 114, z: -112, radius: 24, alarmRadius: 10 }
+          { id: 'forest_mist_boko_camp', name: '迷雾波克布林营地', tier: 'small', x: 0, z: -15, radius: 24, alarmRadius: 10, enemyTypes: ['redBokoblin', 'blueBokoblin', 'archerBokoblin', 'stal'] },
+          { id: 'forest_ancient_root_camp', name: '古树根遗迹营地', tier: 'medium', x: 114, z: -112, radius: 24, alarmRadius: 10, enemyTypes: ['blueBokoblin', 'blackBokoblin', 'moblin', 'stonePebblit'] },
+          { id: 'forest_satori_moblin_camp', name: '萨托利莫力布林营地', tier: 'medium', x: -132, z: 34, radius: 24, alarmRadius: 10, enemyTypes: ['moblin', 'blueBokoblin', 'stal', 'archerBokoblin'] },
+          { id: 'forest_yiga_mist_ambush', name: '迷雾依盖伏击点', tier: 'small', x: -38, z: -42, radius: 18, alarmRadius: 9, enemyTypes: ['yigaFootsoldier', 'redBokoblin', 'chuchu'] }
         ]
       },
       highland: {
@@ -630,7 +634,8 @@ class BaseScene {
           { id: 'highland_falls_blade', label: '瀑布武器宝箱', x: 124, z: -132, items: [['soldierClaymore', 1], ['arrow', 8]] },
           { id: 'highland_west_shield', label: '西崖补给宝箱', x: -144, z: -104, items: [['soldierShield', 1], ['arrow', 12]] },
           { id: 'highland_twin_bridge_cache', label: '双桥补给宝箱', x: -46, z: 52, items: [['travelerBow', 1], ['arrow', 12]] },
-          { id: 'highland_riverbank_blade', label: '河岸武器宝箱', x: 62, z: -64, items: [['soldierSword', 1], ['arrow', 8]] }
+          { id: 'highland_riverbank_blade', label: '河岸武器宝箱', x: 62, z: -64, items: [['soldierSword', 1], ['arrow', 8]] },
+          { id: 'highland_zora_blade_cache', label: '卓拉巡礼宝箱', x: 78, z: -96, items: [['zoraSword', 1], ['opal', 2]] }
         ],
         koroks: [
           { id: 'highland_two_tree_korok', x: 0, z: 18, clue: '两棵歪树之间有风铃声。' },
@@ -641,7 +646,9 @@ class BaseScene {
           { x: 148, z: -142, radius: 8, height: 3.5, label: '费罗尼瀑布岩壁' }
         ],
         camps: [
-          { name: '双河蜥蜴战士营地', tier: 'medium', x: -112, z: 18, radius: 24, alarmRadius: 10 }
+          { id: 'highland_twin_river_lizalfos_camp', name: '双河蜥蜴战士营地', tier: 'medium', x: -112, z: 18, radius: 24, alarmRadius: 10, enemyTypes: ['redLizalfos', 'yellowLizalfos', 'archerBokoblin', 'stonePebblit'] },
+          { id: 'highland_thunder_plateau_camp', name: '雷鸣高地营地', tier: 'medium', x: -128, z: 104, radius: 25, alarmRadius: 11, enemyTypes: ['yellowLizalfos', 'shockChuchu', 'electricOctorok', 'blueMoblin'] },
+          { id: 'highland_lakeside_outpost', name: '湖畔蜥蜴哨站', tier: 'small', x: 46, z: 88, radius: 20, alarmRadius: 9, enemyTypes: ['redLizalfos', 'octorok', 'shockChuchu'] }
         ]
       },
       snowland: {
@@ -655,7 +662,8 @@ class BaseScene {
           { id: 'snow_peak_blade', label: '雪峰武器宝箱', x: -118, z: -82, items: [['travelerSword', 1], ['arrow', 12]] },
           { id: 'snow_cliff_shield', label: '断崖补给宝箱', x: 132, z: -30, items: [['soldierShield', 1], ['arrow', 10]] },
           { id: 'snow_frozen_pine_bow', label: '雪松弓箭宝箱', x: -72, z: 44, items: [['travelerBow', 1], ['arrow', 14]] },
-          { id: 'snow_icebank_shield', label: '冰岸盾牌宝箱', x: 42, z: 98, items: [['bokoShield', 1], ['spicyPepper', 4]] }
+          { id: 'snow_icebank_shield', label: '冰岸盾牌宝箱', x: 42, z: 98, items: [['bokoShield', 1], ['spicyPepper', 4]] },
+          { id: 'snow_rito_falcon_bow', label: '利特遗物宝箱', x: -138, z: 18, items: [['falconBow', 1], ['arrow', 20]] }
         ],
         koroks: [
           { id: 'snow_snowball_korok', x: 112, z: -118, clue: '冻湖边的小雪球摆得太整齐。' }
@@ -668,7 +676,9 @@ class BaseScene {
           { type: 'cold', x: 0, z: -70, radius: 190, damage: 0.5, color: 0x66ddff, message: '严寒正在消耗生命：穿防寒装备或吃暖暖料理。', safeMessage: '防寒效果抵住了雪原严寒。' }
         ],
         camps: [
-          { name: '雪原莱尼尔警戒区', tier: 'elite', x: 112, z: 106, radius: 28, alarmRadius: 12 }
+          { id: 'snowfield_lynel_watch', name: '雪原莱尼尔警戒区', tier: 'elite', x: 112, z: 106, radius: 28, alarmRadius: 12, enemyTypes: ['lynel', 'iceChuchu', 'frostPebblit', 'archerBokoblin'] },
+          { id: 'snow_ice_lake_wizzrobe_camp', name: '冰湖法师营地', tier: 'medium', x: 42, z: 98, radius: 24, alarmRadius: 10, enemyTypes: ['iceWizzrobe', 'iceChuchu', 'frostPebblit', 'blueLizalfos'] },
+          { id: 'snow_frozen_pine_stal_camp', name: '雪松骷髅巡逻营', tier: 'small', x: -72, z: 44, radius: 20, alarmRadius: 9, enemyTypes: ['stal', 'iceChuchu', 'frostPebblit'] }
         ]
       },
       volcano: {
@@ -682,7 +692,8 @@ class BaseScene {
           { id: 'volcano_ash_bow', label: '灰烬弓箭宝箱', x: -138, z: 114, items: [['soldierBow', 1], ['arrow', 16]] },
           { id: 'volcano_cliff_shield', label: '火山断崖宝箱', x: 150, z: -34, items: [['soldierShield', 1], ['flameproofDish', 1]] },
           { id: 'volcano_basalt_bridge_bow', label: '玄武桥弓箭宝箱', x: -48, z: 32, items: [['travelerBow', 1], ['arrow', 14]] },
-          { id: 'volcano_mine_shield', label: '矿道盾牌宝箱', x: 82, z: 86, items: [['bokoShield', 1], ['flint', 4]] }
+          { id: 'volcano_mine_shield', label: '矿道盾牌宝箱', x: 82, z: 86, items: [['bokoShield', 1], ['flint', 4]] },
+          { id: 'volcano_goron_crusher_cache', label: '鼓隆碎岩宝箱', x: -116, z: -104, items: [['goronCrusher', 1], ['flint', 8]] }
         ],
         koroks: [
           { id: 'volcano_ember_korok', x: -148, z: 128, clue: '余烬绕着一圈石头旋转。' }
@@ -695,7 +706,9 @@ class BaseScene {
           { type: 'fire', x: 0, z: -40, radius: 185, damage: 0.75, color: 0xff5522, message: '灼热空气正在烧伤你：需要耐火装备或防火料理。', safeMessage: '耐火效果抵住了火山灼烧。' }
         ],
         camps: [
-          { name: '废矿火蜥蜴营地', tier: 'medium', x: 104, z: 58, radius: 24, alarmRadius: 10 }
+          { id: 'volcano_abandoned_mine_lizalfos_camp', name: '废矿火蜥蜴营地', tier: 'medium', x: 104, z: 58, radius: 24, alarmRadius: 10, enemyTypes: ['redLizalfos', 'fireChuchu', 'fireWizzrobe', 'firePebblit'] },
+          { id: 'volcano_ember_pebblit_camp', name: '余烬熔岩小怪营地', tier: 'medium', x: -138, z: 114, radius: 24, alarmRadius: 10, enemyTypes: ['fireChuchu', 'firePebblit', 'fireWizzrobe', 'redLizalfos'] },
+          { id: 'volcano_basalt_guardian_outpost', name: '玄武岩守护者哨站', tier: 'elite', x: -92, z: -86, radius: 26, alarmRadius: 12, enemyTypes: ['guardianStalker', 'firePebblit', 'blackBokoblin', 'fireWizzrobe'] }
         ]
       },
       desert: {
@@ -709,7 +722,8 @@ class BaseScene {
           { id: 'desert_ruin_spear', label: '沙丘长枪宝箱', x: 118, z: 96, items: [['soldierSpear', 1], ['arrow', 10]] },
           { id: 'desert_cactus_shield', label: '仙人掌补给宝箱', x: -150, z: 104, items: [['soldierShield', 1], ['arrow', 10]] },
           { id: 'desert_waystone_bow', label: '路标弓箭宝箱', x: -42, z: 74, items: [['travelerBow', 1], ['arrow', 16]] },
-          { id: 'desert_sandcamp_blade', label: '沙营武器宝箱', x: 74, z: -58, items: [['soldierSword', 1], ['voltfruit', 3]] }
+          { id: 'desert_sandcamp_blade', label: '沙营武器宝箱', x: 74, z: -58, items: [['soldierSword', 1], ['voltfruit', 3]] },
+          { id: 'desert_gerudo_scimitar_cache', label: '格鲁德弯刀宝箱', x: 118, z: 96, items: [['gerudoScimitar', 1], ['topaz', 1]] }
         ],
         koroks: [
           { id: 'desert_cactus_korok', x: -152, z: 106, clue: '三棵仙人掌的高度似乎少了一个节奏。' }
@@ -722,7 +736,9 @@ class BaseScene {
           { type: 'heat', x: 0, z: 0, radius: 190, damage: 0.45, color: 0xffcc66, message: '酷热正在消耗生命：穿防暑装备或吃沁凉料理。', safeMessage: '防暑效果抵住了沙漠酷热。' }
         ],
         camps: [
-          { name: '绿洲蜥蜴战士营地', tier: 'medium', x: -108, z: 42, radius: 24, alarmRadius: 10 }
+          { id: 'desert_oasis_lizalfos_camp', name: '绿洲蜥蜴战士营地', tier: 'medium', x: -108, z: 42, radius: 24, alarmRadius: 10, enemyTypes: ['yellowLizalfos', 'electricOctorok', 'moblin', 'shockChuchu'] },
+          { id: 'desert_bone_yiga_ambush', name: '龙骨依盖伏击营地', tier: 'medium', x: 32, z: -142, radius: 24, alarmRadius: 10, enemyTypes: ['yigaFootsoldier', 'yellowLizalfos', 'electricOctorok', 'archerBokoblin'] },
+          { id: 'desert_molduga_warning_camp', name: '沙暴魔吉拉德警戒区', tier: 'elite', x: 112, z: -118, radius: 30, alarmRadius: 13, enemyTypes: ['molduga', 'yellowLizalfos', 'electricOctorok'] }
         ]
       },
       castle: {
@@ -735,7 +751,8 @@ class BaseScene {
           { id: 'castle_watch_bow', label: '王城瞭望补给', x: 28, z: 88, items: [['knightBow', 1], ['arrow', 20]] },
           { id: 'castle_ruin_supply', label: '王城废墟宝箱', x: 82, z: -62, items: [['soldierShield', 1], ['soldierSpear', 1]] },
           { id: 'castle_barricade_bow', label: '王城路障弓箭宝箱', x: -68, z: -18, items: [['soldierBow', 1], ['arrow', 18]] },
-          { id: 'castle_courtyard_shield', label: '王城庭院盾牌宝箱', x: 58, z: 42, items: [['soldierShield', 1], ['arrow', 12]] }
+          { id: 'castle_courtyard_shield', label: '王城庭院盾牌宝箱', x: 58, z: 42, items: [['soldierShield', 1], ['arrow', 12]] },
+          { id: 'castle_knight_shield_cache', label: '骑士盾牌宝箱', x: -112, z: 64, items: [['knightShield', 1], ['amber', 3]] }
         ],
         koroks: [
           { id: 'castle_malice_korok', x: 100, z: 94, clue: '魔气中有一片不合时宜的绿叶。' }
@@ -745,7 +762,9 @@ class BaseScene {
           { x: 118, z: 112, radius: 8, height: 3.6, label: '中央广场残墙' }
         ],
         camps: [
-          { name: '王城守护者警戒区', tier: 'elite', x: 0, z: 128, radius: 32, alarmRadius: 14 }
+          { id: 'castle_guardian_watch_camp', name: '王城守护者警戒区', tier: 'elite', x: 0, z: 128, radius: 32, alarmRadius: 14, enemyTypes: ['guardian', 'guardianSkywatcher', 'blackBokoblin', 'silverMoblin'] },
+          { id: 'castle_docks_malice_camp', name: '王城船坞怨念营地', tier: 'elite', x: -96, z: -106, radius: 28, alarmRadius: 13, enemyTypes: ['maliceWizzrobe', 'guardian', 'blackBokoblin', 'silverMoblin'] },
+          { id: 'castle_courtyard_silver_camp', name: '王城庭院白银营地', tier: 'elite', x: 58, z: 42, radius: 28, alarmRadius: 12, enemyTypes: ['silverBokoblin', 'silverMoblin', 'guardian', 'maliceWizzrobe'] }
         ]
       }
     };

@@ -146,7 +146,7 @@ class Grassland extends BaseScene {
       // 第一遭遇：出生点前方小路边
       [22, -24, 'redBokoblin'], [30, -30, 'chuchu'], [35, -18, 'archerBokoblin'],
       // 桥头遭遇：河岸掩体和踏步附近
-      [-22, 16, 'redBokoblin'], [-50, 12, 'blueBokoblin'], [-55, 24, 'archerBokoblin'],
+      [-22, 16, 'redBokoblin'], [-50, 12, 'blueBokoblin'], [-55, 24, 'archerBokoblin'], [-36, 34, 'octorok'],
       // 营地遭遇：路线上第一个完整战斗场
       [-66, -38, 'redBokoblin'], [-73, -32, 'blueBokoblin'], [-58, -50, 'archerBokoblin'],
       // 北侧遗迹/传送目标前的精英守卫

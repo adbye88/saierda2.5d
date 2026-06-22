@@ -74,6 +74,7 @@ class Highland extends BaseScene {
       [-18, 28, 'iceWizzrobe'], [18, 30, 'fireWizzrobe'],
       [0, 70, 'silverMoblin'], [0, -80, 'blackBokoblin'],
       [-92, 0, 'octorok'], [92, 0, 'octorok'], [-36, 4, 'chuchu'], [36, 10, 'chuchu'],
+      [-126, 96, 'shockChuchu'], [42, 84, 'shockChuchu'],
       [-96, -42, 'stonePebblit'], [96, 42, 'stonePebblit'], [-96, 42, 'blueLizalfos'], [96, -42, 'redLizalfos'],
       [-118, 44, 'blueMoblin'], [118, -44, 'guardianStalker'], [112, 96, 'electricOctorok']
     ];

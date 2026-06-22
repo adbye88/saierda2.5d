@@ -445,6 +445,21 @@ const ExplorationSystem = {
 
   _campSpawnDefs(world, camp) {
     if (camp._spawnDefs && camp._spawnDefs.length) return camp._spawnDefs;
+    if (Array.isArray(camp.spawns) && camp.spawns.length) {
+      camp._spawnDefs = camp.spawns.map((row, i) => {
+        const typeId = row.typeId || row.type || row.enemy || 'redBokoblin';
+        const dx = Number(row.dx ?? row.offsetX ?? 0);
+        const dz = Number(row.dz ?? row.offsetZ ?? 0);
+        const x = Number(row.x ?? ((camp.x || 0) + dx));
+        const z = Number(row.z ?? ((camp.z || 0) + dz));
+        return { typeId, x, z, radius: row.radius || 0.65, role: row.role || null, index: i };
+      });
+      return camp._spawnDefs;
+    }
+    if (Array.isArray(camp.enemyTypes) && camp.enemyTypes.length) {
+      camp._spawnDefs = this._makeCampSpawnRing(camp.enemyTypes, camp);
+      return camp._spawnDefs;
+    }
     const center = new THREE.Vector3(camp.x || 0, 0, camp.z || 0);
     const nearby = (world.enemies || [])
       .filter(e => e && e.mesh && e.mesh.position.distanceTo(center) < (camp.radius || 16) + 5)
@@ -463,6 +478,27 @@ const ExplorationSystem = {
       return { typeId: type, x: (camp.x || 0) + Math.cos(a) * r, z: (camp.z || 0) + Math.sin(a) * r };
     });
     return camp._spawnDefs;
+  },
+
+  _makeCampSpawnRing(enemyTypes, camp) {
+    const types = enemyTypes.filter(Boolean);
+    const count = types.length;
+    const baseRadius = Math.min(10, Math.max(4.5, (camp.radius || 16) * 0.34));
+    const centerX = camp.x || 0;
+    const centerZ = camp.z || 0;
+    const rot = camp.spawnRotation || 0;
+    return types.map((typeId, i) => {
+      const a = rot + (i / Math.max(1, count)) * Math.PI * 2;
+      const wobble = (i % 2) * 1.15;
+      const r = baseRadius + wobble;
+      return {
+        typeId,
+        x: centerX + Math.cos(a) * r,
+        z: centerZ + Math.sin(a) * r,
+        radius: 0.65,
+        index: i
+      };
+    });
   },
 
   scanNearby(world, game = window.game) {

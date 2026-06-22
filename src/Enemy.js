@@ -303,6 +303,60 @@ const ENEMY_DEFS = {
   }
 };
 
+const ENEMY_ECOLOGY = {
+  redBokoblin: { habitats: ['grassland', 'forest'], threatTier: 'common', role: 'melee', mapHint: '草原、森林、初级营地' },
+  blueBokoblin: { habitats: ['grassland', 'forest', 'highland'], threatTier: 'common+', role: 'melee', mapHint: '草原中后段、森林营地、高地道路' },
+  blackBokoblin: { habitats: ['grassland', 'forest', 'castle'], threatTier: 'veteran', role: 'melee_shield', mapHint: '废墟营地、王城外围' },
+  silverBokoblin: { habitats: ['castle', 'forest'], threatTier: 'elite', role: 'elite_melee', mapHint: '王城、后期森林强敌点' },
+  goldBokoblin: { habitats: ['forest', 'volcano', 'desert', 'castle'], threatTier: 'legendary', role: 'elite_melee', mapHint: '后期精英营地、血月后稀有出现' },
+  archerBokoblin: { habitats: ['grassland', 'forest', 'highland', 'snowland', 'desert', 'castle'], threatTier: 'support', role: 'ranged', mapHint: '营地瞭望点、桥头、废墟高台' },
+  octorok: { habitats: ['grassland', 'forest', 'highland', 'desert'], threatTier: 'wildlife', role: 'ranged_ambush', mapHint: '河岸、湖边、湿地和沙地伏击点' },
+  electricOctorok: { habitats: ['highland', 'desert'], threatTier: 'elemental', role: 'ranged_shock', mapHint: '雷鸣高地、格鲁德沙漠' },
+  chuchu: { habitats: ['grassland', 'forest', 'highland'], threatTier: 'wildlife', role: 'swarm', mapHint: '草丛、林地、路边' },
+  fireChuchu: { habitats: ['volcano'], threatTier: 'elemental', role: 'fire_swarm', mapHint: '死亡之山、火山洞口' },
+  iceChuchu: { habitats: ['snowland'], threatTier: 'elemental', role: 'ice_swarm', mapHint: '赫布拉雪山、冰湖' },
+  shockChuchu: { habitats: ['highland', 'desert'], threatTier: 'elemental', role: 'shock_swarm', mapHint: '雷鸣高地、绿洲边缘' },
+  redLizalfos: { habitats: ['highland', 'volcano'], threatTier: 'soldier', role: 'fast_melee', mapHint: '高地河岸、火山废矿' },
+  blueLizalfos: { habitats: ['snowland', 'highland'], threatTier: 'soldier+', role: 'fast_melee', mapHint: '雪山坡道、冰洞外' },
+  yellowLizalfos: { habitats: ['highland', 'desert'], threatTier: 'veteran', role: 'shock_melee', mapHint: '雷鸣高地、格鲁德沙漠绿洲' },
+  moblin: { habitats: ['forest', 'desert'], threatTier: 'brute', role: 'heavy_melee', mapHint: '森林深处、沙漠营地' },
+  blueMoblin: { habitats: ['highland', 'castle'], threatTier: 'brute+', role: 'heavy_melee', mapHint: '高地精英营地、王城外围' },
+  silverMoblin: { habitats: ['forest', 'castle'], threatTier: 'elite', role: 'heavy_elite', mapHint: '王城、后期森林强敌' },
+  stal: { habitats: ['grassland', 'forest', 'snowland', 'castle'], threatTier: 'night', role: 'night_ambush', mapHint: '夜晚营地、骷髅巡逻点' },
+  guardian: { habitats: ['grassland', 'volcano', 'castle'], threatTier: 'ancient', role: 'laser_ranged', mapHint: '遗迹、王城、古代警戒区' },
+  guardianStalker: { habitats: ['grassland', 'snowland', 'volcano', 'castle'], threatTier: 'ancient_elite', role: 'mobile_laser', mapHint: '平原、王城、火山古代哨站' },
+  guardianSkywatcher: { habitats: ['grassland', 'castle'], threatTier: 'ancient_elite', role: 'aerial_laser', mapHint: '平原巡空点、王城上空' },
+  yigaFootsoldier: { habitats: ['forest', 'highland', 'snowland', 'desert', 'castle'], threatTier: 'ambush', role: 'assassin', mapHint: '道路伏击、沙漠龙骨、森林迷雾' },
+  fireWizzrobe: { habitats: ['forest', 'highland', 'volcano', 'castle'], threatTier: 'caster', role: 'fire_ranged', mapHint: '火山、森林魔法点、王城废墟' },
+  iceWizzrobe: { habitats: ['forest', 'highland', 'snowland', 'castle'], threatTier: 'caster', role: 'ice_ranged', mapHint: '雪山、森林、王城法师点' },
+  shockWizzrobe: { habitats: ['forest', 'highland', 'desert', 'castle'], threatTier: 'caster', role: 'shock_ranged', mapHint: '雷鸣高地、沙漠、森林伏击点' },
+  maliceWizzrobe: { habitats: ['forest', 'castle'], threatTier: 'malice', role: 'dark_caster', mapHint: '王城船坞、怨念废墟' },
+  stonePebblit: { habitats: ['grassland', 'forest', 'highland', 'desert'], threatTier: 'wildlife', role: 'rock_swarm', mapHint: '山脚、石堆、废墟' },
+  frostPebblit: { habitats: ['snowland'], threatTier: 'elemental', role: 'ice_rock', mapHint: '雪峰、冰湖岸边' },
+  firePebblit: { habitats: ['volcano'], threatTier: 'elemental', role: 'fire_rock', mapHint: '熔岩口、废矿、焦岩区' },
+  lynel: { habitats: ['grassland', 'forest', 'highland', 'snowland', 'desert'], threatTier: 'field_boss', role: 'duelist', mapHint: '开阔平原、雪原、高地、沙海边缘' },
+  silverLynel: { habitats: ['snowland', 'desert', 'castle'], threatTier: 'field_boss_elite', role: 'duelist_elite', mapHint: '后期区域与王城外围' },
+  stoneTalus: { habitats: ['grassland', 'forest', 'highland', 'dungeon'], threatTier: 'field_boss', role: 'ore_boss', mapHint: '采石场、山脚矿区' },
+  ignoTalus: { habitats: ['volcano'], threatTier: 'field_boss', role: 'fire_ore_boss', mapHint: '死亡之山熔岩口' },
+  frostTalus: { habitats: ['snowland', 'highland'], threatTier: 'field_boss', role: 'ice_ore_boss', mapHint: '雪峰、寒冷高地' },
+  molduga: { habitats: ['desert'], threatTier: 'field_boss', role: 'sand_boss', mapHint: '格鲁德沙漠沙暴区' },
+  hinox: { habitats: ['forest'], threatTier: 'field_boss', role: 'giant', mapHint: '森林林地、古树圆地' },
+  blackHinox: { habitats: ['grassland', 'castle'], threatTier: 'field_boss_elite', role: 'giant_elite', mapHint: '竞技场外缘、王城废墟' },
+  stalnox: { habitats: ['castle'], threatTier: 'field_boss_elite', role: 'night_giant', mapHint: '王城夜间骷髅遗迹' },
+  fireGleeok: { habitats: ['volcano'], threatTier: 'dragon_boss', role: 'fire_dragon', mapHint: '火山远景 Boss 点' },
+  frostGleeok: { habitats: ['snowland'], threatTier: 'dragon_boss', role: 'ice_dragon', mapHint: '雪峰远景 Boss 点' },
+  thunderGleeok: { habitats: ['grassland', 'highland', 'desert'], threatTier: 'dragon_boss', role: 'shock_dragon', mapHint: '桥梁、高地瀑布、格鲁德迷宫' },
+  waterblightGanon: { habitats: ['snowland', 'divine_beast_water'], threatTier: 'main_boss', role: 'blight_boss', mapHint: '水之神兽主线' },
+  fireblightGanon: { habitats: ['volcano', 'divine_beast_fire'], threatTier: 'main_boss', role: 'blight_boss', mapHint: '火之神兽主线' },
+  windblightGanon: { habitats: ['forest', 'divine_beast_wind'], threatTier: 'main_boss', role: 'blight_boss', mapHint: '风之神兽主线' },
+  thunderblightGanon: { habitats: ['desert', 'divine_beast_thunder'], threatTier: 'main_boss', role: 'blight_boss', mapHint: '雷之神兽主线' },
+  calamityGanon: { habitats: ['castle'], threatTier: 'final_boss', role: 'final_boss', mapHint: '海拉鲁城堡主线终战' }
+};
+
+for (const [typeId, ecology] of Object.entries(ENEMY_ECOLOGY)) {
+  if (ENEMY_DEFS[typeId]) ENEMY_DEFS[typeId].ecology = ecology;
+}
+
 const BASIC_EQUIPMENT_DROPS = new Set([
   'bokoClub', 'rustyBroadsword', 'travelerSword', 'soldierSword',
   'bokoBoneSpear', 'soldierSpear', 'travelerClaymore', 'soldierClaymore',
