@@ -249,7 +249,9 @@ const SaveSystem = {
   },
 
   _clampLoadedPlayerHp(value, player) {
-    const max = Math.max(1, ((player && player.maxHp) || 1) * 4);
+    const max = player && typeof player._maxHpValue === 'function'
+      ? player._maxHpValue()
+      : Math.max(1, ((player && player.maxHp) || 1) * 4);
     const n = Number(value);
     if (!Number.isFinite(n)) return max;
     return Math.max(1, Math.min(max, n));

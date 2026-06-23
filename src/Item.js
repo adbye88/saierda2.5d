@@ -6,7 +6,7 @@
 
 const ITEMS = {
   // ============ 单手剑 ============
-  travelerSword:    { name: '旅人之剑',       type: 'weapon', subtype: 'sword', icon: '🗡️', atk: 5,  durability: 20,  desc: '旅人爱用的剑。虽普通但可靠。' },
+  travelerSword:    { name: '旅人之剑',       type: 'weapon', subtype: 'sword', icon: '🗡️', atk: 5,  durability: 20, attackSpeed: 1.35, desc: '旅人爱用的剑。虽普通但可靠。' },
   soldierSword:     { name: '士兵之剑',       type: 'weapon', subtype: 'sword', icon: '⚔️', atk: 14, durability: 30, critChance: 0.015, desc: '海拉鲁士兵的制式长剑。' },
   knightSword:      { name: '骑士之剑',       type: 'weapon', subtype: 'sword', icon: '⚔️', atk: 26, durability: 40, critChance: 0.03, desc: '骑士团精英的精钢剑。' },
   royalSword:       { name: '王族之剑',       type: 'weapon', subtype: 'sword', icon: '⚔️', atk: 36, durability: 50, critChance: 0.05, critMultiplierBonus: 0.25, desc: '海拉鲁王族传承的名剑。' },
@@ -18,11 +18,11 @@ const ITEMS = {
   thunderblade:     { name: '雷电之剑',       type: 'weapon', subtype: 'sword', icon: '⚡', atk: 32, durability: 35, element: 'shock', desc: '缠绕电弧的剑，麻痹敌人。' },
   ancientShortSword:{ name: '古代兵装·剑',    type: 'weapon', subtype: 'sword', icon: '⚔️', atk: 40, durability: 55, critChance: 0.04, desc: '古代希卡技术的产物，对守护者伤害加成。' },
   ancientGreatsword:{ name: '古代兵装·大剑',  type: 'weapon', subtype: 'claymore', icon: '⚔️', atk: 58, durability: 55, critChance: 0.045, critMultiplierBonus: 0.2, desc: '古代技术打造的重剑，适合对付大型敌人。' },
-  forestDwellerSword:{ name: '森民之剑',      type: 'weapon', subtype: 'sword', icon: '🌿', atk: 22, durability: 35, critChance: 0.035, desc: '森林工匠打造的轻剑，挥动迅速。' },
+  forestDwellerSword:{ name: '森民之剑',      type: 'weapon', subtype: 'sword', icon: '🌿', atk: 22, durability: 35, attackSpeed: 1.55, critChance: 0.035, desc: '森林工匠打造的轻剑，挥动迅速。' },
   zoraSword:        { name: '卓拉之剑',       type: 'weapon', subtype: 'sword', icon: '💧', atk: 24, durability: 45, element: 'ice', desc: '水之民传承的银蓝剑。' },
   gerudoScimitar:   { name: '格鲁德弯刀',     type: 'weapon', subtype: 'sword', icon: '🌙', atk: 28, durability: 38, desc: '沙漠战士使用的弯刀。' },
   scimitarOfSeven:  { name: '七宝匕首',       type: 'weapon', subtype: 'sword', icon: '🌙', atk: 42, durability: 60, desc: '格鲁德英杰传承的名刃，轻巧锋利。' },
-  eightfoldBlade:   { name: '戒心小刀',       type: 'weapon', subtype: 'sword', icon: '🗡️', atk: 30, durability: 30, critChance: 0.06, critMultiplierBonus: 0.35, desc: '隐秘战士使用的短刀，背刺伤害高。' },
+  eightfoldBlade:   { name: '戒心小刀',       type: 'weapon', subtype: 'sword', icon: '🗡️', atk: 30, durability: 30, attackSpeed: 1.65, critChance: 0.06, critMultiplierBonus: 0.35, desc: '隐秘战士使用的短刀，背刺伤害高。' },
   savageLynelSword: { name: '兽神剑',         type: 'weapon', subtype: 'sword', icon: '🦁', atk: 58, durability: 42, critChance: 0.07, critMultiplierBonus: 0.45, desc: '强敌战利品，破坏力惊人。' },
 
   // ============ 双手剑/长枪 ============
@@ -32,13 +32,13 @@ const ITEMS = {
   royalHalberd:     { name: '王族之斧枪',     type: 'weapon', subtype: 'spear', icon: '🔱', atk: 30, durability: 50, critChance: 0.05, critMultiplierBonus: 0.2, desc: '王族近卫的长柄武器。' },
   ancientSpear:     { name: '古代兵装·枪',    type: 'weapon', subtype: 'spear', icon: '🔱', atk: 30, durability: 50, desc: '古代技术的长枪。' },
   lightscaleTrident:{ name: '光鳞之枪',       type: 'weapon', subtype: 'spear', icon: '🔱', atk: 44, durability: 70, element: 'ice', desc: '卓拉英杰传承的银白长枪。' },
-  travelerClaymore: { name: '旅人双手剑',     type: 'weapon', subtype: 'claymore', icon: '🗡️', atk: 10, durability: 22, desc: '沉重但容易上手的双手剑。' },
+  travelerClaymore: { name: '旅人双手剑',     type: 'weapon', subtype: 'claymore', icon: '🗡️', atk: 10, durability: 22, attackSpeed: 0.82, desc: '沉重但容易上手的双手剑。' },
   soldierClaymore:  { name: '士兵双手剑',     type: 'weapon', subtype: 'claymore', icon: '⚔️', atk: 20, durability: 32, critChance: 0.02, desc: '士兵装备的重剑。' },
   knightClaymore:   { name: '骑士双手剑',     type: 'weapon', subtype: 'claymore', icon: '⚔️', atk: 34, durability: 45, critChance: 0.035, desc: '骑士团用于破阵的重剑。' },
   royalClaymore:    { name: '王族双手剑',     type: 'weapon', subtype: 'claymore', icon: '⚔️', atk: 52, durability: 55, critChance: 0.055, critMultiplierBonus: 0.3, desc: '王族近卫的高阶重剑。' },
-  royalGuardClaymore:{ name: '近卫双手剑',    type: 'weapon', subtype: 'claymore', icon: '⚔️', atk: 64, durability: 28, critChance: 0.08, critMultiplierBonus: 0.5, desc: '王城近卫的决战重剑，威力高但耐久较低。' },
-  goronCrusher:     { name: '碎岩巨锤',       type: 'weapon', subtype: 'club', icon: '🔨', atk: 42, durability: 55, element: 'fire', desc: '火山工匠打造的破岩重锤。' },
-  boulderBreaker:   { name: '碎岩剑',         type: 'weapon', subtype: 'club', icon: '🔨', atk: 60, durability: 60, element: 'fire', desc: '戈隆英杰传承的破岩重兵器。' },
+  royalGuardClaymore:{ name: '近卫双手剑',    type: 'weapon', subtype: 'claymore', icon: '⚔️', atk: 64, durability: 28, attackSpeed: 0.68, critChance: 0.08, critMultiplierBonus: 0.5, desc: '王城近卫的决战重剑，威力高但耐久较低。' },
+  goronCrusher:     { name: '碎岩巨锤',       type: 'weapon', subtype: 'club', icon: '🔨', atk: 42, durability: 55, attackSpeed: 0.72, element: 'fire', desc: '火山工匠打造的破岩重锤。' },
+  boulderBreaker:   { name: '碎岩剑',         type: 'weapon', subtype: 'club', icon: '🔨', atk: 60, durability: 60, attackSpeed: 0.66, element: 'fire', desc: '戈隆英杰传承的破岩重兵器。' },
 
   // ============ 盾 ============
   woodenShield:     { name: '木之盾',         type: 'shield', icon: '🛡️', durability: 12, def: 2,  desc: '木制圆盾，易燃但轻便。' },
@@ -54,19 +54,19 @@ const ITEMS = {
   royalGuardShield: { name: '近卫盾',         type: 'shield', icon: '🛡️', durability: 32, def: 18, desc: '王城近卫使用的高强度盾。' },
 
   // ============ 弓 ============
-  travelerBow:      { name: '旅人之弓',       type: 'bow', icon: '🏹', durability: 20, atk: 4,  desc: '简单的木弓。' },
+  travelerBow:      { name: '旅人之弓',       type: 'bow', icon: '🏹', durability: 20, atk: 4, attackSpeed: 1.0, desc: '简单的木弓。' },
   soldierBow:       { name: '士兵之弓',       type: 'bow', icon: '🏹', durability: 35, atk: 10, critChance: 0.015, desc: '士兵用的强弓。' },
   knightBow:        { name: '骑士之弓',       type: 'bow', icon: '🏹', durability: 50, atk: 15, critChance: 0.03, desc: '骑士团的精制弓。' },
   royalBow:         { name: '王族之弓',       type: 'bow', icon: '🏹', durability: 60, atk: 25, critChance: 0.06, critMultiplierBonus: 0.25, desc: '王族的高级弓。' },
   ancientBow:       { name: '古代兵装·弓',    type: 'bow', icon: '🏹', durability: 70, atk: 30, critChance: 0.04, critMultiplierBonus: 0.2, desc: '古代技术的精准弓。' },
-  greatEagleBow:    { name: '大鹫弓',         type: 'bow', icon: '🏹', durability: 65, atk: 34, critChance: 0.07, critMultiplierBonus: 0.35, desc: '利特英杰传承的强弓，射程与稳定性出众。' },
+  greatEagleBow:    { name: '大鹫弓',         type: 'bow', icon: '🏹', durability: 65, atk: 34, attackSpeed: 1.18, critChance: 0.07, critMultiplierBonus: 0.35, desc: '利特英杰传承的强弓，射程与稳定性出众。' },
   fireBow:          { name: '火焰之弓',       type: 'bow', icon: '🏹', durability: 45, atk: 15, element: 'fire',  desc: '射出火箭，点燃目标。' },
   iceBow:           { name: '冰雪之弓',       type: 'bow', icon: '🏹', durability: 45, atk: 15, element: 'ice',   desc: '射出冰箭，冻结目标。' },
   shockBow:         { name: '雷电之弓',       type: 'bow', icon: '🏹', durability: 45, atk: 18, element: 'shock', desc: '射出电箭，麻痹目标。' },
   forestDwellerBow: { name: '森民之弓',       type: 'bow', icon: '🏹', durability: 42, atk: 14, critChance: 0.035, desc: '森林工匠制作的轻弓。' },
   falconBow:        { name: '飞燕弓',         type: 'bow', icon: '🏹', durability: 50, atk: 20, critChance: 0.055, critMultiplierBonus: 0.2, desc: '利特族使用的远射弓。' },
-  duplexBow:        { name: '二连弓',         type: 'bow', icon: '🏹', durability: 32, atk: 18, critChance: 0.05, desc: '一次射出两束箭影，爆发强。' },
-  savageLynelBow:   { name: '兽神弓',         type: 'bow', icon: '🏹', durability: 45, atk: 32, critChance: 0.08, critMultiplierBonus: 0.45, desc: '强敌战利品，威力极高。' },
+  duplexBow:        { name: '二连弓',         type: 'bow', icon: '🏹', durability: 32, atk: 18, attackSpeed: 1.12, critChance: 0.05, desc: '一次射出两束箭影，爆发强。' },
+  savageLynelBow:   { name: '兽神弓',         type: 'bow', icon: '🏹', durability: 45, atk: 32, attackSpeed: 0.92, critChance: 0.08, critMultiplierBonus: 0.45, desc: '强敌战利品，威力极高。' },
 
   // ============ 防具（上衣+裤子，可防寒/防火/防热） ============
   // 普通防具

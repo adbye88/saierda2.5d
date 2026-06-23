@@ -23,6 +23,7 @@ class Player {
     // 属性
     this.maxHp = 9;           // 9颗心 = 36 血（每心4格）
     this.hp = this.maxHp * 4;
+    this._lastEffectiveMaxHpValue = this.hp;
     this.maxStamina = 100;
     this.stamina = 100;
 
@@ -36,6 +37,7 @@ class Player {
     this._hitStop = 0;
     this._attackTrailTimer = 0;
     this._attackStage = 'idle';
+    this._attackCooldownTimer = 0;
     this.bowMode = false;
     this.selectedArrowType = 'normal';
     this.invuln = 0;          // 受击无敌时间
@@ -93,6 +95,7 @@ class Player {
       this.inventory.equipped.armor_lower && this.inventory.equipped.armor_lower.itemId
     );
     if (this._armorOverlay) this.mesh.add(this._armorOverlay);
+    this._syncEffectiveHpFromEquipment();
 
     // 武器
     if (this._weaponMesh) { this.mesh.remove(this._weaponMesh); this._weaponMesh = null; }
@@ -183,6 +186,7 @@ class Player {
     if (this._slowTimer > 0) this._slowTimer -= dt;
     if (this._stunTimer > 0) this._stunTimer -= dt;
     if (this._shieldCounterWindow > 0) this._shieldCounterWindow -= dt;
+    if (this._attackCooldownTimer > 0) this._attackCooldownTimer -= dt;
     if (this._dodgeWindow > 0) this._dodgeWindow -= dt;
     if (this._dodgeTimer > 0) this._dodgeTimer -= dt;
     if (this._jumpSuppressTimer > 0) this._jumpSuppressTimer -= dt;
@@ -901,14 +905,12 @@ class Player {
         this.isAttacking = false;
         this.attackTimer = 0;
         this._attackStage = 'idle';
+        this._attackCooldownTimer = Math.max(this._attackCooldownTimer || 0, profile.attackCooldown || 0.12);
         // 攻击结束后重置手臂姿态
         if (p && p.armR) { p.armR.rotation.z = 0; p.armR.rotation.x = 0; }
         if (p && p.body) { p.body.rotation.y = 0; p.body.rotation.x = 0; }
         if (p && p.head) { p.head.rotation.y = 0; }
-        if (this.attackQueued && this.inventory.equipped.weapon) {
-          this.attackQueued = false;
-          this._startAttack(game);
-        } else {
+        if (!this.attackQueued) {
           this.attackQueued = false;
           this.comboStep = 0;
         }
@@ -916,8 +918,13 @@ class Player {
       return;
     }
     // 触发新攻击
-    if (Input.justAttack) {
+    if (Input.justAttack || (this.attackQueued && this._attackCooldownTimer <= 0)) {
       if (this._tryShieldCounter(game)) return;
+      if (this._attackCooldownTimer > 0) {
+        this.attackQueued = true;
+        return;
+      }
+      this.attackQueued = false;
       if (this.bowMode && this.inventory.equipped.bow && this.inventory.arrows > 0) {
         this._shootArrow(game);
       } else if (this.inventory.equipped.weapon) {
@@ -1011,22 +1018,38 @@ class Player {
   }
 
   _weaponProfile(weapon) {
-    if (!weapon) return { range: 1.75, angle: 0.72, duration: 0.28, activeStart: 0.24, activeEnd: 0.55, damageMul: 1, knock: 1.4, hitStop: 0.035 };
+    if (!weapon) return this._withAttackTiming({ range: 1.75, angle: 0.72, duration: 0.28, activeStart: 0.24, activeEnd: 0.55, damageMul: 1, knock: 1.4, hitStop: 0.035 }, null);
     const subtype = weapon.def.subtype;
     const id = weapon.itemId || '';
     if (subtype === 'spear' || id.toLowerCase().includes('spear') || id.toLowerCase().includes('halberd')) {
-      return { range: 3.65, angle: 0.38, duration: 0.34, activeStart: 0.18, activeEnd: 0.46, damageMul: 0.95, knock: 2.0, hitStop: 0.045 };
+      return this._withAttackTiming({ range: 3.65, angle: 0.38, duration: 0.34, activeStart: 0.18, activeEnd: 0.46, damageMul: 0.95, knock: 2.0, hitStop: 0.045 }, weapon);
     }
     if (id === 'bokoClub' || id.toLowerCase().includes('club')) {
-      return { range: 2.62, angle: 0.8, duration: 0.48, activeStart: 0.34, activeEnd: 0.70, damageMul: 1.16, knock: 2.6, hitStop: 0.065 };
+      return this._withAttackTiming({ range: 2.62, angle: 0.8, duration: 0.48, activeStart: 0.34, activeEnd: 0.70, damageMul: 1.16, knock: 2.6, hitStop: 0.065 }, weapon);
     }
     if (id === 'masterSword') {
-      return { range: 3.05, angle: 0.72, duration: 0.32, activeStart: 0.24, activeEnd: 0.58, damageMul: 1.0, knock: 2.15, hitStop: 0.06 };
+      return this._withAttackTiming({ range: 3.05, angle: 0.72, duration: 0.32, activeStart: 0.24, activeEnd: 0.58, damageMul: 1.0, knock: 2.15, hitStop: 0.06 }, weapon);
     }
     if (id.toLowerCase().includes('royal')) {
-      return { range: 3.05, angle: 0.72, duration: 0.32, activeStart: 0.24, activeEnd: 0.58, damageMul: 1.08, knock: 2.15, hitStop: 0.06 };
+      return this._withAttackTiming({ range: 3.05, angle: 0.72, duration: 0.32, activeStart: 0.24, activeEnd: 0.58, damageMul: 1.08, knock: 2.15, hitStop: 0.06 }, weapon);
     }
-    return { range: 2.78, angle: 0.68, duration: 0.34, activeStart: 0.26, activeEnd: 0.62, damageMul: 1, knock: 1.9, hitStop: 0.05 };
+    return this._withAttackTiming({ range: 2.78, angle: 0.68, duration: 0.34, activeStart: 0.26, activeEnd: 0.62, damageMul: 1, knock: 1.9, hitStop: 0.05 }, weapon);
+  }
+
+  _attackIntervalForWeapon(weapon) {
+    const speed = this.inventory && this.inventory.getAttackSpeed
+      ? this.inventory.getAttackSpeed(weapon)
+      : (weapon && weapon.def && weapon.def.attackSpeed) || 1;
+    return 1 / Math.max(0.35, Number(speed) || 1);
+  }
+
+  _withAttackTiming(profile, weapon) {
+    const interval = this._attackIntervalForWeapon(weapon);
+    const cooldown = Math.max(0.06, interval - (profile.duration || 0.34));
+    return Object.assign({}, profile, {
+      attackSpeed: Math.round((1 / interval) * 100) / 100,
+      attackCooldown: cooldown
+    });
   }
 
   _masterSwordAwakenedAgainst(enemy) {
@@ -1253,6 +1276,8 @@ class Player {
     if (typeof AudioSystem !== 'undefined') AudioSystem.play('slash');
     this.inventory.arrows -= 1;
     this.inventory.damageBow(1);
+    const interval = this._attackIntervalForWeapon(bow);
+    this._attackCooldownTimer = Math.max(this._attackCooldownTimer || 0, Math.max(0.12, interval * 0.72));
     if (this.inventory.arrows <= 0 || !this.inventory.equipped.bow) {
       this.setBowMode(false);
     }
@@ -1264,7 +1289,20 @@ class Player {
 
   // ---------- 受伤 ----------
   _maxHpValue() {
-    return Math.max(1, (this.maxHp || 1) * 4);
+    return Math.max(1, this.getMaxHearts() * 4);
+  }
+
+  getMaxHearts() {
+    const set = this.inventory && this.inventory.getSetEffects ? this.inventory.getSetEffects() : {};
+    return Math.max(1, (this.maxHp || 1) + (set.bonusHearts || 0));
+  }
+
+  _syncEffectiveHpFromEquipment() {
+    const next = this._maxHpValue();
+    const prev = this._lastEffectiveMaxHpValue || ((this.maxHp || 1) * 4);
+    if (next > prev && this.hp > 0) this.hp += next - prev;
+    this._lastEffectiveMaxHpValue = next;
+    this._clampHp();
   }
 
   _clampHp() {
@@ -1395,7 +1433,7 @@ class Player {
   }
 
   heal(amount) {
-    this.hp = Math.min(this.maxHp * 4, this.hp + amount);
+    this.hp = Math.min(this._maxHpValue(), this.hp + amount);
     this._clampHp();
   }
 

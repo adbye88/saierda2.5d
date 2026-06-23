@@ -97,8 +97,10 @@ const InventoryUI = {
         const crit = inv.getCriticalStats ? inv.getCriticalStats('weapon', this.selected) : { chance: 0.01, multiplier: 2 };
         const maxDurability = this.selected.maxDurability || d.durability;
         const atk = inv.getStackAttack ? inv.getStackAttack(this.selected) : d.atk;
+        const attackSpeed = inv.getAttackSpeed ? inv.getAttackSpeed(this.selected) : (d.attackSpeed || 1);
         stats = `<div class="detail-stats">
           <span class="stat-pill atk">⚔️ 攻击 ${atk}</span>
+          <span class="stat-pill">⚡ 攻速 ${attackSpeed.toFixed(2)}/秒</span>
           <span class="stat-pill">耐久 ${this.selected.durability}/${maxDurability}</span>
           ${this.selected.source === 'crafted' ? '<span class="stat-pill">🔨 打造耐久×10</span>' : ''}
           ${this.selected.modifier ? `<span class="stat-pill">✨ ${this.selected.modifier.name}：${this.selected.modifier.desc}</span>` : ''}
@@ -117,8 +119,10 @@ const InventoryUI = {
         const crit = inv.getCriticalStats ? inv.getCriticalStats('bow', this.selected) : { chance: 0.01, multiplier: 2 };
         const maxDurability = this.selected.maxDurability || d.durability;
         const atk = inv.getStackAttack ? inv.getStackAttack(this.selected) : d.atk;
+        const attackSpeed = inv.getAttackSpeed ? inv.getAttackSpeed(this.selected) : (d.attackSpeed || 1);
         stats = `<div class="detail-stats">
           <span class="stat-pill atk">⚔️ 攻击 ${atk}</span>
+          <span class="stat-pill">⚡ 攻速 ${attackSpeed.toFixed(2)}/秒</span>
           <span class="stat-pill">耐久 ${this.selected.durability}/${maxDurability}</span>
           ${this.selected.source === 'crafted' ? '<span class="stat-pill">🔨 打造耐久×10</span>' : ''}
           ${this.selected.modifier ? `<span class="stat-pill">✨ ${this.selected.modifier.name}：${this.selected.modifier.desc}</span>` : ''}

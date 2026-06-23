@@ -53,7 +53,7 @@ class Inventory {
 
   getSetEffects() {
     const bonus = this.getSetBonus();
-    return bonus && bonus.effects ? bonus.effects : {};
+    return Object.assign({ bonusHearts: 0 }, bonus && bonus.effects ? bonus.effects : {});
   }
 
   getCriticalStats(type = 'weapon', stackOverride = null) {
@@ -93,6 +93,15 @@ class Inventory {
   getStackAttack(stack) {
     if (!stack || !stack.def) return 0;
     return (stack.def.atk || 0) + ((stack.modifier && stack.modifier.bonusAtk) || 0) + (stack.bonusAtk || 0);
+  }
+
+  getAttackSpeed(stack) {
+    if (!stack || !stack.def) return 1;
+    if (stack.def.attackSpeed) return Number(stack.def.attackSpeed) || 1;
+    if (stack.def.type === 'bow') return 0.95;
+    if (stack.def.subtype === 'spear') return 1.12;
+    if (stack.def.subtype === 'claymore' || stack.def.subtype === 'club') return 0.78;
+    return 1.28;
   }
 
   getStackDefense(stack) {

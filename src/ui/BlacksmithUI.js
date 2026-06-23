@@ -52,14 +52,22 @@ const BlacksmithUI = {
   },
 
   open() {
-    this.isOpen = true;
-    this.el.classList.remove('hidden');
-    this.render();
+    try {
+      if (!this.el || !document.body.contains(this.el)) this.init();
+      if (!this.el) throw new Error('BlacksmithUI element was not created');
+      this.isOpen = true;
+      this.el.classList.remove('hidden');
+      this.render();
+    } catch (e) {
+      this.isOpen = false;
+      console.error('BlacksmithUI.open failed', e);
+      if (typeof Dialogue !== 'undefined') Dialogue.show('铁匠面板打开失败，请稍后再试。');
+    }
   },
 
   close() {
     this.isOpen = false;
-    this.el.classList.add('hidden');
+    if (this.el) this.el.classList.add('hidden');
   },
 
   render() {
@@ -67,6 +75,10 @@ const BlacksmithUI = {
     const stack = inv && inv.equipped ? inv.equipped[this.type] : null;
     const box = document.getElementById('blacksmith-current');
     if (!box) return;
+    if (!inv) {
+      box.innerHTML = '<div class="memory-empty">铁匠正在整理工具，角色数据还没有准备好。</div>';
+      return;
+    }
     if (!stack) {
       box.innerHTML = '<div class="memory-empty">当前没有装备这一栏。先在背包装备武器/弓/盾。</div>';
       return;
@@ -86,13 +98,18 @@ const BlacksmithUI = {
   },
 
   _do(action) {
-    if (typeof BlacksmithSystem === 'undefined') return;
-    if (action === 'repair') BlacksmithSystem.repair(this.type);
-    else if (action === 'atk') BlacksmithSystem.upgradeAttack(this.type);
-    else if (action === 'crit') BlacksmithSystem.upgradeCrit(this.type);
-    else if (action === 'critMul') BlacksmithSystem.upgradeCritMultiplier(this.type);
-    this.render();
-    if (typeof HUD !== 'undefined' && window.game) HUD.update(window.game, 0);
+    try {
+      if (typeof BlacksmithSystem === 'undefined') return;
+      if (action === 'repair') BlacksmithSystem.repair(this.type);
+      else if (action === 'atk') BlacksmithSystem.upgradeAttack(this.type);
+      else if (action === 'crit') BlacksmithSystem.upgradeCrit(this.type);
+      else if (action === 'critMul') BlacksmithSystem.upgradeCritMultiplier(this.type);
+      this.render();
+      if (typeof HUD !== 'undefined' && window.game) HUD.update(window.game, 0);
+    } catch (e) {
+      console.error('Blacksmith action failed', e);
+      if (typeof Dialogue !== 'undefined') Dialogue.show('铁匠操作失败，但游戏不会卡住。');
+    }
   }
 };
 

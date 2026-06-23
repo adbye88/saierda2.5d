@@ -711,6 +711,13 @@ html.desktop-mode #extra-buttons {
   display: flex; align-items: center; justify-content: center;
   backdrop-filter: blur(10px);
 }
+#blacksmith-ui {
+  position: absolute; inset: 0; z-index: 42;
+  background: rgba(8,15,30,.82);
+  display: flex; align-items: center; justify-content: center;
+  backdrop-filter: blur(10px);
+  pointer-events: auto;
+}
 .quest-panel {
   width: min(920px, 96%);
   height: min(600px, 92%);
@@ -753,6 +760,20 @@ html.desktop-mode #extra-buttons {
 }
 .quest-current h3 { font-size: 20px; color: #fff; margin-bottom: 6px; }
 .quest-current p { font-size: 13px; opacity: .84; line-height: 1.5; margin-bottom: 10px; }
+.blacksmith-panel {
+  width: min(760px, 94vw);
+  height: auto;
+  max-height: 88vh;
+}
+.blacksmith-panel .quest-body {
+  display: block;
+  overflow-y: auto;
+}
+.blacksmith-panel .cloud-actions {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
+  gap: 10px;
+}
 .quest-path-btn {
   background: linear-gradient(135deg, rgba(255,213,106,.44), rgba(210,150,40,.28));
   color: #fff; border: 1.5px solid #ffd56a; border-radius: 8px;
@@ -3052,7 +3073,8 @@ html.desktop-mode #extra-buttons {
 #inventory,
 #map-menu,
 #quest-ui,
-#shop-ui {
+#shop-ui,
+#blacksmith-ui {
   background:
     radial-gradient(ellipse at 50% 40%, rgba(35,55,38,.24), rgba(0,0,0,.76) 72%),
     rgba(5, 8, 12, .82);
