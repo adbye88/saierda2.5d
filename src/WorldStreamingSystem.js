@@ -51,6 +51,7 @@ const WorldStreamingSystem = {
     this._cacheStreamProps(world);
     this._primeEnemies(world);
     this._buildCells(world);
+    this._hideDormantStreamProps(world);
     this._stats = {
       activeEnemies: 0,
       passiveEnemies: 0,
@@ -68,6 +69,7 @@ const WorldStreamingSystem = {
       budget: this._budget().effectiveLevel || this._quality()
     };
     world._streamingStats = this._stats;
+    if (game && game.player) this._updateProps(world, game.player);
   },
 
   update(dt, game) {
@@ -174,6 +176,16 @@ const WorldStreamingSystem = {
     world._streamVisibleProps = new Set();
   },
 
+  _hideDormantStreamProps(world) {
+    const props = Array.isArray(world && world._streamProps) ? world._streamProps : [];
+    for (const obj of props) {
+      if (!obj || !obj.userData) continue;
+      obj.visible = false;
+      if (obj.userData.streamProxy) obj.userData.streamProxy.visible = false;
+    }
+    if (world) world._streamVisibleProps = new Set();
+  },
+
   _updateEnemyTiers(world, game, player) {
     const enemies = Array.isArray(world.enemies) ? world.enemies : [];
     const budget = this._budget();
@@ -218,9 +230,10 @@ const WorldStreamingSystem = {
       const ahead = dist > 0.001 ? Math.max(0, (dx / dist) * move.x + (dz / dist) * move.z) : 0;
       const frontBoost = ahead > 0.2 ? budget.frontBoost * ahead : 0;
       const force = this._forceEnemyActive(enemy, game);
-      const activeRadius = budget.activeRadius + frontBoost;
-      const passiveRadius = budget.passiveRadius + frontBoost * 1.25;
-      const hideRadius = budget.hideRadius + frontBoost * 1.15;
+      const radiusScale = this._enemyRadiusScale(enemy);
+      const activeRadius = budget.activeRadius * radiusScale.active + frontBoost;
+      const passiveRadius = budget.passiveRadius * radiusScale.passive + frontBoost * 1.25;
+      const hideRadius = budget.hideRadius * radiusScale.hide + frontBoost * 1.15;
       const oldTier = enemy._streamTier || 'passive';
       let tier;
 
@@ -397,8 +410,6 @@ const WorldStreamingSystem = {
   _forceEnemyActive(enemy, game) {
     return !!(
       enemy === (game && game.lockedEnemy) ||
-      enemy.boss ||
-      enemy.miniBoss ||
       enemy.hurtTimer > 0 ||
       enemy._combatWakeTimer > 0 ||
       enemy.attackPhase ||
@@ -406,6 +417,15 @@ const WorldStreamingSystem = {
       enemy.state === 'attack' ||
       enemy.state === 'chase'
     );
+  },
+
+  _enemyRadiusScale(enemy) {
+    const boss = !!(enemy && enemy.boss);
+    return {
+      active: boss ? 1.35 : enemy && enemy.miniBoss ? 1.18 : 1,
+      passive: boss ? 1.5 : enemy && enemy.miniBoss ? 1.28 : 1,
+      hide: boss ? 1.55 : enemy && enemy.miniBoss ? 1.35 : 1
+    };
   },
 
   _playerForward(player) {
