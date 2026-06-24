@@ -895,9 +895,20 @@ class BaseScene {
             const element = (arrowType === 'fire') ? 'fire'
                           : (arrowType === 'ice') ? 'ice'
                           : (arrowType === 'shock') ? 'shock' : null;
-            e.takeDamage(p.userData.damage, v.clone().setY(0).normalize(), element);
+            const arrowDamage = typeof CombatResolver !== 'undefined' && CombatResolver.resolvePlayerArrowDamage
+              ? CombatResolver.resolvePlayerArrowDamage({
+                baseDamage: p.userData.damage,
+                projectileY: p.position.y,
+                enemy: e,
+                critical: p.userData.critical
+              })
+              : { damage: p.userData.damage, weakPointMultiplier: 1, weakPointLabel: '' };
+            e.takeDamage(arrowDamage.damage, v.clone().setY(0).normalize(), element);
             if (p.userData.critical && typeof Dialogue !== 'undefined') {
               Dialogue.showFloat(`弓箭暴击 ×${(p.userData.critMultiplier || 2).toFixed(1)}！`, e.mesh.position.clone().setY(2.35), '#ffd86a');
+            }
+            if (arrowDamage.weakPointMultiplier > 1 && typeof Dialogue !== 'undefined') {
+              Dialogue.showFloat(`${arrowDamage.weakPointLabel} ×${arrowDamage.weakPointMultiplier.toFixed(1)}！-${Math.round(arrowDamage.damage)}`, e.mesh.position.clone().setY(2.65), '#ffef9a');
             }
             // 元素箭命中附加元素状态（点燃/冻结/麻痹敌人）
             if (element && typeof e._applyElementEffect === 'function') {

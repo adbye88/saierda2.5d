@@ -1018,22 +1018,22 @@ class Player {
   }
 
   _weaponProfile(weapon) {
-    if (!weapon) return this._withAttackTiming({ range: 1.75, angle: 0.72, duration: 0.28, activeStart: 0.24, activeEnd: 0.55, damageMul: 1, knock: 1.4, hitStop: 0.035 }, null);
+    if (!weapon) return this._withAttackTiming({ range: 1.75, angle: 0.72, hitShape: 'arc', duration: 0.28, activeStart: 0.24, activeEnd: 0.55, damageMul: 1, knock: 1.4, hitStop: 0.035 }, null);
     const subtype = weapon.def.subtype;
     const id = weapon.itemId || '';
     if (subtype === 'spear' || id.toLowerCase().includes('spear') || id.toLowerCase().includes('halberd')) {
-      return this._withAttackTiming({ range: 3.65, angle: 0.38, duration: 0.34, activeStart: 0.18, activeEnd: 0.46, damageMul: 0.95, knock: 2.0, hitStop: 0.045 }, weapon);
+      return this._withAttackTiming({ range: 3.65, angle: 0.38, hitShape: 'thrust', width: 0.42, duration: 0.34, activeStart: 0.18, activeEnd: 0.46, damageMul: 0.95, knock: 2.0, hitStop: 0.045 }, weapon);
     }
-    if (id === 'bokoClub' || id.toLowerCase().includes('club')) {
-      return this._withAttackTiming({ range: 2.62, angle: 0.8, duration: 0.48, activeStart: 0.34, activeEnd: 0.70, damageMul: 1.16, knock: 2.6, hitStop: 0.065 }, weapon);
+    if (subtype === 'claymore' || subtype === 'club' || id === 'bokoClub' || id.toLowerCase().includes('club')) {
+      return this._withAttackTiming({ range: 2.62, angle: 0.8, hitShape: 'heavy', duration: 0.48, activeStart: 0.34, activeEnd: 0.70, damageMul: 1.16, knock: 2.6, hitStop: 0.065 }, weapon);
     }
     if (id === 'masterSword') {
-      return this._withAttackTiming({ range: 3.05, angle: 0.72, duration: 0.32, activeStart: 0.24, activeEnd: 0.58, damageMul: 1.0, knock: 2.15, hitStop: 0.06 }, weapon);
+      return this._withAttackTiming({ range: 3.05, angle: 0.72, hitShape: 'arc', duration: 0.32, activeStart: 0.24, activeEnd: 0.58, damageMul: 1.0, knock: 2.15, hitStop: 0.06 }, weapon);
     }
     if (id.toLowerCase().includes('royal')) {
-      return this._withAttackTiming({ range: 3.05, angle: 0.72, duration: 0.32, activeStart: 0.24, activeEnd: 0.58, damageMul: 1.08, knock: 2.15, hitStop: 0.06 }, weapon);
+      return this._withAttackTiming({ range: 3.05, angle: 0.72, hitShape: 'arc', duration: 0.32, activeStart: 0.24, activeEnd: 0.58, damageMul: 1.08, knock: 2.15, hitStop: 0.06 }, weapon);
     }
-    return this._withAttackTiming({ range: 2.78, angle: 0.68, duration: 0.34, activeStart: 0.26, activeEnd: 0.62, damageMul: 1, knock: 1.9, hitStop: 0.05 }, weapon);
+    return this._withAttackTiming({ range: 2.78, angle: 0.68, hitShape: 'arc', duration: 0.34, activeStart: 0.26, activeEnd: 0.62, damageMul: 1, knock: 1.9, hitStop: 0.05 }, weapon);
   }
 
   _attackIntervalForWeapon(weapon) {
@@ -1096,12 +1096,6 @@ class Player {
     const profile = this._attackProfile || this._weaponProfile(weapon);
     const set = this.inventory && this.inventory.getSetEffects ? this.inventory.getSetEffects() : {};
     const baseAtk = weapon && this.inventory.getStackAttack ? this.inventory.getStackAttack(weapon) : (weapon ? weapon.def.atk : 1);
-    let dmg = Math.max(1, Math.round(baseAtk * profile.damageMul));
-    if (this._flurryTimer > 0) dmg = Math.round(dmg * 1.8);
-    if (set.meleeAtkMul) dmg = Math.round(dmg * set.meleeAtkMul);
-    if (weapon && weapon.itemId && weapon.itemId.startsWith('ancient') && set.ancientAtkMul) {
-      dmg = Math.round(dmg * set.ancientAtkMul);
-    }
     const isSpear = profile.angle < 0.45;
     const range = profile.range;
     // ★ 用出招瞬间的朝向（快照），而非当前 facing
@@ -1135,25 +1129,36 @@ class Player {
     let hitAny = false;
     for (const enemy of game.currentWorld.enemies) {
       if (enemy.dead) continue;
+      const hitResult = typeof CombatResolver !== 'undefined' && CombatResolver.isPlayerMeleeHit
+        ? CombatResolver.isPlayerMeleeHit({
+          playerPosition: this.position,
+          enemyPosition: enemy.mesh.position,
+          enemyRadius: enemy.radius,
+          facing: f,
+          profile
+        })
+        : null;
       const to = new THREE.Vector3().subVectors(enemy.mesh.position, this.position);
       to.y = 0;
       const dist = to.length();
-      if (dist > range + enemy.radius) continue;
-      to.normalize();
-      // ★ 贴脸保护：极近距离无视朝向直接命中（防卡进敌人死角打不到）
-      const inFacing = to.dot(forward) > profile.angle;
-      const pointBlank = dist < 0.8;
-      if (inFacing || pointBlank) {
-        let finalDmg = dmg;
-        if (isMaster && this._masterSwordAwakenedAgainst(enemy)) {
-          finalDmg = Math.max(finalDmg, 60);
-        }
-        if (set.stalAtkMul && (enemy.typeId === 'stal' || (enemy.def && /骷髅|灾厄|咒/.test(enemy.def.name)))) {
-          finalDmg = Math.round(finalDmg * set.stalAtkMul);
-        }
-        if (set.sneakAtkMul && enemy.state !== 'chase' && enemy.state !== 'attack') {
-          finalDmg = Math.round(finalDmg * set.sneakAtkMul);
-        }
+      if (hitResult ? !hitResult.hit : dist > range + enemy.radius) continue;
+      if (!hitResult) {
+        to.normalize();
+        const inFacing = to.dot(forward) > profile.angle;
+        const pointBlank = dist < 0.8;
+        if (!inFacing && !pointBlank) continue;
+      }
+      {
+        let finalDmg = typeof CombatResolver !== 'undefined' && CombatResolver.resolvePlayerMeleeDamage
+          ? CombatResolver.resolvePlayerMeleeDamage({
+            baseAtk,
+            profile,
+            set,
+            weapon,
+            enemy,
+            flurry: this._flurryTimer > 0
+          }).damage
+          : Math.max(1, Math.round(baseAtk * profile.damageMul));
         if (this._campStealthBonus && enemy.state !== 'attack') {
           finalDmg = Math.round(finalDmg * this._campStealthBonus);
           this._campStealthBonus = 0;
@@ -1326,6 +1331,9 @@ class Player {
   }
 
   _shieldDurabilityCost(amount, shieldDef = 1) {
+    if (typeof CombatResolver !== 'undefined' && CombatResolver.resolveBlockDamage) {
+      return CombatResolver.resolveBlockDamage(amount, shieldDef).shieldWear;
+    }
     const incoming = Math.max(1, Number(amount) || 1);
     const guard = Math.max(1, Number(shieldDef) || 1);
     // 弱怪轻敲只掉 1；攻击越高、盾防越低，盾越快坏。
@@ -1391,8 +1399,11 @@ class Player {
       const facing = shieldDir;
       if (incomingDir && facing.dot(incomingDir.clone().negate()) > 0.45) {
         const shieldDef = this.inventory.getStackDefense ? this.inventory.getStackDefense(shield) : shield.def.def;
-        const reduced = Math.max(0, amount - shieldDef);
-        const shieldWear = this._shieldDurabilityCost(amount, shieldDef);
+        const block = typeof CombatResolver !== 'undefined' && CombatResolver.resolveBlockDamage
+          ? CombatResolver.resolveBlockDamage(amount, shieldDef)
+          : { reduced: Math.max(0, amount - shieldDef), shieldWear: this._shieldDurabilityCost(amount, shieldDef) };
+        const reduced = block.reduced;
+        const shieldWear = block.shieldWear;
         this.hp -= reduced;
         this._clampHp();
         this.inventory.damageShield(shieldWear);
