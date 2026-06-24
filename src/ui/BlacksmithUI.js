@@ -26,7 +26,7 @@ const BlacksmithUI = {
               <button data-type="shield" class="map-tab">盾</button>
             </div>
             <div id="blacksmith-current"></div>
-            <div class="cloud-actions">
+            <div id="blacksmith-actions" class="cloud-actions blacksmith-actions">
               <button class="slot-btn" data-action="repair">修理当前装备</button>
               <button class="slot-btn" data-action="atk">强化攻击</button>
               <button class="slot-btn" data-action="crit">强化暴击率</button>
@@ -46,8 +46,11 @@ const BlacksmithUI = {
         this.render();
       });
     });
-    this.el.querySelectorAll('[data-action]').forEach(btn => {
-      btn.addEventListener('click', () => this._do(btn.dataset.action));
+    const actionBox = this.el.querySelector('#blacksmith-actions');
+    if (actionBox) actionBox.addEventListener('click', e => {
+      const btn = e.target.closest('[data-action]');
+      if (!btn || btn.disabled) return;
+      this._do(btn.dataset.action);
     });
   },
 
@@ -77,10 +80,14 @@ const BlacksmithUI = {
     if (!box) return;
     if (!inv) {
       box.innerHTML = '<div class="memory-empty">铁匠正在整理工具，角色数据还没有准备好。</div>';
+      const actionBox = document.getElementById('blacksmith-actions');
+      if (actionBox) actionBox.innerHTML = '';
       return;
     }
     if (!stack) {
       box.innerHTML = '<div class="memory-empty">当前没有装备这一栏。先在背包装备武器/弓/盾。</div>';
+      const actionBox = document.getElementById('blacksmith-actions');
+      if (actionBox) actionBox.innerHTML = '';
       return;
     }
     const crit = inv.getCriticalStats ? inv.getCriticalStats(this.type === 'shield' ? 'weapon' : this.type, stack) : { chance: 0.01, multiplier: 2 };
@@ -95,6 +102,64 @@ const BlacksmithUI = {
         <p>铁匠强化：攻击 +${stack.bonusAtk || 0}，暴击率 +${(((stack.bonusCritChance || 0) * 100).toFixed(1))}%，暴击倍率 +${(stack.bonusCritMultiplier || 0).toFixed(1)}</p>
       </div>
     `;
+    this._renderActionCards(inv, stack);
+  },
+
+  _actionDefinitions() {
+    return [
+      { id: 'repair', label: '修理当前装备', desc: '补满耐久，重武器和打造装备破损越多越贵。' },
+      { id: 'atk', label: '强化攻击', desc: '武器/弓攻击 +2，上限 +12。' },
+      { id: 'crit', label: '强化暴击率', desc: '武器/弓暴击率 +1.5%，上限 +12%。' },
+      { id: 'critMul', label: '强化暴击倍率', desc: '武器/弓暴击倍率 +0.1，上限 +0.6。' }
+    ];
+  },
+
+  _renderActionCards(inv, stack) {
+    const box = document.getElementById('blacksmith-actions');
+    if (!box) return;
+    box.innerHTML = this._actionDefinitions().map(def => {
+      const plan = typeof BlacksmithSystem !== 'undefined' && BlacksmithSystem.actionPlan
+        ? BlacksmithSystem.actionPlan(def.id, this.type, inv)
+        : { cost: [], canAfford: false, blockedReason: '系统未准备' };
+      const missing = plan.cost && plan.cost.some(([id, need]) => (inv.countOf ? inv.countOf(id) : 0) < need);
+      const status = plan.blockedReason || (plan.canAfford ? '材料足够' : '材料不足');
+      return `
+        <div class="blacksmith-action-card ${plan.canAfford ? 'ready' : 'locked'}">
+          <button class="slot-btn" data-action="${def.id}">${def.label}</button>
+          <div class="blacksmith-action-info">
+            <b>${def.label}</b>
+            <span>${def.desc}</span>
+            <div class="blacksmith-cost-list">${this._renderCostRows(plan.cost || [], inv)}</div>
+            <em class="${plan.canAfford ? 'ok' : 'missing'}">${status}${missing ? '：看红色材料' : ''}</em>
+          </div>
+        </div>
+      `;
+    }).join('');
+    box.querySelectorAll('[data-action]').forEach(button => {
+      const plan = typeof BlacksmithSystem !== 'undefined' && BlacksmithSystem.actionPlan
+        ? BlacksmithSystem.actionPlan(button.dataset.action, this.type, inv)
+        : { canAfford: false };
+      button.disabled = !plan.canAfford;
+    });
+  },
+
+  _renderCostRows(cost, inv) {
+    if (!cost || cost.length === 0) return '<div class="blacksmith-cost-row missing">没有可用配方</div>';
+    return cost.map(([id, need]) => {
+      const have = inv && inv.countOf ? inv.countOf(id) : 0;
+      const ok = have >= need;
+      const item = typeof ITEMS !== 'undefined' ? ITEMS[id] : null;
+      const name = item ? item.name : id;
+      const icon = typeof ArtAssets !== 'undefined' && ArtAssets.itemIconHtml
+        ? ArtAssets.itemIconHtml(id, 'hud-item-icon')
+        : (item && item.icon ? item.icon : '•');
+      return `
+        <div class="blacksmith-cost-row ${ok ? 'ok' : 'missing'}">
+          <span>${icon} ${name}</span>
+          <b>${have}/${need}</b>
+        </div>
+      `;
+    }).join('');
   },
 
   _do(action) {

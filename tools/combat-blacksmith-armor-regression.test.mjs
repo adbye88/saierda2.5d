@@ -4,11 +4,12 @@ import { readFile } from 'node:fs/promises';
 const root = new URL('../', import.meta.url);
 const read = (path) => readFile(new URL(path, root), 'utf8');
 
-const [item, player, inventory, blacksmithUi, css, hud] = await Promise.all([
+const [item, player, inventory, blacksmithUi, blacksmithSystem, css, hud] = await Promise.all([
   read('src/Item.js'),
   read('src/Player.js'),
   read('src/Inventory.js'),
   read('src/ui/BlacksmithUI.js'),
+  read('src/BlacksmithSystem.js'),
   read('css/style.css'),
   read('src/ui/HUD.js')
 ]);
@@ -32,7 +33,15 @@ assert.ok(hud.includes('getMaxHearts'), 'HUD should render effective hearts, not
 
 assert.ok(blacksmithUi.includes('this.init()'), 'BlacksmithUI.open should lazily initialize itself before showing');
 assert.ok(blacksmithUi.includes('try') && blacksmithUi.includes('catch'), 'BlacksmithUI.open should fail safely instead of freezing the game loop');
+assert.ok(blacksmithSystem.includes('costForAction'), 'BlacksmithSystem should expose costs so UI can preview exact required materials');
+assert.ok(blacksmithSystem.includes('canAfford'), 'BlacksmithSystem should expose affordability for blacksmith actions');
+assert.ok(blacksmithUi.includes('_renderActionCards'), 'BlacksmithUI should render per-action material requirement cards');
+assert.ok(blacksmithUi.includes('_renderCostRows'), 'BlacksmithUI should render owned/required counts for each material');
+assert.ok(blacksmithUi.includes('blacksmith-cost-row'), 'BlacksmithUI should mark material rows for styling and mobile readability');
+assert.ok(blacksmithUi.includes('button.disabled = !plan.canAfford'), 'BlacksmithUI should disable actions when required materials are missing');
 assert.ok(css.includes('#blacksmith-ui'), 'blacksmith UI should have its own visible overlay CSS');
 assert.ok(css.includes('.blacksmith-panel'), 'blacksmith panel should have panel-specific layout CSS');
+assert.ok(css.includes('.blacksmith-action-card'), 'blacksmith UI should style action cards with material requirements');
+assert.ok(css.includes('.blacksmith-cost-row.missing'), 'blacksmith UI should highlight missing materials');
 
 console.log('combat speed, blacksmith, armor regression ok');
