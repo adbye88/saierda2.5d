@@ -48,6 +48,34 @@ const Effects = {
     return sprite;
   },
 
+  _disposeEffectObject(root) {
+    if (!root) return;
+    const disposedMaterials = new Set();
+    const disposedGeometries = new Set();
+    const disposeMaterial = (material) => {
+      if (!material) return;
+      if (Array.isArray(material)) {
+        for (const m of material) disposeMaterial(m);
+        return;
+      }
+      if (disposedMaterials.has(material)) return;
+      disposedMaterials.add(material);
+      // 贴图来自 ArtAssets 缓存，不能在短特效结束时释放共享纹理。
+      if (typeof material.dispose === 'function') material.dispose();
+    };
+    const disposeOne = (obj) => {
+      if (!obj || obj.userData.__effectDisposed) return;
+      obj.userData.__effectDisposed = true;
+      if (obj.geometry && typeof obj.geometry.dispose === 'function' && !disposedGeometries.has(obj.geometry)) {
+        disposedGeometries.add(obj.geometry);
+        obj.geometry.dispose();
+      }
+      disposeMaterial(obj.material);
+    };
+    if (typeof root.traverse === 'function') root.traverse(disposeOne);
+    else disposeOne(root);
+  },
+
   // ---------- 主更新 ----------
   update(dt) {
     if (!Array.isArray(this.active)) this.active = [];
@@ -62,10 +90,13 @@ const Effects = {
     this.active = this.active.filter(e => {
       if (!e) return false;
       if (e.life <= 0) {
+        if (typeof e.onEnd === 'function') e.onEnd();
         if (e.mesh && e.mesh.parent) e.mesh.parent.remove(e.mesh);
+        this._disposeEffectObject(e.mesh);
         if (e.sparks) {
           for (const s of e.sparks) {
             if (s && s.parent) s.parent.remove(s);
+            this._disposeEffectObject(s);
           }
         }
         return false;
@@ -78,10 +109,13 @@ const Effects = {
     if (!Array.isArray(this.active)) this.active = [];
     for (const e of this.active) {
       if (!e) continue;
+      if (typeof e.onEnd === 'function') e.onEnd();
       if (e.mesh && e.mesh.parent) e.mesh.parent.remove(e.mesh);
+      this._disposeEffectObject(e.mesh);
       if (e.sparks) {
         for (const s of e.sparks) {
           if (s && s.parent) s.parent.remove(s);
+          this._disposeEffectObject(s);
         }
       }
     }
