@@ -59,6 +59,48 @@ const CombatResolver = {
     return { hit, dist, dot, hitShape };
   },
 
+  isEnemyMeleeHit({ enemyPosition, playerPosition, enemyRadius = 0.6, playerRadius = 0.45, windupDir = null, profile = {} }) {
+    if (!enemyPosition || !playerPosition) return { hit: false, reason: 'missing-position' };
+    const ex = enemyPosition.x || 0;
+    const ez = enemyPosition.z || 0;
+    const px = playerPosition.x || 0;
+    const pz = playerPosition.z || 0;
+    const dx = px - ex;
+    const dz = pz - ez;
+    const dist = Math.hypot(dx, dz);
+    const radius = Math.max(0.1, Number(enemyRadius) || 0.6);
+    const targetRadius = Math.max(0.15, Number(playerRadius) || 0.45);
+    const range = Number(profile.range) || 2.0;
+    const hitShape = profile.hitShape || 'arc';
+    const dirToPlayer = dist > 0.001 ? { x: dx / dist, z: dz / dist } : { x: 0, z: 1 };
+    const forward = windupDir && Math.hypot(windupDir.x || 0, windupDir.z || 0) > 0.001
+      ? (() => {
+        const len = Math.hypot(windupDir.x || 0, windupDir.z || 0) || 1;
+        return { x: (windupDir.x || 0) / len, z: (windupDir.z || 0) / len };
+      })()
+      : dirToPlayer;
+    const dot = dirToPlayer.x * forward.x + dirToPlayer.z * forward.z;
+    const pointBlank = dist <= radius + targetRadius + 0.2;
+
+    if (hitShape === 'slam') {
+      const hit = dist <= radius + targetRadius + range;
+      return { hit, dist, dot, hitShape };
+    }
+
+    if (hitShape === 'thrust') {
+      const start = { x: ex + forward.x * Math.max(0.15, radius * 0.3), z: ez + forward.z * Math.max(0.15, radius * 0.3) };
+      const end = { x: ex + forward.x * (radius + range), z: ez + forward.z * (radius + range) };
+      const lineDist = this.pointToSegmentDistance2D({ x: px, z: pz }, start, end);
+      const hit = lineDist <= targetRadius + (profile.width || 0.34) || pointBlank;
+      return { hit, dist, dot, hitShape, lineDist };
+    }
+
+    const facingDot = Number(profile.facingDot !== undefined ? profile.facingDot : 0.25);
+    const arcBias = hitShape === 'heavy' ? -0.12 : 0;
+    const hit = dist <= radius + targetRadius + range && (dot > facingDot + arcBias || pointBlank);
+    return { hit, dist, dot, hitShape };
+  },
+
   resolvePlayerMeleeDamage({ baseAtk = 1, profile = {}, set = {}, weapon = null, enemy = null, flurry = false, critical = null }) {
     let damage = Math.max(1, Math.round((Number(baseAtk) || 1) * (profile.damageMul || 1)));
     if (flurry) damage = Math.round(damage * 1.8);
@@ -106,6 +148,16 @@ const CombatResolver = {
     const reduced = Math.max(0, incoming - guard);
     const shieldWear = Math.max(1, Math.ceil(Math.max(1, incoming) / Math.max(4, Math.max(1, guard) * 1.6)));
     return { incoming, shieldDef: guard, reduced, shieldWear };
+  },
+
+  resolveIncomingInvulnerability({ outcome = 'hit', amount = 1, shieldWear = 1 } = {}) {
+    const incoming = Math.max(0, Number(amount) || 0);
+    const wear = Math.max(1, Number(shieldWear) || 1);
+    if (outcome === 'parried') return { invuln: 0.5 };
+    if (outcome === 'dodged') return { invuln: 1.0 };
+    if (outcome === 'blocked') return { invuln: this.clamp(0.18 + wear * 0.025, 0.22, 0.36) };
+    if (outcome === 'blocked-damaged') return { invuln: this.clamp(0.22 + wear * 0.035, 0.28, 0.5) };
+    return { invuln: this.clamp(0.42 + incoming * 0.012, 0.48, 0.95) };
   },
 
   isMasterSwordAwakened(enemy) {

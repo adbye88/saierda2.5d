@@ -1340,6 +1340,16 @@ class Player {
     return Math.max(1, Math.ceil(incoming / Math.max(4, guard * 1.6)));
   }
 
+  _incomingInvuln(outcome, amount, shieldWear = 1) {
+    if (typeof CombatResolver !== 'undefined' && CombatResolver.resolveIncomingInvulnerability) {
+      return CombatResolver.resolveIncomingInvulnerability({ outcome, amount, shieldWear }).invuln;
+    }
+    if (outcome === 'parried') return 0.5;
+    if (outcome === 'dodged') return 1.0;
+    if (outcome === 'blocked' || outcome === 'blocked-damaged') return 0.4;
+    return 0.8;
+  }
+
   takeDamage(amount, fromDir, element = null) {
     if (this.invuln > 0) return 'ignored';
     const set = this.inventory && this.inventory.getSetEffects ? this.inventory.getSetEffects() : {};
@@ -1381,7 +1391,7 @@ class Player {
         // 完美格挡！完全免伤 + 特效
         Dialogue.showFloat('⚡ 盾反成功！', this.mesh.position.clone().setY(2.5), '#ffd700');
         if (typeof Effects !== 'undefined') Effects.parrySpark(this.mesh.position.clone().add(facing.clone().multiplyScalar(0.8)).setY(1.2));
-        this.invuln = 0.5;
+        this.invuln = this._incomingInvuln('parried', amount, 1);
         this._perfectGuardTimer = 0;
         if (this.inventory && this.inventory.damageShield) this.inventory.damageShield(1);
         // 弹反推开攻击者（如果有 lockedEnemy）
@@ -1412,7 +1422,7 @@ class Player {
         Dialogue.show(reduced > 0
           ? `格挡削弱伤害：盾抵消 ${Math.round(shieldDef)}，承受 ${Math.ceil(reduced)}`
           : `格挡成功：盾抵消 ${Math.round(shieldDef)} 伤害`);
-        this.invuln = 0.4;
+        this.invuln = this._incomingInvuln(reduced > 0 ? 'blocked-damaged' : 'blocked', amount, shieldWear);
         HUD.flashDamage();
         if (this.hp <= 0) this._handleFatalDamage();
         return reduced > 0 ? 'blocked-damaged' : 'blocked';
@@ -1422,7 +1432,7 @@ class Player {
     const moving = Math.abs(Input.state.move.x) > 0.3 || Math.abs(Input.state.move.y) > 0.3 || this._dodgeTimer > 0;
     if (moving && this._dodgeWindow > 0) {
       // 在闪避窗口内，算完美闪避
-      this.invuln = 1.0;
+      this.invuln = this._incomingInvuln('dodged', amount, 1);
       this._flurryTimer = 2.2;
       Dialogue.showFloat('✨ 林克时间！', this.mesh.position.clone().setY(2.5), '#66ddff');
       if (typeof Effects !== 'undefined') Effects.dodgeAfterimage(this.mesh.position.clone());
@@ -1436,7 +1446,7 @@ class Player {
     this._clampHp();
     if (typeof AudioSystem !== 'undefined') AudioSystem.play('hit');
     if (typeof CameraPolishSystem !== 'undefined') CameraPolishSystem.bump(Math.min(0.85, 0.25 + amount * 0.025));
-    this.invuln = 0.8;
+    this.invuln = this._incomingInvuln('hit', amount, 1);
     if (incomingDir) this.knockback.copy(incomingDir).multiplyScalar(6);
     HUD.flashDamage();   // 受击红屏 + 屏震
     if (this.hp <= 0) this._handleFatalDamage();

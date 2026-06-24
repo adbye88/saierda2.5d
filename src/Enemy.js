@@ -819,23 +819,42 @@ class Enemy {
   }
 
   _strikeProfile() {
-    if (this.typeId === 'calamityGanon') return { range: 4.2, facingDot: -0.05, knockback: 14, damageMul: 1.05, color: 0xaa22ff };
-    if (this.typeId === 'flameGleeok' || this.typeId === 'frostGleeok' || this.typeId === 'thunderGleeok') return { range: 5.0, facingDot: -0.25, knockback: 14, damageMul: 0.9, color: 0xffaa44 };
-    if (this.typeId === 'stoneTalus' || this.typeId === 'ignoTalus' || this.typeId === 'frostTalus') return { range: 5.2, facingDot: -0.35, knockback: 15, damageMul: 1.0, color: 0xc8a76a };
-    if (this.typeId === 'hinox' || this.typeId === 'blackHinox' || this.typeId === 'stalnox') return { range: 4.8, facingDot: -0.18, knockback: 13, damageMul: 1.0, color: 0xff8844 };
-    if (this.boss) return { range: 3.7, facingDot: 0.02, knockback: 11, damageMul: 1.0, color: 0xff55aa };
-    if (this.typeId === 'silverLynel') return { range: 3.45, facingDot: 0.16, knockback: 12, damageMul: 1.25, color: 0xf0e8d0 };
-    if (this.typeId === 'lynel') return { range: 3.2, facingDot: 0.2, knockback: 10, damageMul: 1.2, color: 0xff8844 };
-    if (this.typeId === 'silverMoblin') return { range: 3.2, facingDot: 0.58, knockback: 8, damageMul: 1.08, color: 0xe8d8aa };
-    if (this.typeId === 'moblin' || this.typeId === 'blueMoblin') return { range: 3.05, facingDot: 0.62, knockback: 7, damageMul: 1.0, color: 0xaa88ff };
-    if (this.typeId === 'yigaFootsoldier') return { range: 2.25, facingDot: 0.45, knockback: 4.8, damageMul: 1.05, color: 0xff3355 };
-    if (this.typeId === 'stonePebblit') return { range: 1.7, facingDot: 0.2, knockback: 5.5, damageMul: 1.0, color: 0xc0a878 };
-    if (this.typeId === 'stal') return { range: 2.35, facingDot: 0.48, knockback: 5.5, damageMul: 1.0, color: 0x99ddff };
-    if (this.typeId && this.typeId.includes('Bokoblin')) return { range: 2.15, facingDot: 0.35, knockback: 5.2, damageMul: 1.0, color: 0xffaa44 };
-    return { range: 2.0, facingDot: 0.25, knockback: 5, damageMul: 1.0, color: 0xffaa44 };
+    if (this.typeId === 'calamityGanon') return { range: 4.2, facingDot: -0.05, hitShape: 'heavy', knockback: 14, damageMul: 1.05, color: 0xaa22ff };
+    if (this.typeId === 'flameGleeok' || this.typeId === 'frostGleeok' || this.typeId === 'thunderGleeok') return { range: 5.0, facingDot: -0.25, hitShape: 'slam', knockback: 14, damageMul: 0.9, color: 0xffaa44 };
+    if (this.typeId === 'stoneTalus' || this.typeId === 'ignoTalus' || this.typeId === 'frostTalus') return { range: 5.2, facingDot: -0.35, hitShape: 'slam', knockback: 15, damageMul: 1.0, color: 0xc8a76a };
+    if (this.typeId === 'hinox' || this.typeId === 'blackHinox' || this.typeId === 'stalnox') return { range: 4.8, facingDot: -0.18, hitShape: 'slam', knockback: 13, damageMul: 1.0, color: 0xff8844 };
+    if (this.boss) return { range: 3.7, facingDot: 0.02, hitShape: 'heavy', knockback: 11, damageMul: 1.0, color: 0xff55aa };
+    if (this.typeId === 'silverLynel') return { range: 3.45, facingDot: 0.16, hitShape: 'heavy', knockback: 12, damageMul: 1.25, color: 0xf0e8d0 };
+    if (this.typeId === 'lynel') return { range: 3.2, facingDot: 0.2, hitShape: 'heavy', knockback: 10, damageMul: 1.2, color: 0xff8844 };
+    if (this.typeId === 'silverMoblin') return { range: 3.2, facingDot: 0.58, hitShape: 'thrust', width: 0.48, knockback: 8, damageMul: 1.08, color: 0xe8d8aa };
+    if (this.typeId === 'moblin' || this.typeId === 'blueMoblin') return { range: 3.05, facingDot: 0.62, hitShape: 'thrust', width: 0.44, knockback: 7, damageMul: 1.0, color: 0xaa88ff };
+    if (this.typeId === 'yigaFootsoldier') return { range: 2.25, facingDot: 0.45, hitShape: 'thrust', width: 0.32, knockback: 4.8, damageMul: 1.05, color: 0xff3355 };
+    if (this.typeId === 'stonePebblit' || this.typeId === 'frostPebblit' || this.typeId === 'firePebblit') return { range: 1.7, facingDot: 0.2, hitShape: 'heavy', knockback: 5.5, damageMul: 1.0, color: 0xc0a878 };
+    if (this.typeId === 'stal') return { range: 2.35, facingDot: 0.48, hitShape: 'arc', knockback: 5.5, damageMul: 1.0, color: 0x99ddff };
+    if (this.typeId && this.typeId.includes('Bokoblin')) return { range: 2.15, facingDot: 0.35, hitShape: 'arc', knockback: 5.2, damageMul: 1.0, color: 0xffaa44 };
+    return { range: 2.0, facingDot: 0.25, hitShape: 'arc', knockback: 5, damageMul: 1.0, color: 0xffaa44 };
   }
 
   _playerInStrike(player, windupDir, profile) {
+    if (typeof CombatResolver !== 'undefined' && CombatResolver.isEnemyMeleeHit) {
+      const resolved = CombatResolver.isEnemyMeleeHit({
+        enemyPosition: this.position,
+        playerPosition: player.position,
+        enemyRadius: this.radius,
+        playerRadius: player.radius || 0.45,
+        windupDir,
+        profile
+      });
+      const dir = new THREE.Vector3().subVectors(player.position, this.position);
+      dir.y = 0;
+      if (dir.lengthSq() < 0.001) {
+        const fallback = windupDir && windupDir.lengthSq && windupDir.lengthSq() > 0.001
+          ? windupDir.clone().setY(0).normalize()
+          : new THREE.Vector3(Math.sin(this.mesh.rotation.y), 0, Math.cos(this.mesh.rotation.y));
+        return { ...resolved, dir: fallback };
+      }
+      return { ...resolved, dir: dir.normalize() };
+    }
     const toPlayer = new THREE.Vector3().subVectors(player.position, this.position);
     toPlayer.y = 0;
     const dist = toPlayer.length();
