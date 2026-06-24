@@ -158,6 +158,7 @@ const ArtDirectionSystem = {
     world._artGroundPolished = true;
     const geo = world.ground.geometry;
     const pos = geo && geo.attributes && geo.attributes.position;
+    const influences = this._collectStaticGroundInfluences(world);
     if (pos) {
       const colors = new Float32Array(pos.count * 3);
       for (let i = 0; i < pos.count; i++) {
@@ -186,6 +187,28 @@ const ArtDirectionSystem = {
         if (landmarkBlend > 0) {
           c.lerp(new THREE.Color(preset.dirt), 0.5 * landmarkBlend);
           c.offsetHSL(0.01, -0.04, -0.025);
+        }
+        const story = this._terrainStoryBlend(world, x, z, preset, influences);
+        if (story.camp > 0) {
+          c.lerp(new THREE.Color(preset.dirt), 0.64 * story.camp);
+          c.offsetHSL(0.012, -0.055 * story.camp, -0.055 * story.camp);
+        }
+        if (story.treeRoot > 0) {
+          const rootShade = world.name === 'snowland' ? 0x9daeb0 : world.name === 'desert' ? 0xa27c45 : 0x334429;
+          c.lerp(new THREE.Color(rootShade), 0.30 * story.treeRoot);
+          c.offsetHSL(-0.012, -0.045 * story.treeRoot, -0.035 * story.treeRoot);
+        }
+        if (story.chest > 0) {
+          c.lerp(new THREE.Color(world.name === 'castle' ? 0x7b5b45 : 0x9a7844), 0.34 * story.chest);
+          c.offsetHSL(0.02, -0.035 * story.chest, -0.025 * story.chest);
+        }
+        if (story.gravel > 0) {
+          c.lerp(new THREE.Color(world.name === 'snowland' ? 0xb9c7c8 : 0x8d8777), 0.26 * story.gravel);
+          c.offsetHSL(0, -0.035 * story.gravel, 0.018 * story.gravel);
+        }
+        if (story.wet > 0) {
+          c.lerp(new THREE.Color(world.name === 'snowland' ? 0xa7c7cf : 0x465843), 0.28 * story.wet);
+          c.offsetHSL(-0.015, -0.045 * story.wet, -0.05 * story.wet);
         }
         c.offsetHSL((n2 - 0.5) * 0.018, -0.02 + (n1 - 0.5) * 0.08, -0.08 + (n2 - 0.5) * 0.12);
         colors[i * 3] = c.r;
@@ -293,6 +316,34 @@ const ArtDirectionSystem = {
       ctx.beginPath();
       ctx.moveTo(x, y);
       ctx.lineTo(x + Math.cos(a) * len, y + Math.sin(a) * len);
+      ctx.stroke();
+    }
+    ctx.globalAlpha = 0.06;
+    for (let i = 0; i < 90; i++) {
+      const x = Math.random() * size;
+      const y = Math.random() * size;
+      const rx = 5 + Math.random() * 22;
+      const ry = 2 + Math.random() * 8;
+      ctx.fillStyle = i % 3 === 0 ? '#111111' : '#ffffff';
+      ctx.beginPath();
+      ctx.ellipse(x, y, rx, ry, Math.random() * Math.PI, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 0.075;
+    ctx.strokeStyle = '#0f0f0f';
+    for (let i = 0; i < 70; i++) {
+      const x = Math.random() * size;
+      const y = Math.random() * size;
+      const len = 3 + Math.random() * 10;
+      const a = -Math.PI / 2 + (Math.random() - 0.5) * 1.6;
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+      ctx.quadraticCurveTo(
+        x + Math.cos(a) * len * 0.35 + (Math.random() - 0.5) * 2,
+        y + Math.sin(a) * len * 0.35,
+        x + Math.cos(a) * len,
+        y + Math.sin(a) * len
+      );
       ctx.stroke();
     }
     ctx.globalAlpha = 1;
@@ -590,6 +641,82 @@ const ArtDirectionSystem = {
         if ('metalness' in mat) mat.metalness = Math.min(mat.metalness || 0, 0.08);
       }
     });
+  },
+
+  _collectStaticGroundInfluences(world) {
+    const influences = { camps: [], chests: [], trees: [], landmarks: [] };
+    if (!world) return influences;
+    if (Array.isArray(world.camps)) {
+      for (const camp of world.camps) {
+        if (!camp) continue;
+        influences.camps.push({
+          x: Number(camp.x) || 0,
+          z: Number(camp.z) || 0,
+          radius: Math.max(8, Math.min(28, Number(camp.radius) || 16))
+        });
+      }
+    }
+    if (Array.isArray(world.breakables)) {
+      for (const b of world.breakables) {
+        const mesh = b && b.mesh;
+        if (!mesh || !mesh.position) continue;
+        const kind = mesh.userData && (mesh.userData.kind || mesh.userData.chestId || mesh.userData.breakable);
+        if (!kind) continue;
+        influences.chests.push({
+          x: mesh.position.x || 0,
+          z: mesh.position.z || 0,
+          radius: 4.6
+        });
+      }
+    }
+    if (Array.isArray(world.landmarkPoints)) {
+      for (const p of world.landmarkPoints) {
+        influences.landmarks.push({
+          x: Number(p.x) || 0,
+          z: Number(p.z) || 0,
+          radius: p.type === 'campNode' ? 12 : 9
+        });
+      }
+    }
+    if (world.scene && world.scene.traverse) {
+      const maxTrees = this._quality() === 'low' || this._isTouchDevice() ? 48 : 92;
+      world.scene.traverse(obj => {
+        if (!obj || !obj.userData || influences.trees.length >= maxTrees) return;
+        const kind = obj.userData.kind;
+        if (kind === 'tree' && obj.position) {
+          influences.trees.push({
+            x: obj.position.x || 0,
+            z: obj.position.z || 0,
+            radius: 3.4 + Math.min(2.2, Math.max(0, (obj.scale && obj.scale.x || 1) - 1) * 1.6)
+          });
+        }
+      });
+    }
+    return influences;
+  },
+
+  _terrainStoryBlend(world, x, z, preset, influences) {
+    const story = { camp: 0, chest: 0, treeRoot: 0, gravel: 0, wet: 0 };
+    const smoothInfluence = (list, key, scale = 1) => {
+      if (!Array.isArray(list)) return;
+      for (const p of list) {
+        const radius = Math.max(0.1, Number(p.radius) || 1);
+        const d = Math.hypot(x - p.x, z - p.z);
+        if (d >= radius) continue;
+        const t = THREE.MathUtils.clamp(1 - d / radius, 0, 1);
+        story[key] = Math.max(story[key], t * t * (3 - 2 * t) * scale);
+      }
+    };
+    smoothInfluence(influences && influences.camps, 'camp', 1);
+    smoothInfluence(influences && influences.chests, 'chest', 1);
+    smoothInfluence(influences && influences.trees, 'treeRoot', 1);
+    smoothInfluence(influences && influences.landmarks, 'gravel', 0.82);
+    const waterEdge = this._distanceToWaterZones(world, x, z);
+    if (waterEdge >= 0) story.wet = THREE.MathUtils.clamp(1 - waterEdge / 5.6, 0, 1);
+    const freckle = this._fbm(x * 0.18 + 13, z * 0.18 - 7, 117, 2);
+    story.gravel = Math.max(story.gravel, story.camp * THREE.MathUtils.clamp((freckle - 0.56) * 2.2, 0, 0.32));
+    story.treeRoot *= 0.72 + this._fbm(x * 0.11, z * 0.11, 141, 2) * 0.28;
+    return story;
   },
 
   _randomPoint(world, margin = 4) {
