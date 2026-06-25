@@ -383,8 +383,19 @@ const ArtDirectionSystem = {
       patch.scale.set(2.5 + Math.random() * 7, 1.1 + Math.random() * 2.8, 1);
       patch.rotation.z = Math.random() * Math.PI;
       patch.renderOrder = 0;
+      this._markScenicDetail(patch);
       group.add(patch);
     }
+  },
+
+  _markScenicDetail(obj) {
+    if (!obj) return obj;
+    obj.userData = obj.userData || {};
+    obj.userData.perfCull = true;
+    obj.userData.detailLayer = true;
+    obj.userData.kind = obj.userData.kind || 'scenicDetail';
+    obj.userData.streamBaseVisible = obj.visible !== false;
+    return obj;
   },
 
   _addInstancedGrass(world, preset, group) {
@@ -573,6 +584,7 @@ const ArtDirectionSystem = {
       const strip = new THREE.Mesh(new THREE.PlaneGeometry(1.6, length, 1, 18), bankMat);
       strip.rotation.x = -Math.PI / 2;
       strip.position.set(side * (width / 2 + 0.58), 0.055, 0);
+      this._markScenicDetail(strip);
       river.add(strip);
       for (let i = 0; i < Math.max(10, Math.floor(length / 18)); i++) {
         const stone = new THREE.Mesh(new THREE.DodecahedronGeometry(0.18 + Math.random() * 0.22, 0), stoneMat);
@@ -580,6 +592,7 @@ const ArtDirectionSystem = {
         stone.scale.set(1.25, 0.45, 0.8 + Math.random() * 0.4);
         stone.rotation.set(Math.random(), Math.random() * Math.PI, Math.random());
         stone.castShadow = this._quality() !== 'low' && !this._isTouchDevice();
+        this._markScenicDetail(stone);
         river.add(stone);
       }
     });

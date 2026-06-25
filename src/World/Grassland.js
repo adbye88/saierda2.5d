@@ -406,6 +406,7 @@ class Grassland extends BaseScene {
       strip.rotation.z = -Math.atan2(dx, dz);
       strip.position.set((a.x + b.x) / 2, 0.062, (a.z + b.z) / 2);
       strip.renderOrder = 1;
+      this._markScenicDetail(strip);
       this.scene.add(strip);
       const steps = Math.max(2, Math.floor((len / 6) * Math.max(0.35, detail)));
       for (let j = 0; j <= steps; j++) {
@@ -439,8 +440,18 @@ class Grassland extends BaseScene {
     patch.scale.set(1.6 + Math.random() * 0.9, 0.55 + Math.random() * 0.35, 1);
     patch.position.set(x, 0.068, z);
     patch.renderOrder = 2;
-    patch.userData.perfCull = true;
+    this._markScenicDetail(patch);
     this.scene.add(patch);
+  }
+
+  _markScenicDetail(obj) {
+    if (!obj) return obj;
+    obj.userData = obj.userData || {};
+    obj.userData.perfCull = true;
+    obj.userData.detailLayer = true;
+    obj.userData.kind = obj.userData.kind || 'scenicDetail';
+    obj.userData.streamBaseVisible = obj.visible !== false;
+    return obj;
   }
 
   _addPathEdgeDetail(x, z, s = 1) {
@@ -497,6 +508,7 @@ class Grassland extends BaseScene {
       patch.scale.set(1.9, 0.65, 1);
       patch.rotation.z = Math.random() * Math.PI;
       patch.renderOrder = 1;
+      this._markScenicDetail(patch);
       this.scene.add(patch);
     }
     const detail = this._sceneDetailFactor ? this._sceneDetailFactor() : 0.42;
@@ -562,6 +574,7 @@ class Grassland extends BaseScene {
     ground.rotation.x = -Math.PI / 2;
     ground.position.set(x, 0.066, z);
     ground.renderOrder = 2;
+    this._markScenicDetail(ground);
     this.scene.add(ground);
     for (let i = 0; i < 5; i++) {
       const box = new THREE.Mesh(
@@ -584,6 +597,7 @@ class Grassland extends BaseScene {
     );
     focus.rotation.x = Math.PI / 2;
     focus.position.set(x, 0.08, z);
+    this._markScenicDetail(focus);
     this.scene.add(focus);
     this._addSignpost(x - 8, z + 8, '北方森林入口');
   }
@@ -603,6 +617,7 @@ class Grassland extends BaseScene {
       base.rotation.x = -Math.PI / 2;
       base.position.set(p.x, 0.063, p.z);
       base.renderOrder = 1;
+      this._markScenicDetail(base);
       this.scene.add(base);
     }
   }

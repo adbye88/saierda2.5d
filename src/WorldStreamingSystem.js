@@ -159,7 +159,8 @@ const WorldStreamingSystem = {
     const props = Array.isArray(world._streamProps) ? world._streamProps : [];
     for (const obj of props) {
       if (!obj || !obj.position || !obj.userData) continue;
-      const cell = ensure(obj.position.x, obj.position.z);
+      const pos = this._objectWorldPosition(obj);
+      const cell = ensure(pos.x, pos.z);
       obj.userData.streamCellKey = cell.key;
       const kind = obj.userData.kind;
       if (obj.userData.detailLayer) {
@@ -322,8 +323,9 @@ const WorldStreamingSystem = {
 
   _updatePropVisibility(obj, px, pz, budget, important, nextVisible) {
     if (!obj || !obj.position || !obj.userData) return;
-    const dx = obj.position.x - px;
-    const dz = obj.position.z - pz;
+    const pos = this._objectWorldPosition(obj);
+    const dx = pos.x - px;
+    const dz = pos.z - pz;
     const distSq = dx * dx + dz * dz;
     const showRadius = important ? budget.landmarkRadius : budget.propRadius;
     const hideRadius = showRadius * 1.22;
@@ -372,8 +374,9 @@ const WorldStreamingSystem = {
 
   _updateDetailVisibility(obj, px, pz, budget, nextVisible) {
     if (!obj || !obj.position || !obj.userData) return;
-    const dx = obj.position.x - px;
-    const dz = obj.position.z - pz;
+    const pos = this._objectWorldPosition(obj);
+    const dx = pos.x - px;
+    const dz = pos.z - pz;
     const distSq = dx * dx + dz * dz;
     const detailRadius = budget.detailRadius || budget.propRadius;
     const hideRadius = detailRadius * 1.18;
@@ -409,6 +412,15 @@ const WorldStreamingSystem = {
     const dx = cx - px;
     const dz = cz - pz;
     return dx * dx + dz * dz;
+  },
+
+  _objectWorldPosition(obj) {
+    if (!obj) return new THREE.Vector3();
+    if (obj.parent && obj.getWorldPosition) {
+      if (!this._worldPosScratch) this._worldPosScratch = new THREE.Vector3();
+      return obj.getWorldPosition(this._worldPosScratch);
+    }
+    return obj.position || new THREE.Vector3();
   },
 
   _forceEnemyActive(enemy, game) {
