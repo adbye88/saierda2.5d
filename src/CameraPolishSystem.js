@@ -12,6 +12,7 @@ const CameraPolishSystem = {
   _fadedOccluders: new Set(),
   _fadeTimer: 0,
   _smoothedForward: null,
+  _smoothedHeading: null,
   _smoothedLookAt: null,
   _smoothedCamTarget: null,
   _cachedSafeCamPos: null,
@@ -33,6 +34,7 @@ const CameraPolishSystem = {
 
     if (this._lastWorld !== game.currentWorld) {
       this._smoothedForward = null;
+      this._smoothedHeading = null;
       this._smoothedLookAt = null;
       this._smoothedCamTarget = null;
       this._cachedSafeCamPos = null;
@@ -181,16 +183,35 @@ const CameraPolishSystem = {
       : new THREE.Vector3(0, 0, 1);
     if (!this._smoothedForward) {
       this._smoothedForward = target.clone();
+      this._smoothedHeading = Math.atan2(target.x, target.z);
       return target;
     }
     const modeChanged = this._lastMode && this._lastMode !== mode;
     const speed = modeChanged
       ? (mode === 'locked' || mode === 'inspect' ? 4.6 : 4.2)
       : (mode === 'locked' || mode === 'bow' ? 9.5 : mode === 'attack' ? 8 : 5.2);
-    this._smoothedForward.lerp(target, this._alpha(dt, speed));
-    if (this._smoothedForward.lengthSq() < 0.001) this._smoothedForward.copy(target);
-    this._smoothedForward.normalize();
+    const heading = this._smoothHeading(Math.atan2(target.x, target.z), dt, mode, speed);
+    this._smoothedForward.set(Math.sin(heading), 0, Math.cos(heading)).normalize();
     return this._smoothedForward.clone();
+  },
+
+  _angleDelta(from, to) {
+    return Math.atan2(Math.sin(to - from), Math.cos(to - from));
+  },
+
+  _smoothHeading(targetHeading, dt, mode, speedOverride) {
+    if (!Number.isFinite(targetHeading)) targetHeading = 0;
+    if (!Number.isFinite(this._smoothedHeading)) {
+      this._smoothedHeading = targetHeading;
+      return this._smoothedHeading;
+    }
+    const modeChanged = this._lastMode && this._lastMode !== mode;
+    const speed = speedOverride || (modeChanged
+      ? (mode === 'locked' || mode === 'inspect' ? 4.6 : 4.2)
+      : (mode === 'locked' || mode === 'bow' ? 9.5 : mode === 'attack' ? 8 : 5.2));
+    this._smoothedHeading += this._angleDelta(this._smoothedHeading, targetHeading) * this._alpha(dt, speed);
+    this._smoothedHeading = Math.atan2(Math.sin(this._smoothedHeading), Math.cos(this._smoothedHeading));
+    return this._smoothedHeading;
   },
 
   _smoothLookAt(desired, dt, mode) {
