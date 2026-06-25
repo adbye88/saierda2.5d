@@ -127,8 +127,8 @@ const WorldStreamingSystem = {
       if (proxyEligible) proxyProps.push(obj);
       list.push(obj);
     });
-    for (const obj of proxyProps) this._ensureStreamProxy(world, obj);
     world._streamProps = list;
+    for (const obj of proxyProps) this._ensureStreamProxy(world, obj);
   },
 
   _buildCells(world) {
@@ -283,11 +283,13 @@ const WorldStreamingSystem = {
     let visibleProxies = 0;
     let hiddenProxies = 0;
 
+    this._beginProxyBatchFrame(world);
     for (const cell of cells) {
       for (const obj of cell.props) this._updatePropVisibility(obj, px, pz, budget, false, nextVisible);
       for (const obj of cell.landmarks) this._updatePropVisibility(obj, px, pz, budget, true, nextVisible);
       for (const obj of (cell.details || [])) this._updateDetailVisibility(obj, px, pz, budget, nextVisible);
     }
+    this._endProxyBatchFrame(world);
 
     for (const obj of previous) {
       if (!nextVisible.has(obj) && obj && obj.userData) {
@@ -346,6 +348,7 @@ const WorldStreamingSystem = {
     proxy.visible = obj.userData.streamBaseVisible !== false && !fullDetailVisible && withinSilhouette;
     if (proxy.visible) {
       proxy.position.copy(obj.position);
+      this._queueStreamProxy(proxy);
       nextVisible.add(proxy);
     }
   },
@@ -362,6 +365,7 @@ const WorldStreamingSystem = {
     proxy.visible = obj.userData.streamBaseVisible !== false && !fullDetailVisible && withinProxyRange;
     if (proxy.visible) {
       proxy.position.copy(obj.position);
+      this._queueStreamProxy(proxy);
       nextVisible.add(proxy);
     }
   },
@@ -513,7 +517,89 @@ const WorldStreamingSystem = {
     else if (this._isTreeLikeKind(kind)) proxy.position.y += 1.25;
     else proxy.position.y += 0.3;
     obj.userData.streamProxy = proxy;
-    world.scene.add(proxy);
+    const batch = this._ensureProxyBatch(world, kind, proxy);
+    if (batch) {
+      proxy.userData.batchedProxy = true;
+      proxy.userData.streamBatch = batch;
+      if (batch.mesh) {
+        if (proxy.geometry !== batch.mesh.geometry && proxy.geometry && proxy.geometry.dispose) proxy.geometry.dispose();
+        if (proxy.material !== batch.mesh.material && proxy.material && proxy.material.dispose) proxy.material.dispose();
+        proxy.geometry = batch.mesh.geometry;
+        proxy.material = batch.mesh.material;
+      }
+    } else {
+      world.scene.add(proxy);
+    }
+  },
+
+  _ensureProxyBatch(world, kind, proxy) {
+    if (!world || !world.scene || !proxy || !proxy.geometry || !proxy.material) return null;
+    if (!THREE.InstancedMesh || !THREE.Matrix4) return null;
+    if (!world._streamProxyBatches) world._streamProxyBatches = new Map();
+    const key = this._proxyBatchKey(kind);
+    let batch = world._streamProxyBatches.get(key);
+    if (batch) return batch;
+    const capacity = Math.max(32, Math.min(256, this._proxyBatchCapacity(world, kind)));
+    const mesh = new THREE.InstancedMesh(proxy.geometry, proxy.material, capacity);
+    mesh.name = 'stream-proxy-batch-' + key;
+    mesh.userData.kind = 'streamProxyBatch';
+    mesh.userData.streamProxyBatchFor = key;
+    mesh.frustumCulled = false;
+    mesh.renderOrder = 1;
+    mesh.count = 0;
+    mesh.visible = false;
+    batch = { key, mesh, capacity, cursor: 0, matrix: new THREE.Matrix4() };
+    world._streamProxyBatches.set(key, batch);
+    world.scene.add(mesh);
+    return batch;
+  },
+
+  _proxyBatchKey(kind) {
+    return this._isTreeLikeKind(kind) ? 'tree' : String(kind || 'generic');
+  },
+
+  _proxyBatchCapacity(world, kind) {
+    const props = Array.isArray(world && world._streamProps) ? world._streamProps : [];
+    const key = this._proxyBatchKey(kind);
+    let count = 0;
+    for (const obj of props) {
+      const objKind = obj && obj.userData && obj.userData.kind;
+      if (this._proxyBatchKey(objKind) === key) count++;
+    }
+    return count || 64;
+  },
+
+  _beginProxyBatchFrame(world) {
+    const batches = world && world._streamProxyBatches;
+    if (!batches || !batches.forEach) return;
+    batches.forEach(batch => {
+      batch.cursor = 0;
+      if (batch.mesh) {
+        batch.mesh.count = 0;
+        batch.mesh.visible = false;
+      }
+    });
+  },
+
+  _queueStreamProxy(proxy) {
+    const batch = proxy && proxy.userData && proxy.userData.streamBatch;
+    if (!batch || !batch.mesh || !batch.matrix) return false;
+    const index = batch.cursor++;
+    if (index >= batch.capacity) return false;
+    batch.matrix.compose(proxy.position, proxy.quaternion, proxy.scale);
+    batch.mesh.setMatrixAt(index, batch.matrix);
+    return true;
+  },
+
+  _endProxyBatchFrame(world) {
+    const batches = world && world._streamProxyBatches;
+    if (!batches || !batches.forEach) return;
+    batches.forEach(batch => {
+      if (!batch.mesh) return;
+      batch.mesh.count = Math.min(batch.cursor, batch.capacity);
+      batch.mesh.visible = batch.mesh.count > 0;
+      if (batch.mesh.instanceMatrix) batch.mesh.instanceMatrix.needsUpdate = true;
+    });
   },
 
   _proxyGeometry(kind) {
