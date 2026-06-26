@@ -333,6 +333,7 @@ const WorldStreamingSystem = {
       ? distSq <= hideRadius * hideRadius
       : distSq <= showRadius * showRadius;
     obj.visible = obj.userData.streamBaseVisible !== false && shouldShow;
+    if (obj.visible) this._applyStaticAssetLod(obj, distSq, budget, important);
     if (obj.visible) nextVisible.add(obj);
     if (important) this._updateLandmarkProxy(obj, distSq, shouldShow, budget, nextVisible);
     else if (this._isTreeLikeKind(obj.userData.kind)) this._updateTreeProxy(obj, distSq, shouldShow, budget, nextVisible);
@@ -385,6 +386,20 @@ const WorldStreamingSystem = {
       : distSq <= detailRadius * detailRadius;
     obj.visible = obj.userData.streamBaseVisible !== false && shouldShow;
     if (obj.visible) nextVisible.add(obj);
+  },
+
+  _applyStaticAssetLod(obj, distSq, budget, important) {
+    if (!obj || !obj.traverse) return;
+    const fullRadius = important
+      ? Math.max(34, (budget.landmarkRadius || budget.propRadius || 54) * 0.62)
+      : Math.max(16, (budget.assetFullRadius || (budget.propRadius || 54) * 0.52));
+    const showDetail = distSq <= fullRadius * fullRadius;
+    if (obj.userData.streamLodDetailVisible === showDetail) return;
+    obj.userData.streamLodDetailVisible = showDetail;
+    obj.traverse(child => {
+      if (!child || !child.userData || child.userData.streamLodDetail !== true) return;
+      child.visible = showDetail ? child.userData.streamBaseVisible !== false : false;
+    });
   },
 
   _cellsInRadius(world, px, pz, radius) {

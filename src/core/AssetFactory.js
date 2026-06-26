@@ -39,6 +39,18 @@ const AssetFactory = {
       emissiveIntensity: opts.emissiveIntensity ?? 0
     });
   },
+  _streamLodDetail(obj) {
+    if (!obj) return obj;
+    obj.userData.streamLodDetail = true;
+    obj.userData.streamBaseVisible = obj.visible !== false;
+    if (obj.traverse) {
+      obj.traverse(child => {
+        child.userData.streamLodDetail = true;
+        child.userData.streamBaseVisible = child.visible !== false;
+      });
+    }
+    return obj;
+  },
 
   // ---------- 玩家：绿衣勇者（精致版） ----------
   createLink() {
@@ -265,6 +277,7 @@ const AssetFactory = {
       root.position.set(Math.cos(a) * 0.27, 0.11, Math.sin(a) * 0.27);
       root.rotation.z = Math.cos(a) * 1.25;
       root.rotation.x = -Math.sin(a) * 1.25;
+      this._streamLodDetail(root);
       g.add(root);
     }
     for (let i = 0; i < 3; i++) {
@@ -273,6 +286,7 @@ const AssetFactory = {
       branch.position.set(Math.cos(a) * 0.28, trunkH * (0.55 + i * 0.11), Math.sin(a) * 0.28);
       branch.rotation.z = Math.cos(a) * 0.75;
       branch.rotation.x = -Math.sin(a) * 0.75;
+      this._streamLodDetail(branch);
       g.add(branch);
     }
     const leafMaps = [
@@ -298,6 +312,7 @@ const AssetFactory = {
       clump.rotation.set(Math.random() * 0.4, Math.random() * Math.PI, Math.random() * 0.35);
       clump.castShadow = true;
       clump.receiveShadow = true;
+      if (i >= 3) this._streamLodDetail(clump);
       g.add(clump);
     });
     for (let i = 0; i < 5; i++) {
@@ -308,6 +323,7 @@ const AssetFactory = {
       );
       leafPatch.position.set(Math.cos(a) * (0.55 + Math.random() * 0.35), trunkH + 0.82 + Math.random() * 0.85, Math.sin(a) * (0.55 + Math.random() * 0.35));
       leafPatch.rotation.set(Math.random() * 0.7, a, Math.random() * 0.55);
+      this._streamLodDetail(leafPatch);
       g.add(leafPatch);
     }
     g.userData.collisionRadius = 0.9;
@@ -325,6 +341,7 @@ const AssetFactory = {
     for (let i = 0; i < 4; i++) {
       const c = new THREE.Mesh(new THREE.ConeGeometry(1.0 - i * 0.2, 0.9, 6), needleMat || this._mat(0x2a6a3a));
       c.position.y = 1.0 + i * 0.55; g.add(c);
+      if (i >= 2) this._streamLodDetail(c);
     }
     g.userData.collisionRadius = 0.8;
     g.userData.kind = 'tree';
@@ -352,11 +369,13 @@ const AssetFactory = {
     const moss = new THREE.Mesh(new THREE.BoxGeometry(0.45 * scale, 0.035 * scale, 0.35 * scale), this._artMat('leaf-cluster', 0x7aa45a, { flat: false, rough: 0.95 }));
     moss.position.set(-0.12 * scale, 0.78 * scale, 0.05 * scale);
     moss.rotation.set(0.2, Math.random() * Math.PI, 0.1);
+    this._streamLodDetail(moss);
     g.add(moss);
     if (Math.random() > 0.5) {
       const small = new THREE.Mesh(new THREE.DodecahedronGeometry(0.2 * scale, 0),
         this._artMat('mossy-stone', 0xc8c6b8, { flat: false, rough: 0.92 }));
       small.position.set(0.7 * scale, 0.15 * scale, 0.3 * scale);
+      this._streamLodDetail(small);
       g.add(small);
     }
     g.userData.collisionRadius = 0.65 * scale;
@@ -376,12 +395,14 @@ const AssetFactory = {
       );
       bush.position.set((Math.random() - 0.5) * 0.4, 0.3 + Math.random() * 0.2, (Math.random() - 0.5) * 0.4);
       bush.scale.y = 0.7;
+      if (i >= 2) this._streamLodDetail(bush);
       g.add(bush);
     }
     if (Math.random() > 0.4) {
       for (let i = 0; i < 3; i++) {
         const berry = new THREE.Mesh(new THREE.SphereGeometry(0.08, 6, 5), this._mat(0xcc2222));
         berry.position.set((Math.random() - 0.5) * 0.6, 0.4 + Math.random() * 0.3, (Math.random() - 0.5) * 0.6);
+        this._streamLodDetail(berry);
         g.add(berry);
       }
     }
@@ -410,6 +431,7 @@ const AssetFactory = {
       );
       blade.position.set((Math.random() - 0.5) * 0.3, 0.15, (Math.random() - 0.5) * 0.3);
       blade.rotation.z = (Math.random() - 0.5) * 0.3;
+      if (i >= 2) this._streamLodDetail(blade);
       g.add(blade);
     }
     return g;
@@ -2386,6 +2408,7 @@ const AssetFactory = {
       root.position.set(Math.cos(a) * 0.42, 0.16, Math.sin(a) * 0.42);
       root.rotation.z = Math.cos(a) * 1.34;
       root.rotation.x = -Math.sin(a) * 1.34;
+      this._streamLodDetail(root);
       g.add(root);
     }
     for (let i = 0; i < 5; i++) {
@@ -2395,6 +2418,7 @@ const AssetFactory = {
       branch.rotation.z = Math.cos(a) * 0.78;
       branch.rotation.x = -Math.sin(a) * 0.78;
       branch.castShadow = true;
+      this._streamLodDetail(branch);
       g.add(branch);
     }
     const leafMats = [
@@ -2418,6 +2442,7 @@ const AssetFactory = {
       leaves.rotation.set(Math.random() * 0.4, Math.random() * Math.PI, Math.random() * 0.4);
       leaves.castShadow = true;
       leaves.receiveShadow = true;
+      if (i >= 5) this._streamLodDetail(leaves);
       g.add(leaves);
     }
     g.userData.collisionRadius = 1.4;

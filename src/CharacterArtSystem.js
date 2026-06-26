@@ -124,23 +124,24 @@ const CharacterArtSystem = {
     art.name = `character-art-${type || 'enemy'}`;
     const sways = [];
     const pulses = [];
+    const detailRoots = [];
 
     if (type.includes('Bokoblin') || type === 'archerBokoblin') {
-      this._addBokoblinArt(art, sways, enemy);
+      this._addBokoblinArt(art, sways, enemy, detailRoots);
     } else if (type.includes('Moblin') || type === 'moblin' || type.includes('Hinox')) {
-      this._addMoblinArt(art, sways, enemy);
+      this._addMoblinArt(art, sways, enemy, detailRoots);
     } else if (type.includes('Lizalfos')) {
-      this._addLizalfosArt(art, sways, enemy);
+      this._addLizalfosArt(art, sways, enemy, detailRoots);
     } else if (type.includes('Chuchu') || type === 'chuchu') {
-      this._addChuchuArt(art, pulses, enemy);
+      this._addChuchuArt(art, pulses, enemy, detailRoots);
     } else if (type === 'stal' || type.includes('Stal')) {
-      this._addStalArt(art, pulses, enemy);
+      this._addStalArt(art, pulses, enemy, detailRoots);
     } else if (type.includes('guardian') || type.includes('Guardian')) {
-      this._addGuardianArt(art, pulses, enemy);
+      this._addGuardianArt(art, pulses, enemy, detailRoots);
     } else if (enemy.boss || enemy.miniBoss) {
-      this._addBossAccent(art, pulses, enemy);
+      this._addBossAccent(art, pulses, enemy, detailRoots);
     } else {
-      this._addGenericEnemyArt(art, sways, enemy);
+      this._addGenericEnemyArt(art, sways, enemy, detailRoots);
     }
 
     if (art.children.length === 0) return;
@@ -151,6 +152,7 @@ const CharacterArtSystem = {
       type: 'enemy',
       enemyType: type,
       root: art,
+      detailRoots,
       sways,
       pulses,
       t: Math.random() * 10,
@@ -186,21 +188,26 @@ const CharacterArtSystem = {
     for (const enemy of world.enemies) {
       if (!enemy || !enemy.mesh) continue;
       if (enemy._streamTier === 'dormant' || enemy.mesh.visible === false) continue;
+      this.applyEnemy(enemy);
+      const fullVisual = enemy._streamTier === 'active' || enemy.boss || enemy.miniBoss || enemy.hurtTimer > 0;
       if (enemy._streamTier === 'passive' && !enemy.boss && !enemy.miniBoss && enemy.hurtTimer <= 0) {
         enemy._characterArtPassiveTimer = (enemy._characterArtPassiveTimer || 0) - dt;
-        if (enemy._characterArtPassiveTimer > 0) continue;
+        if (enemy._characterArtPassiveTimer > 0) {
+          this._applyDetailLod(enemy.mesh && enemy.mesh.userData.characterArt, fullVisual ? 'full' : 'reduced');
+          continue;
+        }
         enemy._characterArtPassiveTimer = passiveInterval;
       }
-      this.applyEnemy(enemy);
       this._updateCharacterArt(enemy.mesh && enemy.mesh.userData.characterArt, dt, {
         speed: enemy.velocity ? Math.hypot(enemy.velocity.x || 0, enemy.velocity.z || 0) : 0,
         hurt: enemy.hurtTimer || 0,
-        dead: enemy.dead
+        dead: enemy.dead,
+        detailLod: fullVisual ? 'full' : 'reduced'
       });
     }
   },
 
-  _addBokoblinArt(art, sways, enemy) {
+  _addBokoblinArt(art, sways, enemy, detailRoots) {
     const isElite = enemy.miniBoss || /black|silver|gold/i.test(enemy.typeId || '');
     const leather = this._mat('bokoLeather', 0x4a2a18, { roughness: 0.94 });
     const cloth = this._mat('bokoBanner', isElite ? 0xd8c26a : 0xb53a2e, { roughness: 0.88 });
@@ -220,27 +227,31 @@ const CharacterArtSystem = {
     flag.rotation.z = 0.12;
     banner.add(flag);
     art.add(banner);
+    this._markDetail(banner, detailRoots);
     sways.push({ mesh: flag, baseRot: flag.rotation.clone(), basePos: flag.position.clone(), amp: 0.12, speed: 4.4, phase: 0.2 });
 
     [-1, 0, 1].forEach((i) => {
       const bead = new THREE.Mesh(new THREE.SphereGeometry(0.045 * scale, 6, 4), bone);
       bead.position.set(i * 0.12 * scale, 1.05 * scale - Math.abs(i) * 0.03, 0.47 * scale);
       art.add(bead);
+      this._markDetail(bead, detailRoots);
     });
     [-1, 1].forEach(side => {
       const shoulderBone = new THREE.Mesh(new THREE.ConeGeometry(0.055 * scale, 0.32 * scale, 4), bone);
       shoulderBone.position.set(side * 0.49 * scale, 1.15 * scale, 0.08 * scale);
       shoulderBone.rotation.set(Math.PI / 2, 0, side * 0.35);
       art.add(shoulderBone);
+      this._markDetail(shoulderBone, detailRoots);
 
       const cheek = new THREE.Mesh(new THREE.BoxGeometry(0.13 * scale, 0.035 * scale, 0.02 * scale), paint);
       cheek.position.set(side * 0.16 * scale, 1.53 * scale, 0.39 * scale);
       cheek.rotation.z = side * 0.24;
       art.add(cheek);
+      this._markDetail(cheek, detailRoots);
     });
   },
 
-  _addMoblinArt(art, sways, enemy) {
+  _addMoblinArt(art, sways, enemy, detailRoots) {
     const elite = enemy.miniBoss || /silver|blue/i.test(enemy.typeId || '');
     const leather = this._mat('moblinLeather', 0x4c3020, { roughness: 0.92 });
     const metal = this._mat('moblinIron', elite ? 0xb9c8c1 : 0x8e7460, { roughness: 0.6, metalness: 0.22 });
@@ -257,6 +268,7 @@ const CharacterArtSystem = {
       spike.position.set(side * 1.38, 3.34, 0.08);
       spike.rotation.z = -side * 0.58;
       art.add(spike);
+      this._markDetail(spike, detailRoots);
     });
 
     const trophy = new THREE.Group();
@@ -272,15 +284,17 @@ const CharacterArtSystem = {
       trophy.add(tusk);
     });
     art.add(trophy);
+    this._markDetail(trophy, detailRoots);
 
     const pennant = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.48, 0.04), cloth);
     pennant.position.set(0.2, 2.35, -0.95);
     pennant.rotation.z = 0.08;
     art.add(pennant);
+    this._markDetail(pennant, detailRoots);
     sways.push({ mesh: pennant, baseRot: pennant.rotation.clone(), basePos: pennant.position.clone(), amp: 0.09, speed: 3.4, phase: 1.4 });
   },
 
-  _addLizalfosArt(art, sways, enemy) {
+  _addLizalfosArt(art, sways, enemy, detailRoots) {
     const type = enemy.typeId || '';
     const accentColor = type.includes('yellow') ? 0xf2e85b : type.includes('red') ? 0xff7044 : 0x7ed7ff;
     const scaleMat = this._mat('lizalfosAccent', accentColor, { roughness: 0.72, emissive: accentColor, emissiveIntensity: 0.08 });
@@ -291,6 +305,7 @@ const CharacterArtSystem = {
       fin.position.set(0, 1.08 - i * 0.13, 0.02 - i * 0.14);
       fin.rotation.x = -0.9;
       art.add(fin);
+      this._markDetail(fin, detailRoots);
       sways.push({ mesh: fin, baseRot: fin.rotation.clone(), basePos: fin.position.clone(), amp: 0.025, speed: 5.8, phase: i * 0.5 });
     }
     for (let i = 0; i < 3; i++) {
@@ -298,16 +313,18 @@ const CharacterArtSystem = {
       band.position.set(0, 0.68, -0.78 - i * 0.13);
       band.rotation.x = Math.PI / 2;
       art.add(band);
+      this._markDetail(band, detailRoots);
     }
     [-1, 1].forEach(side => {
       const ankleClaw = new THREE.Mesh(new THREE.ConeGeometry(0.035, 0.16, 4), scaleMat);
       ankleClaw.position.set(side * 0.22, 0.08, 0.16);
       ankleClaw.rotation.x = Math.PI / 2;
       art.add(ankleClaw);
+      this._markDetail(ankleClaw, detailRoots);
     });
   },
 
-  _addChuchuArt(art, pulses, enemy) {
+  _addChuchuArt(art, pulses, enemy, detailRoots) {
     const type = enemy.typeId || '';
     const color = type.includes('fire') ? 0xff6a2a : type.includes('ice') ? 0x9be8ff : type.includes('shock') ? 0xffef62 : 0x5ec8ff;
     const coreMat = this._mat(`chuchuCore-${color}`, color, { roughness: 0.35, metalness: 0.0, emissive: color, emissiveIntensity: 0.55, transparent: true, opacity: 0.68 });
@@ -318,25 +335,28 @@ const CharacterArtSystem = {
     halo.position.set(0, 0.78, 0.12);
     halo.rotation.x = Math.PI / 2;
     art.add(halo);
+    this._markDetail(halo, detailRoots);
     pulses.push({ mesh: core, material: coreMat, baseScale: core.scale.clone(), baseEmissive: 0.55, amp: 0.24, speed: 5.2, spin: 1.8 });
     pulses.push({ mesh: halo, material: coreMat, baseScale: halo.scale.clone(), baseEmissive: 0.35, amp: 0.14, speed: 4.2, spin: -1.2 });
   },
 
-  _addStalArt(art, pulses, enemy) {
+  _addStalArt(art, pulses, enemy, detailRoots) {
     const ghost = this._mat('stalGhost', 0x8ee8ff, { roughness: 0.4, emissive: 0x73dfff, emissiveIntensity: 0.35, transparent: true, opacity: 0.72 });
     [-1, 1].forEach(side => {
       const wisp = new THREE.Mesh(new THREE.SphereGeometry(0.065, 7, 5), ghost);
       wisp.position.set(side * 0.17, 1.35, 0.23);
       art.add(wisp);
+      this._markDetail(wisp, detailRoots);
       pulses.push({ mesh: wisp, material: ghost, baseScale: wisp.scale.clone(), baseEmissive: 0.35, amp: 0.4, speed: 7.5 + side, spin: side * 0.5 });
     });
     const crack = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.035, 0.02), ghost);
     crack.position.set(0, 1.05, 0.19);
     crack.rotation.z = -0.25;
     art.add(crack);
+    this._markDetail(crack, detailRoots);
   },
 
-  _addGuardianArt(art, pulses, enemy) {
+  _addGuardianArt(art, pulses, enemy, detailRoots) {
     const glow = this._mat('guardianGlow', 0x68d8ff, { roughness: 0.32, metalness: 0.2, emissive: 0x2bdcff, emissiveIntensity: 0.42, transparent: true, opacity: 0.8 });
     const core = new THREE.Mesh(new THREE.SphereGeometry(0.18, 10, 8), glow);
     core.position.set(0, 0.82, 0.58);
@@ -345,31 +365,35 @@ const CharacterArtSystem = {
     ring.position.set(0, 0.82, 0.57);
     ring.rotation.x = Math.PI / 2;
     art.add(ring);
+    this._markDetail(ring, detailRoots);
     pulses.push({ mesh: core, material: glow, baseScale: core.scale.clone(), baseEmissive: 0.42, amp: 0.18, speed: 6.8, spin: 0.7 });
     pulses.push({ mesh: ring, material: glow, baseScale: ring.scale.clone(), baseEmissive: 0.3, amp: 0.08, speed: 5.4, spin: 1.8 });
   },
 
-  _addBossAccent(art, pulses, enemy) {
+  _addBossAccent(art, pulses, enemy, detailRoots) {
     const color = enemy.element === 'fire' ? 0xff6a2a : enemy.element === 'ice' ? 0x88ddff : enemy.element === 'shock' ? 0xffee44 : 0xaa55ff;
     const glow = this._mat(`bossGlow-${color}`, color, { roughness: 0.42, emissive: color, emissiveIntensity: 0.25, transparent: true, opacity: 0.62 });
     const aura = new THREE.Mesh(new THREE.TorusGeometry(enemy.radius ? enemy.radius * 0.72 : 0.8, 0.035, 6, 28), glow);
     aura.position.set(0, 0.15, 0);
     aura.rotation.x = Math.PI / 2;
     art.add(aura);
+    this._markDetail(aura, detailRoots);
     pulses.push({ mesh: aura, material: glow, baseScale: aura.scale.clone(), baseEmissive: 0.22, amp: 0.16, speed: 2.8, spin: 0.45 });
   },
 
-  _addGenericEnemyArt(art, sways, enemy) {
+  _addGenericEnemyArt(art, sways, enemy, detailRoots) {
     const cloth = this._mat('enemyCloth', 0x754030, { roughness: 0.9 });
     const sash = new THREE.Mesh(new THREE.BoxGeometry(0.48, 0.075, 0.08), cloth);
     sash.position.set(0, 1.05, 0.36);
     sash.rotation.z = 0.28;
     art.add(sash);
+    this._markDetail(sash, detailRoots);
     sways.push({ mesh: sash, baseRot: sash.rotation.clone(), basePos: sash.position.clone(), amp: 0.025, speed: 4.5, phase: 0.5 });
   },
 
   _updateCharacterArt(art, dt, state) {
     if (!art || !art.root) return;
+    this._applyDetailLod(art, state && state.detailLod);
     art.t += dt;
     const motion = Math.min(1, (state && state.speed ? state.speed : 0) / 5);
     const sideMotion = state && state.side ? THREE.MathUtils.clamp(state.side, -1, 1) : 0;
@@ -430,6 +454,29 @@ const CharacterArtSystem = {
       this._materials[matKey] = material;
     }
     return this._materials[matKey];
+  },
+
+  _markDetail(obj, detailRoots) {
+    if (!obj || !detailRoots) return obj;
+    obj.userData.characterArtDetailRoot = true;
+    obj.userData.characterArtBaseVisible = obj.visible !== false;
+    if (!detailRoots.includes(obj)) detailRoots.push(obj);
+    obj.traverse(child => {
+      child.userData.characterArtDetail = true;
+      child.userData.characterArtBaseVisible = child.visible !== false;
+    });
+    return obj;
+  },
+
+  _applyDetailLod(art, lod) {
+    if (!art || !Array.isArray(art.detailRoots) || art.detailRoots.length === 0) return;
+    const visible = lod !== 'reduced';
+    if (art._detailLodVisible === visible) return;
+    art._detailLodVisible = visible;
+    for (const root of art.detailRoots) {
+      if (!root) continue;
+      root.visible = visible ? root.userData.characterArtBaseVisible !== false : false;
+    }
   },
 
   _decorate(group) {
