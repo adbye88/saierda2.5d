@@ -719,6 +719,7 @@ class Enemy {
 
   _attack(dt, player, dist, game) {
     const dir = new THREE.Vector3().subVectors(player.position, this.position); dir.y = 0;
+    const movementProfile = this._combatMovementProfile();
     if (dir.lengthSq() > 0) {
       dir.normalize();
       // 蓄力期间不转向（锁定出招方向），否则转向追踪玩家
@@ -730,12 +731,14 @@ class Enemy {
     // ★ 前摇状态机：windup → strike → recover
     if (this.attackPhase === 'windup') {
       this.windup += dt;
+      const profile = this._strikeProfile();
       // 蓄力期间站在原地（不动），但有身体后仰/举武器的动画
       this.velocity.set(0, 0, 0);
       // 守护者蓄力时显示预警激光线
       if ((this.typeId === 'guardian' || this.typeId === 'guardianStalker' || this.typeId === 'guardianSkywatcher') && this.windup > 0.1) {
         this._drawAimLine(game);
       }
+      this._telegraphAttackCue(profile);
       // 蓄力完成 → 出招
       const wt = this._windupTime();
       if (this.windup >= wt) {
@@ -763,6 +766,11 @@ class Enemy {
     }
 
     // ★ 无前摇状态：判断是否开始攻击
+    if (this._shouldUseRangedKeepAway(dist, movementProfile)) {
+      this._moveRangedKeepAway(dt, dir, dist, game, movementProfile);
+      return;
+    }
+
     // 远程敌人（章鱼/守护者）：距离够远就射击
     if (this.def.ai === 'ranged' && this.shootCD <= 0 && dist < this.sight && dist > this.radius + 1.5) {
       // 守护者走前摇系统（蓄力激光），章鱼直接射
@@ -790,18 +798,95 @@ class Enemy {
       return;
     }
     // 还没到攻击时机，继续追击
-    if (dist > this.radius + 1.2) {
-      this.velocity.x = dir.x * this.speed;
-      this.velocity.z = dir.z * this.speed;
-      this._applyMove(dt, game);
+    this._moveCombatStyle(dt, dir, dist, game, movementProfile);
+  }
+
+  _combatMovementProfile() {
+    const strike = this._strikeProfile ? this._strikeProfile() : { range: 2.0 };
+    const reach = Math.max(1.2, Number(strike.range) || 2.0);
+    const large = !!this.boss || this.radius >= 1.6;
+    const ranged = this.def && this.def.ai === 'ranged';
+    const fast = this.typeId === 'yigaFootsoldier' || this.typeId === 'lynel' || this.typeId === 'silverLynel' || String(this.typeId || '').includes('Lizalfos');
+    return {
+      meleeCommitRange: this.radius + Math.max(1.65, reach * 0.82),
+      preferredMin: this.radius + (large ? reach * 0.72 : ranged ? 4.2 : 0.95),
+      preferredMax: this.radius + (large ? reach * 1.08 : ranged ? 8.0 : Math.max(1.7, reach * 0.88)),
+      keepAwayDistance: this.radius + (this.typeId && this.typeId.includes('guardian') ? 4.8 : ranged ? 3.8 : 0),
+      retreatSpeed: this.speed * (large ? 0.42 : ranged ? 0.74 : 0.48),
+      strafeSpeed: this.speed * (fast ? 0.42 : ranged ? 0.36 : large ? 0.18 : 0.28),
+      closeBackoffSpeed: this.speed * (large ? 0.26 : 0.52),
+      cueInterval: large ? 0.22 : 0.32
+    };
+  }
+
+  _shouldUseRangedKeepAway(dist, profile) {
+    return !!(
+      this.def &&
+      this.def.ai === 'ranged' &&
+      this.attackPhase == null &&
+      dist > 0.001 &&
+      dist < (profile && profile.keepAwayDistance || 0) &&
+      ((this.shootCD || 0) > 0 || dist < this.radius + 1.7)
+    );
+  }
+
+  _moveRangedKeepAway(dt, dir, dist, game, profile) {
+    const side = this._combatFootworkSide || (Math.random() < 0.5 ? -1 : 1);
+    this._combatFootworkSide = side;
+    const strafe = new THREE.Vector3(dir.z * side, 0, -dir.x * side);
+    const retreatBias = Math.max(0.35, 1 - dist / Math.max(0.1, profile.keepAwayDistance));
+    this.velocity.copy(dir).multiplyScalar(-profile.retreatSpeed * (0.8 + retreatBias * 0.55));
+    this.velocity.add(strafe.multiplyScalar(profile.strafeSpeed * 0.75));
+    this._applyMove(dt, game);
+    this.mesh.rotation.y = Math.atan2(dir.x, dir.z);
+  }
+
+  _moveCombatStyle(dt, dir, dist, game, profile) {
+    if (!profile || dist <= 0.001) {
+      this.velocity.set(0, 0, 0);
+      return;
+    }
+    const side = this._combatFootworkSide || (Math.random() < 0.5 ? -1 : 1);
+    this._combatFootworkSide = side;
+    const strafe = new THREE.Vector3(dir.z * side, 0, -dir.x * side);
+    const coolingDown = this.attackCD > 0 || this.shootCD > 0;
+
+    if (dist > profile.meleeCommitRange) {
+      this.velocity.copy(dir).multiplyScalar(this.speed * this._statusSpeedMul());
+    } else if (coolingDown && dist < profile.preferredMin) {
+      this.velocity.copy(dir).multiplyScalar(-profile.closeBackoffSpeed);
+      this.velocity.add(strafe.multiplyScalar(profile.strafeSpeed * 0.55));
+    } else if (coolingDown && dist <= profile.preferredMax) {
+      const pulse = Math.sin(this._posePhase * 0.7 + this._idlePhase) > 0 ? 1 : -1;
+      this.velocity.copy(strafe).multiplyScalar(profile.strafeSpeed * pulse);
+      if (dist < this.radius + 0.9) this.velocity.add(dir.clone().multiplyScalar(-profile.closeBackoffSpeed * 0.35));
+    } else if (dist > this.radius + 1.2) {
+      this.velocity.copy(dir).multiplyScalar(this.speed * 0.72 * this._statusSpeedMul());
     } else {
       this.velocity.set(0, 0, 0);
     }
+
+    this._applyMove(dt, game);
+    this.mesh.rotation.y = Math.atan2(dir.x, dir.z);
+  }
+
+  _telegraphAttackCue(profile) {
+    if (!profile || typeof Effects === 'undefined' || !Effects.enemyAttackCue) return;
+    const now = (typeof performance !== 'undefined' && performance.now ? performance.now() : Date.now()) / 1000;
+    const interval = (this._combatMovementProfile && this._combatMovementProfile().cueInterval) || 0.32;
+    if (this._nextTelegraphCueAt && now < this._nextTelegraphCueAt) return;
+    this._nextTelegraphCueAt = now + interval;
+    const dir = this.windupDir && this.windupDir.lengthSq && this.windupDir.lengthSq() > 0.001
+      ? this.windupDir
+      : new THREE.Vector3(Math.sin(this.mesh.rotation.y), 0, Math.cos(this.mesh.rotation.y));
+    Effects.enemyAttackCue(this.position, dir, profile.range, profile.color);
   }
 
   // ★ 不同敌人的蓄力时长（清晰前摇，可反应）
   _windupTime() {
     if (this.typeId === 'guardian' || this.typeId === 'guardianStalker' || this.typeId === 'guardianSkywatcher') return 0.9;      // 守护者激光蓄力久，有充足闪避时间
+    if (this.typeId === 'stoneTalus' || this.typeId === 'ignoTalus' || this.typeId === 'frostTalus') return 1.05;
+    if (this.typeId === 'hinox' || this.typeId === 'blackHinox' || this.typeId === 'stalnox') return 1.0;
     if (this.boss) return this.finalBoss ? 0.62 : 0.82;
     if (this.typeId === 'lynel' || this.typeId === 'silverLynel') return 0.8;          // 莱尼尔冲撞
     if (this.typeId === 'moblin' || this.typeId === 'blueMoblin' || this.typeId === 'silverMoblin') return 0.7;         // 莫力布林突刺
